@@ -1,26 +1,52 @@
-# Reference formula — GoReleaser generates the real one via the homebrew tap.
-# This file documents the expected shape for manual testing or forks that
-# don't use a tap repository.
+# Template for the Homebrew formula. The release workflow renders this into
+# Anastylosis/homebrew-tap as Formula/fss.rb, substituting VERSION and the four
+# __SHA256_*__ placeholders with the checksums from the release's SHA256SUMS.
+#
+# Binary, not source: the release already publishes darwin and linux tarballs,
+# so an install is a download and an extract. A source formula would make every
+# user build the ~290 scrapers with a Go toolchain they may not have.
+#
+# Keep this file and the workflow's placeholder list in step — the render step
+# fails loudly on a leftover placeholder rather than shipping a formula that
+# cannot compute a checksum.
 class Fss < Formula
   desc "Scrapes all scenes and metadata from a studio URL"
   homepage "https://github.com/Anastylosis/FSS"
-  url "https://github.com/Anastylosis/FSS/archive/vVERSION.tar.gz"
-  sha256 "PLACEHOLDER"
+  version "__VERSION__"
   license "GPL-3.0-only"
 
-  depends_on "go" => :build
+  on_macos do
+    on_arm do
+      url "https://github.com/Anastylosis/FSS/releases/download/v__VERSION__/fss-v__VERSION__-darwin-arm64.tar.gz"
+      sha256 "__SHA256_DARWIN_ARM64__"
+    end
+    on_intel do
+      url "https://github.com/Anastylosis/FSS/releases/download/v__VERSION__/fss-v__VERSION__-darwin-amd64.tar.gz"
+      sha256 "__SHA256_DARWIN_AMD64__"
+    end
+  end
+
+  on_linux do
+    on_arm do
+      url "https://github.com/Anastylosis/FSS/releases/download/v__VERSION__/fss-v__VERSION__-linux-arm64.tar.gz"
+      sha256 "__SHA256_LINUX_ARM64__"
+    end
+    on_intel do
+      url "https://github.com/Anastylosis/FSS/releases/download/v__VERSION__/fss-v__VERSION__-linux-amd64.tar.gz"
+      sha256 "__SHA256_LINUX_AMD64__"
+    end
+  end
 
   def install
-    ldflags = %W[
-      -s -w
-      -X main.version=#{version}
-      -X main.commit=brew
-      -X main.date=#{time.iso8601}
-    ]
-    system "go", "build", *std_go_args(ldflags:)
+    bin.install "fss"
+    generate_completions_from_executable(bin/"fss", "completion")
   end
 
   test do
-    assert_match version.to_s, shell_output("#{bin}/fss version")
+    # `fss version` reaches the network to check for a newer release, so assert
+    # against --help, which is offline. A formula test that needs the network
+    # fails in Homebrew's sandboxed CI for reasons unrelated to the package.
+    assert_match "FullStudioScraper", shell_output("#{bin}/fss --help")
+    assert_match version.to_s, shell_output("#{bin}/fss --version")
   end
 end

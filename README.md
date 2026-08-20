@@ -50,9 +50,19 @@ Scrapes all scenes and metadata from a studio URL. Designed to be easily extende
 
 ## Install
 
-Pick one — pre-built binary is easiest, system packages for auto-updates, Docker if you prefer containers, source if you want to hack on it.
+Pick one — Homebrew or a system package for auto-updates, pre-built binary if you would rather not add a tap, Docker if you prefer containers, source if you want to hack on it.
 
-### Option 1 — pre-built binary (recommended)
+### Option 1 — Homebrew (macOS and Linux)
+
+```bash
+brew install anastylosis/tap/fss
+fss version
+```
+
+`brew upgrade` picks up new releases. The formula installs the same pre-built
+binary as the archives below, so it needs no Go toolchain.
+
+### Option 2 — pre-built binary
 
 Download the archive for your platform from the [latest release](https://github.com/Anastylosis/FSS/releases/latest), extract, and put the binary on your `PATH`. All binaries are static (no runtime dependencies).
 
@@ -108,7 +118,7 @@ Move-Item -Force fss.exe "$env:USERPROFILE\bin\fss.exe"
 fss version
 ```
 
-### Option 2 — system package (.deb / .rpm / AUR)
+### Option 3 — system package (.deb / .rpm / AUR)
 
 Each release also publishes `.deb` and `.rpm` packages. Download them from the [latest release](https://github.com/Anastylosis/FSS/releases/latest).
 
@@ -132,7 +142,7 @@ sudo rpm -i "fss-${VERSION}-1.x86_64.rpm"
 yay -S fss
 ```
 
-### Option 3 — Docker (multi-arch image on GHCR)
+### Option 4 — Docker (multi-arch image on GHCR)
 
 ```bash
 docker pull ghcr.io/anastylosis/fss:latest
@@ -141,7 +151,7 @@ docker run --rm ghcr.io/anastylosis/fss:latest list-scrapers
 
 See [docs/docker.md](docs/docker.md) for volume conventions, the bind-mount UID gotcha, and a `docker compose` example with Stash.
 
-### Option 4 — build from source
+### Option 5 — build from source
 
 Requires Go 1.26+ (matches the `go` directive in `go.mod`).
 
