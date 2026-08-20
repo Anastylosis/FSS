@@ -27,9 +27,11 @@ jobs:
       binary-name: fss
       main-package: '.'
       nfpm: true
-      # Disabled 2026-08: AUR suspended uploads after a security breach.
-      # Re-enable once aur.archlinux.org accepts pushes again.
-      aur: false
+      # Re-enabled 2026-08-20 after a manual push of v1.30.0 succeeded. The
+      # June incident notice warning that pushes may fail has never been
+      # withdrawn, so if a release fails here, check the Arch news feed before
+      # assuming the workflow broke.
+      aur: true
       aur-pkgname: fss
       aur-commit-username: Wasylq
       aur-commit-email: wasylq@protonmail.com
