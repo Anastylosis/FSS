@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   ci:
-    uses: Anastylosis/.github/.github/workflows/go-ci.yml@v1.1.0
+    uses: Anastylosis/.github/.github/workflows/go-ci.yml@v1
     permissions:
       contents: read
       checks: write
