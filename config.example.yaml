@@ -39,8 +39,9 @@ delay: 500
 # Per-scraper delay overrides (milliseconds). Overrides the global `delay`
 # for the matching scraper ID. Sites without an entry fall back to `delay`.
 # Run `fss list-scrapers` to see all scraper IDs.
-# Advisory notices, such as a heads-up that a default will change in a future
-# release. Set to false (or export FSS_NO_NOTICES=1) to keep scripted runs quiet.
+# Advisory `[notice]` lines - the ones that explain a situation rather than
+# report a result. Set to false (or export FSS_NO_NOTICES=1) to keep scripted
+# runs quiet. Warnings and errors are unaffected.
 notices: true
 
 site_delays:

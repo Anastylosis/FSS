@@ -96,11 +96,12 @@ func resolveDBPath(cmd *cobra.Command) string {
 // winner, since which one wins is not guessable from the command line.
 //
 // A configured `db:` deliberately does NOT make the database the default source
-// here. It is the store `fss scrape` writes to, not an instruction about where
-// these commands read from, and flipping that silently is exactly what the
-// upcoming-default notice promises not to do yet. Reading the database is an
-// explicit `--db` until the announced switch, at which point this is the branch
-// that changes.
+// here. It says where `fss scrape` writes, not where these commands read from,
+// and inferring one from the other would silently change what an existing
+// invocation returns. Reading the database is an explicit `--db`.
+//
+// There is no pending switch: the flat store remains the default and SQLite is
+// a first-class opt-in. See docs/storage.md.
 func loadFSSScenes(cmd *cobra.Command) ([]models.Scene, sceneSource, error) {
 	jsonFiles, _ := cmd.Flags().GetStringSlice("json")
 	dirFlag, _ := cmd.Flags().GetString("dir")

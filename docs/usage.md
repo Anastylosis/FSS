@@ -314,13 +314,15 @@ Located at the XDG config path for your platform (see [README](../README.md)). A
 workers: 3        # int   — parallel metadata fetchers
 output: json      # str   — json | csv | json,csv
 out_dir: .        # str   — output directory path
-db: ""            # str   — "" = flat store (explicit, survives the coming default flip);
+db: ""            # str   — "" or absent = flat store (the default, and staying so);
                   #         "default" = ~/.local/share/fss/fss.db; or a path, absolute or
                   #         relative to the working directory (e.g. "./fss.db").
                   #         Omitting the key entirely is not the same as "" — see storage.md
 delay: 500        # int   — ms between page requests; 0 disables
 user_agent: ""    # str   — "firefox" (default), "chrome", or a custom UA string
-notices: true     # bool  — advisory messages (e.g. an upcoming default change); false silences them
+notices: true     # bool  — advisory `[notice]` lines that explain rather than report;
+                  #         false (or FSS_NO_NOTICES=1) silences them. Warnings and
+                  #         errors are unaffected
 language: ""      # str   — help-text language, e.g. "ko". "" (or a language with no
                   #         catalog) = English. Overridden by FSS_LANG and --lang.
                   #         Only help text is translated — see translations.md

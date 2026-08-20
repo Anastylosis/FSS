@@ -190,11 +190,52 @@ the separate `idx_scene_*_studio` indexes could be dropped entirely, and the
 ~29 MB they cost would come back. It needs a table rebuild of the junction
 tables, which is why it has not been done for a ~20% gain on one query.
 
-## Making SQLite the default
+## Which store is the default, and why it stays that way
 
-`fss doctor` compares the two stores before you commit to the switch. It reports
-which store is *active* — distinct from whether a database merely exists — and
-names any studio that lives only as JSON:
+**The flat store is the default, and it is staying that way.** SQLite is a
+first-class opt-in, not a pending replacement.
+
+An earlier plan was to flip the default to SQLite over two releases, and v1.29.0
+shipped a `[notice]` announcing it. That notice is gone and the plan is retired.
+The reasoning, recorded so it does not get relitigated:
+
+- Every benefit of SQLite is already available today by setting `db:`. Flipping
+  the default gives nothing to anyone who has already chosen.
+- It would not simplify anything. The flat store stays supported either way, so
+  both code paths remain; the usual reward for changing a default — deleting the
+  old one — was never on the table.
+- It would introduce a failure mode that otherwise does not exist: a studio that
+  lives only as JSON becomes invisible to `stash import` and `identify` the
+  moment those commands read from the database instead.
+
+What replaces it is a plain statement of what each store is for, below.
+
+### Which one you want
+
+**Flat** is for a handful of studios you scrape by hand and might want to read
+with `less`. It is the simplest thing that works, and there is no reason to move
+off it if that is your situation.
+
+**SQLite** is for a library that is large, scheduled, or queried. Concretely:
+you have enough scenes that a whole-file rewrite per save costs real memory, you
+run scrapes from cron, or you want to ask questions that span studios.
+
+**New features may be SQLite-only, and some already are.** `--stale`, `--name`
+and `fss list-studios` do nothing useful without a database — `Flat.UpsertStudio`
+and `Flat.ListStudios` are deliberate no-ops. That is not a gap waiting to be
+filled. Studio-level tracking and cross-studio queries are what a database is
+for, and reimplementing them over a directory of JSON files would be building a
+worse database by hand.
+
+Everything that reads *scenes* works on both, and that is the line: `fss compare`,
+`identify`, `stash import` and `creators suggest` all go through one loader and
+do not care which store you use.
+
+### Checking a migration worked
+
+`fss doctor` compares the two stores whenever a database is configured. It
+reports which store is *active* — distinct from whether a database merely
+exists — and names any studio that lives only as JSON:
 
 ```
   active store           ok    (SQLite)
@@ -204,29 +245,16 @@ names any studio that lives only as JSON:
       run `fss import` to bring these into the database)
 ```
 
-That is the failure the switch creates: a studio the database has never seen is
-invisible to `stash import` and `identify` once they read from it. The file is
-still on disk and nothing is lost, but the catalogue reads as empty, which is
-indistinguishable from the upgrade having eaten it.
-
 Only *missing from the database* fails the check. A studio present in the
 database but not on disk is normal after exporting or tidying JSON away, and a
 scene-count mismatch is reported so it can be re-imported. An unreadable studio
 file is reported separately — `fss import` cannot fix a corrupt file, so
 counting it as "absent" would send you after the wrong remedy.
 
-Nothing technical blocks it now: both consumers read either source, and the
-database is competitive on the numbers above. What is left is the rollout.
+### One flag, every case
 
-Two shapes were considered and rejected. `--no-db` is a double negative that
-strands every script already passing `--db`. A separate `--store files|sqlite`
-selector was the replacement plan until it turned out to be redundant: `--output`
-is a different axis (which *files* to produce, not where data *lives*), and the
-one thing `--store` was needed for — saying "JSON this time" on the command line
-when `db:` is set — `--db` already covers.
-
-So there is no new flag. `--db` carries every case, because "not passed" and
-"passed as empty" are distinguished:
+There is no `--store` selector and no `--no-db`. `--db` carries every case,
+because "not passed" and "passed as empty" are distinguished:
 
 | | Result |
 |---|---|
@@ -235,17 +263,11 @@ So there is no new flag. `--db` carries every case, because "not passed" and
 | `--db` | the database named in `db:`, or the default location |
 | `--db=/path` | exactly that file |
 
-The flip is then a one-line change to the config default, plus a release note.
-
-Changing a default silently reorganises where people's data lives. The migration
-path has to exist and be documented before the default moves, which is what
-`fss import` and `fss export` are for.
-
-### Staying on JSON
-
-The flat store is not going away. An explicit `db: ""` in your config pins it,
-and keeps doing so after the default flips — the config distinguishes "set to
-empty" from "never set", precisely so that opt-out survives the change.
+`--no-db` was rejected as a double negative that strands every script already
+passing `--db`. A `--store files|sqlite` selector was rejected as redundant:
+`--output` is a different axis (which *files* to produce, not where data
+*lives*), and the one case `--store` would have covered — saying "JSON this
+time" when `db:` is set — is `--db=""`.
 
 ### Choosing where the database lives
 

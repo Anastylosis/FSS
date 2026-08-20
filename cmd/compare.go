@@ -174,7 +174,7 @@ func runCompare(cmd *cobra.Command, _ []string) error {
 		return creators.Key(reports[i].name) < creators.Key(reports[j].name)
 	})
 
-	if inferred {
+	if inferred && !noticesSuppressed() {
 		fmt.Println("[notice] No creators defined — storefronts were grouped by the `fss creators suggest`")
 		fmt.Println("         heuristic. Run `fss creators suggest --write` to make the grouping exact.")
 		fmt.Println()

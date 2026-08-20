@@ -160,8 +160,6 @@ func runScrape(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	warnFlatStoreDefaultChanging(dbPath != "")
-
 	// --stale is applied after the store is open so it can read the studios
 	// table, and before any fetching so a cron run that has nothing due exits
 	// without touching the network.
