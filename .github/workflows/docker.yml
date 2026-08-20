@@ -23,7 +23,7 @@ permissions:
 
 jobs:
   docker:
-    uses: Anastylosis/.github/.github/workflows/docker-publish.yml@v1
+    uses: Anastylosis/.github/.github/workflows/docker-publish.yml@v1.1.0
     permissions:
       contents: read
       packages: write

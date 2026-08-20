@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   release:
-    uses: Anastylosis/.github/.github/workflows/go-release.yml@v1
+    uses: Anastylosis/.github/.github/workflows/go-release.yml@v1.1.0
     permissions:
       # contents: write to publish the release; the rest are for
       # attest-build-provenance over the downloadable artifacts.
@@ -106,7 +106,7 @@ jobs:
     # Runs only after the gated release job succeeds, so no image lands on GHCR
     # unless the manual smoke-test gate was approved.
     needs: release
-    uses: Anastylosis/.github/.github/workflows/docker-publish.yml@v1
+    uses: Anastylosis/.github/.github/workflows/docker-publish.yml@v1.1.0
     permissions:
       contents: read
       packages: write

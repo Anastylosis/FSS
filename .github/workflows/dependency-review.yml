@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   review:
-    uses: Anastylosis/.github/.github/workflows/dependency-review.yml@v1
+    uses: Anastylosis/.github/.github/workflows/dependency-review.yml@v1.1.0
     permissions:
       contents: read
       # Required by comment-summary-in-pr; without it the action cannot post
