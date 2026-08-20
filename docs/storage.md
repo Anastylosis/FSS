@@ -192,6 +192,29 @@ tables, which is why it has not been done for a ~20% gain on one query.
 
 ## Making SQLite the default
 
+`fss doctor` compares the two stores before you commit to the switch. It reports
+which store is *active* — distinct from whether a database merely exists — and
+names any studio that lives only as JSON:
+
+```
+  active store           ok    (SQLite)
+  store contents         FAIL  (12 studio(s) in JSON, 11 in the database
+    only in JSON (1):
+      https://example.com/studio/4021/mara-vance
+      run `fss import` to bring these into the database)
+```
+
+That is the failure the switch creates: a studio the database has never seen is
+invisible to `stash import` and `identify` once they read from it. The file is
+still on disk and nothing is lost, but the catalogue reads as empty, which is
+indistinguishable from the upgrade having eaten it.
+
+Only *missing from the database* fails the check. A studio present in the
+database but not on disk is normal after exporting or tidying JSON away, and a
+scene-count mismatch is reported so it can be re-imported. An unreadable studio
+file is reported separately — `fss import` cannot fix a corrupt file, so
+counting it as "absent" would send you after the wrong remedy.
+
 Nothing technical blocks it now: both consumers read either source, and the
 database is competitive on the numbers above. What is left is the rollout.
 

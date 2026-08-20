@@ -1621,6 +1621,31 @@ func unmarshalStrings(s string) ([]string, error) {
 // and Save is the hot path an incremental scrape runs per studio — the whole
 // point of its content-hash short-circuit is not to touch 1.4M junction rows to
 // record one new scene. This is maintenance, so it runs when asked.
+// SceneCounts returns the number of live scenes per studio URL, keyed the same
+// way Load and Save key: canonical URLs, as stored.
+//
+// Soft-deleted scenes are excluded. They are still rows, but they represent
+// scenes the site no longer publishes, and counting them would make a database
+// look ahead of a JSON file that never recorded them.
+func (s *SQLite) SceneCounts() (map[string]int, error) {
+	rows, err := s.db.Query(`SELECT studio_url, COUNT(*) FROM scenes WHERE deleted_at IS NULL GROUP BY studio_url`)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	counts := map[string]int{}
+	for rows.Next() {
+		var url string
+		var n int
+		if err := rows.Scan(&url, &n); err != nil {
+			return nil, err
+		}
+		counts[url] = n
+	}
+	return counts, rows.Err()
+}
+
 func (s *SQLite) UnreferencedVocabulary() (map[string]int, error) {
 	out := make(map[string]int, len(vocabularyTables))
 	for _, t := range vocabularyTables {
