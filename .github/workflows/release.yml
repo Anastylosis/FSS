@@ -35,8 +35,9 @@ jobs:
       aur-pkgname: fss
       aur-commit-username: Wasylq
       aur-commit-email: wasylq@protonmail.com
-      # Needs HOMEBREW_TAP_TOKEN (contents:write on the tap repo) in secrets —
-      # GITHUB_TOKEN is scoped to this repository and cannot write to another.
+      # Needs HOMEBREW_TAP_SSH_KEY — a write deploy key on the tap repo, held
+      # as an org secret. GITHUB_TOKEN is scoped to this repository and cannot
+      # write to another; a deploy key never expires, so nothing to rotate.
       homebrew: true
       homebrew-tap: Anastylosis/homebrew-tap
       # Pauses until a reviewer of the `manual-smoke-gate` environment approves,
