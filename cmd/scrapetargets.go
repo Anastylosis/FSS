@@ -12,6 +12,7 @@ import (
 	"github.com/Anastylosis/FSS/internal/creators"
 	"github.com/Anastylosis/FSS/internal/store"
 	"github.com/Anastylosis/FSS/output"
+	"github.com/Anastylosis/FSS/scraper"
 )
 
 // scrapeTarget is one studio URL to scrape, plus whatever the creator file said
@@ -50,6 +51,7 @@ func resolveScrapeTargets(cmd *cobra.Command, args []string) ([]scrapeTarget, er
 	var targets []scrapeTarget
 	seen := map[string]bool{}
 	add := func(t scrapeTarget) {
+		t.url = scraper.PreferredStudioURL(t.url)
 		key := output.CanonicalStudioURL(t.url)
 		if seen[key] {
 			return

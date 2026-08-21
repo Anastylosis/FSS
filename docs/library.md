@@ -149,6 +149,27 @@ for _, s := range scraper.All() {
 
 Use `fss list-scrapers` (or iterate `scraper.All()`) to see all available IDs and URL patterns.
 
+### Studio URL aliases
+
+Some sites serve one studio at more than one URL — YourVids answers both
+`yourvids.com/creators/leina-sex` and the bare `yourvids.com/leina-sex`. Since a
+studio is keyed on its URL, storing both spellings would make one creator into
+two studios. `scraper.PreferredStudioURL` asks the matching scraper which
+spelling to key on:
+
+```go
+url := scraper.PreferredStudioURL("https://yourvids.com/leina-sex")
+// https://yourvids.com/creators/leina-sex
+```
+
+A URL no scraper claims, or one whose scraper expresses no preference, is
+returned unchanged. Scrapers opt in by implementing
+`scraper.StudioURLCanonicalizer`; most do not, and they need no change.
+
+This is a *path* rewrite the scraper vouches for, unlike
+`output.CanonicalStudioURL`, which normalises scheme and host generically and
+never touches the path.
+
 ## Controlling Scrape Behaviour
 
 `ListOpts` configures how the scraper paginates:

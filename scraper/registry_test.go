@@ -19,7 +19,7 @@ func (f *fakeScraper) ListScenes(_ context.Context, _ string, _ ListOpts) (<-cha
 	return nil, nil
 }
 
-func withCleanRegistry(t *testing.T, scrapers ...*fakeScraper) {
+func withCleanRegistry(t *testing.T, scrapers ...StudioScraper) {
 	t.Helper()
 	old := registered
 	registered = nil
@@ -160,5 +160,50 @@ func TestResultKindString(t *testing.T) {
 		if got := tt.kind.String(); got != tt.want {
 			t.Errorf("%d.String() = %q, want %q", tt.kind, got, tt.want)
 		}
+	}
+}
+
+// canonicalizingScraper is a fakeScraper that also implements
+// StudioURLCanonicalizer.
+type canonicalizingScraper struct {
+	*fakeScraper
+	preferFn func(string) string
+}
+
+func (c *canonicalizingScraper) PreferredStudioURL(u string) string { return c.preferFn(u) }
+
+func TestPreferredStudioURL(t *testing.T) {
+	alias := &canonicalizingScraper{
+		fakeScraper: &fakeScraper{id: "alias", matchFn: func(u string) bool {
+			return strings.HasPrefix(u, "https://alias.com/")
+		}},
+		preferFn: func(u string) string {
+			if u == "https://alias.com/vanity" {
+				return "https://alias.com/creators/vanity"
+			}
+			return ""
+		},
+	}
+	plain := &fakeScraper{id: "plain", matchFn: func(u string) bool {
+		return strings.HasPrefix(u, "https://plain.com/")
+	}}
+	withCleanRegistry(t, alias, plain)
+
+	cases := []struct {
+		name string
+		url  string
+		want string
+	}{
+		{"rewrites the alias", "https://alias.com/vanity", "https://alias.com/creators/vanity"},
+		{"no preference expressed", "https://alias.com/creators/vanity", "https://alias.com/creators/vanity"},
+		{"scraper does not implement it", "https://plain.com/studio", "https://plain.com/studio"},
+		{"no scraper claims the URL", "https://unknown.com/studio", "https://unknown.com/studio"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := PreferredStudioURL(c.url); got != c.want {
+				t.Errorf("PreferredStudioURL(%q) = %q, want %q", c.url, got, c.want)
+			}
+		})
 	}
 }

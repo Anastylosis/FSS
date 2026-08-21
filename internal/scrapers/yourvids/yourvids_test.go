@@ -29,6 +29,17 @@ func TestMatchesURL(t *testing.T) {
 		{"https://yourvids.com/creators/some-name", true},
 		{"https://yourvids.com/vids/some-video", false},
 		{"https://example.com/creators/foo", false},
+
+		// The site serves each creator at a bare vanity path too.
+		{"https://yourvids.com/leina-sex", true},
+		{"https://www.yourvids.com/leina-sex/", true},
+
+		// Its own top-level pages are not creators.
+		{"https://yourvids.com/help", false},
+		{"https://yourvids.com/Boutique", false},
+		{"https://yourvids.com/creators", false},
+		{"https://yourvids.com/search", false},
+		{"https://yourvids.com/vids", false},
 	}
 	for _, c := range cases {
 		if got := s.MatchesURL(c.url); got != c.want {
@@ -385,5 +396,60 @@ func TestGoldenCreatorVideos(t *testing.T) {
 	}
 	if p.IsOnSale {
 		t.Errorf("IsOnSale = true, but original_price is null (data.videos[].is_on_sale)")
+	}
+}
+
+func TestPreferredStudioURL(t *testing.T) {
+	s := New()
+	cases := []struct {
+		url  string
+		want string
+	}{
+		{"https://yourvids.com/leina-sex", "https://yourvids.com/creators/leina-sex"},
+		{"https://www.yourvids.com/leina-sex/", "https://yourvids.com/creators/leina-sex"},
+		{"http://yourvids.com/creators/leina-sex", "https://yourvids.com/creators/leina-sex"},
+		{"https://yourvids.com/help", ""},
+		{"https://example.com/leina-sex", ""},
+	}
+	for _, c := range cases {
+		if got := s.PreferredStudioURL(c.url); got != c.want {
+			t.Errorf("PreferredStudioURL(%q) = %q, want %q", c.url, got, c.want)
+		}
+	}
+}
+
+// A bare-slug URL may name a viewer account rather than a creator, which the
+// API answers with a 404. The error has to say so, and must still mark the
+// traversal incomplete so an authoritative Save cannot delete the catalogue.
+func TestListScenesNotACreator(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = fmt.Fprint(w, `{"message": ""}`)
+	}))
+	defer srv.Close()
+
+	s := New()
+	s.apiBase = srv.URL
+	s.client = srv.Client()
+
+	ch, err := s.ListScenes(context.Background(), "https://yourvids.com/whaleman2018", scraper.ListOpts{})
+	if err != nil {
+		t.Fatalf("ListScenes: %v", err)
+	}
+
+	var gotErr error
+	for res := range ch {
+		if res.Kind == scraper.KindError {
+			gotErr = res.Err
+		}
+	}
+	if gotErr == nil {
+		t.Fatal("expected an error result, got none")
+	}
+	if !strings.Contains(gotErr.Error(), "no creator") {
+		t.Errorf("error = %q, want it to name the missing creator", gotErr)
+	}
+	if !scraper.Classify(gotErr).MissingData() {
+		t.Error("a missing catalogue must count as missing data, not as absent")
 	}
 }

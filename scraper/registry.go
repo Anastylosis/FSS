@@ -60,3 +60,35 @@ func ForURL(url string) (StudioScraper, error) {
 	}
 	return chosen, nil
 }
+
+// StudioURLCanonicalizer is implemented by a scraper whose site serves one
+// studio at more than one URL. It is optional: a scraper that does not
+// implement it keeps the operator's URL verbatim.
+//
+// This is distinct from output.CanonicalStudioURL, which normalises scheme and
+// host generically and never touches the path. Rewriting a path is only safe
+// when the scraper asserts the two forms are the same studio.
+type StudioURLCanonicalizer interface {
+	// PreferredStudioURL returns the spelling to store studioURL under, or
+	// the empty string to keep it as given.
+	PreferredStudioURL(studioURL string) string
+}
+
+// PreferredStudioURL asks the scraper matching studioURL which spelling of it
+// to use as the studio's key, so two URLs for one studio do not become two
+// studios. A URL no scraper claims, or one whose scraper expresses no
+// preference, is returned unchanged.
+func PreferredStudioURL(studioURL string) string {
+	s, err := ForURL(studioURL)
+	if err != nil {
+		return studioURL
+	}
+	c, ok := s.(StudioURLCanonicalizer)
+	if !ok {
+		return studioURL
+	}
+	if preferred := c.PreferredStudioURL(studioURL); preferred != "" {
+		return preferred
+	}
+	return studioURL
+}

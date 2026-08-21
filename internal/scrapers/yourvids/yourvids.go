@@ -3,6 +3,7 @@ package yourvids
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html"
 	"net/http"
@@ -37,23 +38,79 @@ func init() { scraper.Register(New()) }
 func (s *Scraper) ID() string { return "yourvids" }
 
 func (s *Scraper) Patterns() []string {
-	return []string{"yourvids.com/creators/{slug}"}
+	return []string{"yourvids.com/creators/{slug}", "yourvids.com/{slug}"}
 }
 
-var matchRe = regexp.MustCompile(`^https?://(?:www\.)?yourvids\.com/creators/[\w-]+`)
-var slugRe = regexp.MustCompile(`/creators/([\w-]+)`)
+var (
+	creatorRe = regexp.MustCompile(`^https?://(?:www\.)?yourvids\.com/creators/[\w-]+`)
+	aliasRe   = regexp.MustCompile(`^https?://(?:www\.)?yourvids\.com/([\w-]+)/?$`)
+	// Deliberately not host-anchored: offline tests point the scraper at a
+	// local server, and MatchesURL has already vouched for the host.
+	creatorPathRe = regexp.MustCompile(`/creators/([\w-]+)`)
+)
+
+// reservedPaths are the site's own top-level pages. Everything else in that
+// namespace is an account slug — but creators and ordinary viewers share it,
+// and only the API can tell them apart, so a bare-slug URL is accepted here and
+// rejected at the first request if it names no creator.
+var reservedPaths = map[string]bool{
+	"api":          true,
+	"boutique":     true,
+	"community":    true,
+	"contests":     true,
+	"creators":     true,
+	"help":         true,
+	"leaderboards": true,
+	"login":        true,
+	"register":     true,
+	"search":       true,
+	"vids":         true,
+	"yourvoices":   true,
+}
 
 func (s *Scraper) MatchesURL(u string) bool {
-	return matchRe.MatchString(u)
+	return creatorRe.MatchString(u) || aliasSlug(u) != ""
+}
+
+// aliasSlug returns the creator slug of a bare vanity URL, or "" if the path is
+// one of the site's own pages.
+func aliasSlug(u string) string {
+	m := aliasRe.FindStringSubmatch(u)
+	if m == nil || reservedPaths[strings.ToLower(m[1])] {
+		return ""
+	}
+	return m[1]
+}
+
+// creatorSlug extracts the creator slug from either the canonical
+// /creators/{slug} URL or the bare /{slug} vanity alias the site also serves.
+func creatorSlug(u string) string {
+	if m := creatorPathRe.FindStringSubmatch(u); m != nil {
+		return m[1]
+	}
+	return aliasSlug(u)
+}
+
+// PreferredStudioURL maps the vanity alias onto the canonical creator URL so
+// scraping a creator both ways stores one studio rather than two.
+func (s *Scraper) PreferredStudioURL(studioURL string) string {
+	if !s.MatchesURL(studioURL) {
+		return ""
+	}
+	slug := creatorSlug(studioURL)
+	if slug == "" {
+		return ""
+	}
+	return "https://yourvids.com/creators/" + slug
 }
 
 func (s *Scraper) ListScenes(ctx context.Context, studioURL string, opts scraper.ListOpts) (<-chan scraper.SceneResult, error) {
-	m := slugRe.FindStringSubmatch(studioURL)
-	if m == nil {
+	slug := creatorSlug(studioURL)
+	if slug == "" {
 		return nil, fmt.Errorf("cannot extract creator slug from %q", studioURL)
 	}
 	out := make(chan scraper.SceneResult)
-	go s.run(ctx, studioURL, m[1], opts, out)
+	go s.run(ctx, studioURL, slug, opts, out)
 	return out, nil
 }
 
@@ -127,6 +184,9 @@ func (s *Scraper) run(ctx context.Context, studioURL, slug string, opts scraper.
 		apiURL := fmt.Sprintf("%s/api/creators/%s/videos?page=%d&sort=newest", s.apiBase, slug, page)
 		resp, err := s.fetchAPI(ctx, apiURL)
 		if err != nil {
+			if page == 1 {
+				err = notACreator(slug, err)
+			}
 			select {
 			case out <- scraper.Error(fmt.Errorf("page %d: %w", page, err)):
 			case <-ctx.Done():
@@ -225,6 +285,19 @@ func (s *Scraper) run(ctx context.Context, studioURL, slug string, opts scraper.
 		case <-ctx.Done():
 		}
 	}
+}
+
+// notACreator turns the 404 a viewer account produces into an error that says
+// so. Creators and ordinary accounts share the top-level path namespace, so a
+// bare-slug URL cannot be told apart from a creator's until this first request
+// comes back. Deliberately not a scraper.AbsentError: the whole catalogue is
+// missing, not an optional sub-listing, so the run must count as incomplete.
+func notACreator(slug string, err error) error {
+	var se *httpx.StatusError
+	if errors.As(err, &se) && se.StatusCode == http.StatusNotFound {
+		return fmt.Errorf("no creator %q on yourvids (the bare /%s URL may be a viewer account, which has no catalogue): %w", slug, slug, err)
+	}
+	return err
 }
 
 // ---- API fetch ----

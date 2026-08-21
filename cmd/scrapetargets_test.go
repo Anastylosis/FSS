@@ -149,6 +149,24 @@ func TestResolveScrapeTargetsDeduplicates(t *testing.T) {
 	}
 }
 
+// A site serving one studio at two URLs must not produce two studios: the
+// scraper's preferred spelling is applied before the de-duplication key.
+func TestResolveScrapeTargetsFoldsScraperAliases(t *testing.T) {
+	cmd := targetCmd(t, t.TempDir())
+	targets, err := resolveScrapeTargets(cmd, []string{
+		"yourvids.com/leina-sex",
+		"https://yourvids.com/creators/leina-sex",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"https://yourvids.com/creators/leina-sex"}
+	got := targetURLs(targets)
+	if len(got) != 1 || got[0] != want[0] {
+		t.Errorf("targets = %v, want %v", got, want)
+	}
+}
+
 func TestResolveScrapeTargetsUnknownCreator(t *testing.T) {
 	dir := t.TempDir()
 	writeCreator(t, dir, "c.yaml", "name: Someone\nstores:\n  - url: https://a.example.com\n")
