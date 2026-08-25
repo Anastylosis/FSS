@@ -49,6 +49,16 @@ type ListOpts struct {
 	// Delay is the duration to sleep between page fetches (and between detail
 	// fetches for scrapers that use a worker pool). Zero means no delay.
 	Delay time.Duration
+	// Cookie is an operator-supplied Cookie header value for this site, in
+	// `name=value; name2=value2` form. Empty means send none.
+	//
+	// It exists for hosts that will not answer an anonymous request — an age
+	// gate the site sets from a button, a members area, or a bot check the
+	// operator's own browser has already passed. The operator satisfies the
+	// requirement themselves and hands the resulting cookie to fss; fss does
+	// not obtain, refresh or work around one. A scraper that has no use for it
+	// ignores it, which is all but a few of them.
+	Cookie string
 }
 
 // ResultKind identifies what a SceneResult carries.

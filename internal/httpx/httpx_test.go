@@ -540,3 +540,116 @@ func TestStatusError_alwaysReportsMissingData(t *testing.T) {
 		}
 	}
 }
+
+// The failure this whole path exists for: a JSON endpoint answering HTTP 200
+// with an HTML error page. Do would hand that back as a success and the caller
+// would abort its pagination walk on the decode error; DoJSON retries it.
+func TestDoJSON_retriesMalformedBodyThenSucceeds(t *testing.T) {
+	t.Parallel()
+	var calls int32
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if atomic.AddInt32(&calls, 1) == 1 {
+			_, _ = w.Write([]byte("<!DOCTYPE html><html><body>error</body></html>"))
+			return
+		}
+		_, _ = w.Write([]byte(`{"total":425}`))
+	}))
+	defer ts.Close()
+
+	var got struct {
+		Total int `json:"total"`
+	}
+	if err := DoJSON(context.Background(), ts.Client(), Request{URL: ts.URL, BackoffSleep: noopSleep}, &got); err != nil {
+		t.Fatalf("DoJSON: %v", err)
+	}
+	if got.Total != 425 {
+		t.Errorf("total = %d, want 425", got.Total)
+	}
+	if n := atomic.LoadInt32(&calls); n != 2 {
+		t.Errorf("expected 2 calls (1 malformed + 1 success), got %d", n)
+	}
+}
+
+func TestDoJSON_exhaustedMalformedBodyClassifiesAsParse(t *testing.T) {
+	t.Parallel()
+	var calls int32
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		atomic.AddInt32(&calls, 1)
+		_, _ = w.Write([]byte("<!DOCTYPE html>\n<html>  <body>blocked</body></html>"))
+	}))
+	defer ts.Close()
+
+	var got map[string]any
+	err := DoJSON(context.Background(), ts.Client(), Request{URL: ts.URL, BackoffSleep: noopSleep}, &got)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if n := atomic.LoadInt32(&calls); n != 3 {
+		t.Errorf("expected 3 attempts, got %d", n)
+	}
+
+	var me *MalformedJSONError
+	if !errors.As(err, &me) {
+		t.Fatalf("expected *MalformedJSONError, got %T: %v", err, err)
+	}
+	if me.StatusCode != http.StatusOK {
+		t.Errorf("status = %d, want 200", me.StatusCode)
+	}
+	// The preview is the only record of what actually arrived, collapsed to
+	// one line so the warning stays readable.
+	if !strings.HasPrefix(me.Preview, "<!DOCTYPE html> <html>") {
+		t.Errorf("preview = %q", me.Preview)
+	}
+	// A page that arrived and could not be read is a parse failure, so the
+	// scrape is reported incomplete rather than as an unclassified error.
+	if k := scraper.Classify(err); k != scraper.FailureParse {
+		t.Errorf("Classify = %v, want parse", k)
+	}
+}
+
+// Well-formed JSON that does not fit the target is the server's real answer.
+// Asking again three times would only get the same reply.
+func TestDoJSON_doesNotRetryTypeMismatch(t *testing.T) {
+	t.Parallel()
+	var calls int32
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		atomic.AddInt32(&calls, 1)
+		_, _ = w.Write([]byte(`{"total":"not-a-number"}`))
+	}))
+	defer ts.Close()
+
+	var got struct {
+		Total int `json:"total"`
+	}
+	err := DoJSON(context.Background(), ts.Client(), Request{URL: ts.URL, BackoffSleep: noopSleep}, &got)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	var me *MalformedJSONError
+	if errors.As(err, &me) {
+		t.Errorf("type mismatch must not be reported as malformed: %v", err)
+	}
+	if n := atomic.LoadInt32(&calls); n != 1 {
+		t.Errorf("expected 1 call, got %d", n)
+	}
+}
+
+func TestDoJSON_failsFastOn4xx(t *testing.T) {
+	t.Parallel()
+	var calls int32
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		atomic.AddInt32(&calls, 1)
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer ts.Close()
+
+	var got map[string]any
+	err := DoJSON(context.Background(), ts.Client(), Request{URL: ts.URL, BackoffSleep: noopSleep}, &got)
+	var se *StatusError
+	if !errors.As(err, &se) {
+		t.Fatalf("expected *StatusError, got %T: %v", err, err)
+	}
+	if n := atomic.LoadInt32(&calls); n != 1 {
+		t.Errorf("4xx must not retry, got %d calls", n)
+	}
+}

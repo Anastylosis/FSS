@@ -42,6 +42,7 @@ For choosing a store, inspecting a database, and moving between the two, see [st
 | `--db` | string | _(from config)_ | Store selector. `--db` alone uses the database named in `db:`, or `~/.local/share/fss/fss.db`; `--db=/path` uses a specific file; `--db=""` forces the flat JSON store even when `db:` is set. Note the `=` — a space-separated value is not parsed |
 | `--delay` | int | `500` | Milliseconds to sleep between page requests (default from config; `--delay 0` disables) |
 | `--site-delay` | []string | _(none)_ | Per-scraper delay overrides as `name=ms` pairs, e.g. `--site-delay manyvids=0,pornhub=2000` |
+| `--site-cookie` | []string | _(none)_ | Per-scraper `Cookie` header as `name=cookies` pairs, e.g. `--site-cookie mydirtyhobby="KEY=abc; other=1"` |
 | `--name` | string | _(none)_ | Human-readable label for this studio (stored when `--db` is set) |
 | `--performer` | []string | _(none)_ | Replace the performers on every scene this run scrapes. Repeat the flag, or comma-separate, for several |
 | `--studio` | string | _(none)_ | Replace the studio on every scene this run scrapes |
@@ -62,6 +63,8 @@ does not file one person as several performers. It needs no configuration beyond
 the creator file itself, leaves co-stars alone, and happens whether the store was
 reached by URL or by `--creator`; `--performer` overrides it. See
 [creators.md](creators.md#storefront-branding-in-performer-credits).
+
+**Site cookies.** A few hosts will not answer an anonymous request: an age gate the site sets from a button, a members area, or a bot check that answers an unrecognised client with a JavaScript challenge instead of a status code. `--site-cookie <id>="..."` (or `site_cookies.<id>` in config) supplies a `Cookie` header for that scraper's requests, and CLI overlays config the same way `--site-delay` does. Only the first `=` separates the scraper ID from the value, since a cookie contains one of its own — quote the whole value if it holds several cookies. The operator satisfies the gate themselves, in their own browser, and copies the cookie out of DevTools (Application → Cookies); fss neither obtains, solves nor refreshes one, so a cookie that expires is re-pasted. Treat a config holding these the way you treat one holding `api_key`. Currently read by `mydirtyhobby` (see [scrapers.md](scrapers.md)); scrapers that have no use for it ignore it.
 
 **Per-site delay precedence:** `--site-delay <id>=N` (CLI) > `site_delays.<id>: N` (config) > `--delay`/`delay` (global). A site explicitly set to `0` disables delay even when the global default is non-zero. `--full` re-fetches every scene (carrying price history forward) and drops scenes no longer on the site. `--refresh` traverses the full scene list but re-uses existing IDs to update metadata in place and detect deletions.
 
@@ -335,6 +338,9 @@ site_delays:      # map[string]int — per-scraper delay overrides (overrides `d
   # manyvids: 0
   # pornhub: 2000
   # brazzers: 500
+
+site_cookies:     # map[string]string — per-scraper Cookie header (see "Site cookies" below)
+  # mydirtyhobby: "KEY=1234*5678:90:123:1"
 
 stashbox:         # list — stashbox instances for the stashbox scraper
   # - url: "https://stashdb.org/graphql"       # GraphQL endpoint URL

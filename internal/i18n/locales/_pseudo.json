@@ -96,6 +96,7 @@
   "overwrite existing .nfo files": "«overwrite existing .nfo files»",
   "path to SQLite database (no value = default location)": "«path to SQLite database (no value = default location)»",
   "path to SQLite database (no value = the configured db, or the default location)": "«path to SQLite database (no value = the configured db, or the default location)»",
+  "per-scraper Cookie header, e.g. --site-cookie mydirtyhobby=\"KEY=abc; other=1\" (for a gate the operator has passed in a browser)": "«per-scraper Cookie header, e.g. --site-cookie mydirtyhobby=\"KEY=abc; other=1\" (for a gate the operator has passed in a browser)»",
   "per-scraper delay override, e.g. --site-delay manyvids=0,pornhub=2000 (overrides --delay for matching sites)": "«per-scraper delay override, e.g. --site-delay manyvids=0,pornhub=2000 (overrides --delay for matching sites)»",
   "re-fetch metadata for all known scenes, soft-delete missing": "«re-fetch metadata for all known scenes, soft-delete missing»",
   "replace the performers on every scene this run scrapes (repeat, or comma-separate, for several)": "«replace the performers on every scene this run scrapes (repeat, or comma-separate, for several)»",

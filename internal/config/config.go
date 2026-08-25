@@ -34,6 +34,11 @@ type Config struct {
 	// SiteDelays overrides Delay per scraper ID (e.g. "manyvids", "pornhub").
 	// Sites without an entry fall back to Delay.
 	SiteDelays map[string]int `yaml:"site_delays"`
+	// SiteCookies supplies a Cookie header per scraper ID, for hosts that will
+	// not answer an anonymous request. See scraper.ListOpts.Cookie. Values are
+	// credentials of a sort — a config holding them wants the same care as one
+	// holding an api_key.
+	SiteCookies map[string]string `yaml:"site_cookies"`
 	// CreatorsDir is the directory of one-creator-per-file YAML definitions.
 	// Empty means the conventional location beside this config. Point it at a
 	// clone to use a shared set.
@@ -268,6 +273,11 @@ func (c *Config) Validate() error {
 	for name, d := range c.SiteDelays {
 		if d < 0 {
 			return fmt.Errorf("site_delays[%s] must be non-negative, got %d", name, d)
+		}
+	}
+	for name, v := range c.SiteCookies {
+		if strings.ContainsAny(v, "\r\n") {
+			return fmt.Errorf("site_cookies[%s] must not contain a newline", name)
 		}
 	}
 	if c.Output != "" {

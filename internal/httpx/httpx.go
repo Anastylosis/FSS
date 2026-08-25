@@ -81,6 +81,40 @@ func BrowserHeaders(ua string) map[string]string {
 	}
 }
 
+// XHRHeaders returns the headers a browser actually sends on a `fetch()` call
+// to a same-origin API, for scrapers calling a JSON endpoint rather than
+// loading a page. Pass a UA string (empty for the active default) and the
+// site's origin (empty to omit it).
+//
+// This exists because [BrowserHeaders] is wrong for an API call, and not
+// harmlessly so. Its `Sec-Fetch-Dest: document` / `Sec-Fetch-Mode: navigate` /
+// `Sec-Fetch-User: ?1` describe a top-level navigation, a thing no browser has
+// ever expressed as a JSON POST — and a WAF that reads those headers can tell.
+// MyDirtyHobby's answers such a request with a JavaScript cookie challenge
+// under HTTP 200 — invisible as a status code, and it aborts a scrape
+// mid-catalogue. Measured there over 25-request walks: the navigation values
+// were challenged from the 18th request on, while these ran clean. Sending
+// `empty`/`cors`/`same-origin` is not a disguise; it is the request describing
+// itself accurately.
+func XHRHeaders(ua, origin string) map[string]string {
+	if ua == "" {
+		ua = UserAgentFirefox
+	}
+	h := map[string]string{
+		"User-Agent":      ua,
+		"Accept":          "application/json, text/plain, */*",
+		"Accept-Language": "en-US,en;q=0.5",
+		"Content-Type":    "application/json",
+		"Sec-Fetch-Dest":  "empty",
+		"Sec-Fetch-Mode":  "cors",
+		"Sec-Fetch-Site":  "same-origin",
+	}
+	if origin != "" {
+		h["Origin"] = origin
+	}
+	return h
+}
+
 // MaxPageBytes caps ReadBody response reads to prevent an oversized or
 // malicious response from exhausting memory.
 const MaxPageBytes = 10 * 1024 * 1024
@@ -123,6 +157,78 @@ func DecodeJSONN(r io.Reader, v any, maxBytes int64) error {
 		return err
 	}
 	return nil
+}
+
+// MalformedJSONError reports a response that arrived with a success status but
+// whose body is not JSON — typically an edge or WAF error page served as
+// HTTP 200 in place of an API answer. It carries the start of the body because
+// nothing else records it: by the time the operator sees the warning the
+// response is gone, and the first few bytes usually name the culprit.
+type MalformedJSONError struct {
+	StatusCode int
+	Size       int
+	Preview    string
+	Err        error
+}
+
+func (e *MalformedJSONError) Error() string {
+	return fmt.Sprintf("response is not JSON (HTTP %d, %d bytes, starts with %q): %v",
+		e.StatusCode, e.Size, e.Preview, e.Err)
+}
+
+// Unwrap returns the decoder's own error so errors.Is/As still reach it.
+func (e *MalformedJSONError) Unwrap() error { return e.Err }
+
+// FailureKind reports a body that arrived and could not be read as a parse
+// failure. Retries have already been spent by the time this escapes DoJSON, so
+// what reaches the operator is the site answering something FSS cannot use.
+func (e *MalformedJSONError) FailureKind() scraper.FailureKind {
+	return scraper.FailureParse
+}
+
+// previewBytes is how much of an undecodable body MalformedJSONError quotes —
+// enough for a doctype, a WAF banner or a redirect stub to be recognisable,
+// short enough to stay on one terminal line.
+const previewBytes = 80
+
+// decodeBody reads and closes resp's body and unmarshals it into v. A body that
+// is not JSON at all comes back as *MalformedJSONError, which is what DoJSON
+// retries; anything else (an oversized body, well-formed JSON that does not fit
+// v) is returned as-is and is not retried.
+func decodeBody(resp *http.Response, v any) error {
+	data, err := ReadBody(resp.Body)
+	drainAndClose(resp)
+	if err != nil {
+		return err
+	}
+	if err := json.Unmarshal(data, v); err != nil {
+		var syntax *json.SyntaxError
+		if errors.As(err, &syntax) || errors.Is(err, io.ErrUnexpectedEOF) {
+			return &MalformedJSONError{
+				StatusCode: resp.StatusCode,
+				Size:       len(data),
+				Preview:    preview(data),
+				Err:        err,
+			}
+		}
+		return err
+	}
+	return nil
+}
+
+// preview renders the head of a body as a single-line, printable snippet.
+func preview(data []byte) string {
+	head := data
+	if len(head) > previewBytes {
+		head = head[:previewBytes]
+	}
+	return strings.Join(strings.Fields(string(head)), " ")
+}
+
+// malformedJSON reports whether err is the retryable "body is not JSON" case.
+func malformedJSON(err error) bool {
+	var m *MalformedJSONError
+	return errors.As(err, &m)
 }
 
 // countingReader tracks how many bytes were consumed, so DecodeJSONN can tell
@@ -262,7 +368,7 @@ func (e *StatusError) FailureKind() scraper.FailureKind {
 // Non-retryable 4xx responses fail fast with a *StatusError — the caller does
 // not have to guard against decoding an error page as a successful body.
 func Do(ctx context.Context, client *http.Client, r Request) (*http.Response, error) {
-	return doInner(ctx, client, r, true)
+	return doInner(ctx, client, r, true, nil)
 }
 
 // DoWithStatus is like Do but passes any HTTP status (including 4xx and 5xx)
@@ -274,7 +380,29 @@ func Do(ctx context.Context, client *http.Client, r Request) (*http.Response, er
 // Default for `Do` (4xx fail-fast, 429/5xx retried) is the safer choice for
 // everything else.
 func DoWithStatus(ctx context.Context, client *http.Client, r Request) (*http.Response, error) {
-	return doInner(ctx, client, r, false)
+	return doInner(ctx, client, r, false, nil)
+}
+
+// DoJSON performs the request like Do and decodes the response body into v,
+// treating a body that is not JSON at all as a retryable failure.
+//
+// An edge, WAF or load balancer that hiccups answers a JSON endpoint with an
+// HTML error page under HTTP 200. Do sees a success status and hands the
+// response back, the decode fails with `invalid character '<'`, and because a
+// scraper's fetch error aborts the whole pagination walk, one such blip costs
+// every remaining page. Those bodies are a transport failure wearing a parse
+// error's clothes, so they share Do's attempt budget and backoff ladder.
+//
+// Only a malformed body is retried. Well-formed JSON that does not fit v is
+// the server's real answer and fails immediately — retrying it would just ask
+// the same question three times. The final error names the status and quotes
+// the start of what arrived, since the point of failure is usually obvious
+// from the first few bytes and nothing else records them.
+func DoJSON(ctx context.Context, client *http.Client, r Request, v any) error {
+	// A non-nil decode target makes doInner read and close every body itself,
+	// so the response it returns here is always nil.
+	_, err := doInner(ctx, client, r, true, v) //nolint:bodyclose
+	return err
 }
 
 // redactURL strips query parameters from a URL for debug logging so
@@ -326,8 +454,10 @@ func defaultBackoffSleep(ctx context.Context, d time.Duration) error {
 // doInner is the shared retry + send loop. `classifyStatus` toggles the
 // status-code policy: true → 4xx fail-fast with *StatusError + retry 429/5xx
 // (Do's contract); false → return any HTTP response as-is and retry only
-// network errors (DoWithStatus's contract).
-func doInner(ctx context.Context, client *http.Client, r Request, classifyStatus bool) (*http.Response, error) {
+// network errors (DoWithStatus's contract). A non-nil `decodeInto` makes the
+// loop consume the body itself and retry a malformed one (DoJSON's contract);
+// it then returns a nil response, having closed every body it read.
+func doInner(ctx context.Context, client *http.Client, r Request, classifyStatus bool, decodeInto any) (*http.Response, error) {
 	method := r.Method
 	if method == "" {
 		if r.Body != nil {
@@ -401,6 +531,15 @@ func doInner(ctx context.Context, client *http.Client, r Request, classifyStatus
 		if resp.StatusCode >= 400 {
 			drainAndClose(resp)
 			return nil, &StatusError{StatusCode: resp.StatusCode}
+		}
+		if decodeInto != nil {
+			err := decodeBody(resp, decodeInto)
+			if err != nil && malformedJSON(err) {
+				scraper.Debugf(2, "  malformed body, retrying: %v", err)
+				attemptErrs = append(attemptErrs, fmt.Errorf("attempt %d: %w", attempt+1, err))
+				continue
+			}
+			return nil, err
 		}
 		return resp, nil
 	}

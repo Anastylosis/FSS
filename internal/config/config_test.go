@@ -466,3 +466,14 @@ func TestLanguagePref(t *testing.T) {
 		}
 	})
 }
+
+func TestValidate_rejectsCookieWithNewline(t *testing.T) {
+	cfg := &Config{SiteCookies: map[string]string{"mydirtyhobby": "KEY=1\nX-Evil: 1"}}
+	err := cfg.Validate()
+	if err == nil {
+		t.Fatal("expected an error")
+	}
+	if !strings.Contains(err.Error(), "site_cookies[mydirtyhobby]") {
+		t.Errorf("error = %v, want it to name the offending key", err)
+	}
+}

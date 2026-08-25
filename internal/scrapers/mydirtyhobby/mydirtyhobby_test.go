@@ -372,3 +372,108 @@ func TestGoldenVideosIsRawCapture(t *testing.T) {
 		t.Error("fixture contains the age-gate cookie; it belongs in the request, not the body")
 	}
 }
+
+// The site's edge occasionally answers this JSON endpoint with an HTML error
+// page under HTTP 200. Paginate aborts the walk on any fetch error, so the blip
+// cost every remaining page — live-observed on page 18 of 22. httpx.DoJSON
+// retries the undecodable body, and the walk must finish intact.
+func TestListScenesRetriesHTMLErrorPage(t *testing.T) {
+	page1 := []mdhItem{
+		{UID: 1, UVID: 101, Nick: "U", Title: "A", Price: "100", Duration: "1:00", LatestPictureChange: "2025-01-01T00:00:00Z"},
+	}
+	page2 := []mdhItem{
+		{UID: 1, UVID: 102, Nick: "U", Title: "B", Price: "100", Duration: "1:00", LatestPictureChange: "2025-01-02T00:00:00Z"},
+	}
+
+	var page2Calls int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req listRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "bad request", 400)
+			return
+		}
+		if req.Page == 1 {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write(makeResponse(page1, 2, 1, 2))
+			return
+		}
+		page2Calls++
+		if page2Calls == 1 {
+			w.Header().Set("Content-Type", "text/html")
+			_, _ = w.Write([]byte("<!DOCTYPE html><html><body>oops</body></html>"))
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(makeResponse(page2, 2, 2, 2))
+	}))
+	defer srv.Close()
+
+	s := &Scraper{client: srv.Client(), siteBase: srv.URL, contentBase: srv.URL, pageSize: 20}
+
+	ch, err := s.ListScenes(context.Background(), srv.URL+"/profil/1-U/videos", scraper.ListOpts{})
+	if err != nil {
+		t.Fatalf("ListScenes error: %v", err)
+	}
+
+	var ids []string
+	for r := range ch {
+		switch r.Kind {
+		case scraper.KindError:
+			t.Fatalf("unexpected error result: %v", r.Err)
+		case scraper.KindScene:
+			ids = append(ids, r.Scene.ID)
+		}
+	}
+	if len(ids) != 2 {
+		t.Errorf("got %d scenes (%v), want both pages", len(ids), ids)
+	}
+	if page2Calls != 2 {
+		t.Errorf("page 2 requests = %d, want 2 (1 HTML + 1 retry)", page2Calls)
+	}
+}
+
+func TestCookieHeader(t *testing.T) {
+	tests := []struct {
+		name     string
+		operator string
+		want     string
+	}{
+		{"none supplied", "", "AGEGATEPASSED=1"},
+		{"appended to the age gate", "KEY=12*34:56:78:1", "AGEGATEPASSED=1; KEY=12*34:56:78:1"},
+		{"trailing separator trimmed", " KEY=abc; ", "AGEGATEPASSED=1; KEY=abc"},
+		{"whitespace only", "   ", "AGEGATEPASSED=1"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := cookieHeader(tt.operator); got != tt.want {
+				t.Errorf("cookieHeader(%q) = %q, want %q", tt.operator, got, tt.want)
+			}
+		})
+	}
+}
+
+// The age gate must survive: it is what the site sets from its own button, and
+// dropping it for an operator cookie would trade one gate for another.
+func TestListScenesSendsOperatorCookie(t *testing.T) {
+	var got string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = r.Header.Get("Cookie")
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(makeResponse([]mdhItem{
+			{UID: 1, UVID: 1, Nick: "U", Title: "A", Price: "100", Duration: "1:00", LatestPictureChange: "2025-01-01T00:00:00Z"},
+		}, 1, 1, 1))
+	}))
+	defer srv.Close()
+
+	s := &Scraper{client: srv.Client(), siteBase: srv.URL, contentBase: srv.URL, pageSize: 20}
+	ch, err := s.ListScenes(context.Background(), srv.URL+"/profil/1-U/videos", scraper.ListOpts{Cookie: "KEY=abc"})
+	if err != nil {
+		t.Fatalf("ListScenes error: %v", err)
+	}
+	for range ch { //nolint:revive // drain so the goroutine can finish its sends
+	}
+
+	if want := "AGEGATEPASSED=1; KEY=abc"; got != want {
+		t.Errorf("Cookie header = %q, want %q", got, want)
+	}
+}

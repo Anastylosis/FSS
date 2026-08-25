@@ -20,7 +20,15 @@ import (
 const (
 	defaultSiteBase    = "https://www.mydirtyhobby.com"
 	defaultContentBase = "https://www.mydirtyhobby.com"
-	defaultPageSize    = 20
+	// defaultPageSize is the site's own documented maximum: asking for 500
+	// returns "The page size must not be greater than 300." It is set there
+	// deliberately, because the WAF challenges a client after roughly seventeen
+	// requests in a window — what decides whether a profile can be walked at
+	// all is the number of requests, not their spacing. At 20 per page this
+	// scraper worked until a catalogue passed ~340 scenes and then began
+	// stopping mid-walk; at 300 a 1,096-scene profile is four requests. Fewer,
+	// larger requests are also the gentler thing to ask of the site.
+	defaultPageSize = 300
 )
 
 // Scraper implements scraper.StudioScraper for MyDirtyHobby.
@@ -91,7 +99,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, uid int, nick strin
 
 	now := time.Now().UTC()
 	scraper.Paginate(ctx, opts, "mydirtyhobby", out, func(ctx context.Context, page int) (scraper.PageResult, error) {
-		items, total, totalPages, err := s.fetchPage(ctx, uid, page)
+		items, total, totalPages, err := s.fetchPage(ctx, uid, page, opts.Cookie)
 		if err != nil {
 			return scraper.PageResult{}, err
 		}
@@ -140,7 +148,7 @@ type mdhItem struct {
 	Language            string  `json:"language"`
 }
 
-func (s *Scraper) fetchPage(ctx context.Context, uid, page int) ([]mdhItem, int, int, error) {
+func (s *Scraper) fetchPage(ctx context.Context, uid, page int, cookie string) ([]mdhItem, int, int, error) {
 	body, err := json.Marshal(listRequest{
 		Page:         page,
 		PageSize:     s.pageSize,
@@ -152,27 +160,39 @@ func (s *Scraper) fetchPage(ctx context.Context, uid, page int) ([]mdhItem, int,
 	}
 
 	u := s.contentBase + "/content/api/v2/videos"
-	resp, err := httpx.Do(ctx, s.client, httpx.Request{
+	var lr listResponse
+	// XHRHeaders, not BrowserHeaders: the WAF challenges a navigation-shaped
+	// request to this JSON endpoint. DoJSON, not Do: the challenge arrives as
+	// HTTP 200, so it reads as a parse failure and would abort the whole walk.
+	// See docs/scrapers.md.
+	err = httpx.DoJSON(ctx, s.client, httpx.Request{
 		URL:  u,
 		Body: body,
 		Headers: func() map[string]string {
-			h := httpx.BrowserHeaders(httpx.UserAgentFirefox)
-			h["Content-Type"] = "application/json"
-			h["Accept"] = "application/json"
-			h["Cookie"] = "AGEGATEPASSED=1"
+			h := httpx.XHRHeaders(httpx.UserAgentFirefox, s.contentBase)
+			h["Cookie"] = cookieHeader(cookie)
 			return h
 		}(),
-	})
+	}, &lr)
 	if err != nil {
 		return nil, 0, 0, err
 	}
-	defer func() { _ = resp.Body.Close() }()
-
-	var lr listResponse
-	if err := httpx.DecodeJSON(resp.Body, &lr); err != nil {
-		return nil, 0, 0, fmt.Errorf("decoding response: %w", err)
-	}
 	return lr.Items, lr.Total, lr.TotalPages, nil
+}
+
+// cookieHeader combines the age gate — which the site sets from a button, not a
+// login — with whatever the operator supplied via --site-cookie. The WAF here
+// answers an unrecognised client with a JavaScript challenge rather than a
+// status code (see docs/scrapers.md), and the cookie it hands a browser that
+// passes is the only thing that lifts it. fss neither solves nor refreshes that
+// challenge: the operator passes it in their own browser and pastes the cookie.
+func cookieHeader(operator string) string {
+	const ageGate = "AGEGATEPASSED=1"
+	operator = strings.TrimSpace(strings.Trim(strings.TrimSpace(operator), ";"))
+	if operator == "" {
+		return ageGate
+	}
+	return ageGate + "; " + operator
 }
 
 // ---- mapping ----

@@ -52,6 +52,7 @@ func init() {
 	scrapeCmd.Flags().String("name", "", "human-readable label for this studio (stored when --db is set)")
 	scrapeCmd.Flags().Int("delay", 0, "milliseconds between page requests (default 500 from config; 0 = no delay)")
 	scrapeCmd.Flags().StringSlice("site-delay", nil, "per-scraper delay override, e.g. --site-delay manyvids=0,pornhub=2000 (overrides --delay for matching sites)")
+	scrapeCmd.Flags().StringSlice("site-cookie", nil, "per-scraper Cookie header, e.g. --site-cookie mydirtyhobby=\"KEY=abc; other=1\" (for a gate the operator has passed in a browser)")
 	scrapeCmd.Flags().StringArray("performer", nil, "replace the performers on every scene this run scrapes (repeat, or comma-separate, for several)")
 	scrapeCmd.Flags().String("studio", "", "replace the studio on every scene this run scrapes")
 	scrapeCmd.Flags().StringArray("creator", nil, "scrape every storefront defined for this creator in creators.d (repeatable)")
@@ -116,6 +117,13 @@ func runScrape(cmd *cobra.Command, args []string) error {
 	// Per-site delay overrides: config file first, then CLI --site-delay merged on top.
 	siteDelayPairs, _ := cmd.Flags().GetStringSlice("site-delay")
 	siteDelays, err := mergeSiteDelays(cfg.SiteDelays, siteDelayPairs)
+	if err != nil {
+		return err
+	}
+
+	// Per-site cookies, resolved the same way.
+	siteCookiePairs, _ := cmd.Flags().GetStringSlice("site-cookie")
+	siteCookies, err := mergeSiteCookies(cfg.SiteCookies, siteCookiePairs)
 	if err != nil {
 		return err
 	}
@@ -190,7 +198,7 @@ func runScrape(cmd *cobra.Command, args []string) error {
 		if i > 0 {
 			fmt.Println()
 		}
-		if err := scrapeOne(ctx, st, tgt, name, dbPath, outDir, formats, full, refresh, force, !noPreserve, workers, defaultDelay, siteDelays, overrides); err != nil {
+		if err := scrapeOne(ctx, st, tgt, name, dbPath, outDir, formats, full, refresh, force, !noPreserve, workers, defaultDelay, siteDelays, siteCookies, overrides); err != nil {
 			fmt.Fprintf(os.Stderr, "error scraping %s: %v\n", tgt.url, err)
 			if firstErr == nil {
 				firstErr = err
@@ -203,7 +211,7 @@ func runScrape(cmd *cobra.Command, args []string) error {
 	return firstErr
 }
 
-func scrapeOne(ctx context.Context, st store.Store, tgt scrapeTarget, name, dbPath, outDir string, formats []string, full, refresh, force, preserve bool, workers int, defaultDelay time.Duration, siteDelays map[string]int, ov sceneOverrides) error {
+func scrapeOne(ctx context.Context, st store.Store, tgt scrapeTarget, name, dbPath, outDir string, formats []string, full, refresh, force, preserve bool, workers int, defaultDelay time.Duration, siteDelays map[string]int, siteCookies map[string]string, ov sceneOverrides) error {
 	start := time.Now()
 	studioURL := tgt.url
 
@@ -221,6 +229,12 @@ func scrapeOne(ctx context.Context, st store.Store, tgt scrapeTarget, name, dbPa
 	delay := resolveTargetDelay(tgt, sc.ID(), defaultDelay, siteDelays)
 	scraper.Debugf(1, "scraper: %s, delay: %v, workers: %d", sc.ID(), delay, workers)
 
+	// One base ListOpts per run; the incremental mode adds KnownIDs to its copy.
+	opts := scraper.ListOpts{Workers: workers, Delay: delay, Cookie: siteCookies[sc.ID()]}
+	if opts.Cookie != "" {
+		scraper.Debugf(1, "scraper: %s, operator-supplied cookie in use", sc.ID())
+	}
+
 	if !ov.empty() {
 		fmt.Printf("  overriding: %s\n", ov.describe())
 	}
@@ -230,13 +244,13 @@ func scrapeOne(ctx context.Context, st store.Store, tgt scrapeTarget, name, dbPa
 	switch {
 	case full:
 		fmt.Printf("Full scrape: %s\n", tgt.label())
-		scenes, cov, err = scrapeAll(ctx, sc, st, studioURL, workers, delay, preserve, ov)
+		scenes, cov, err = scrapeAll(ctx, sc, st, studioURL, opts, preserve, ov)
 	case refresh:
 		fmt.Printf("Refresh scrape: %s\n", tgt.label())
-		scenes, cov, err = scrapeRefresh(ctx, sc, st, studioURL, workers, delay, preserve, ov)
+		scenes, cov, err = scrapeRefresh(ctx, sc, st, studioURL, opts, preserve, ov)
 	default:
 		fmt.Printf("Incremental scrape: %s\n", tgt.label())
-		scenes, cov, err = scrapeIncremental(ctx, sc, st, studioURL, workers, delay, preserve, ov)
+		scenes, cov, err = scrapeIncremental(ctx, sc, st, studioURL, opts, preserve, ov)
 	}
 	if err != nil {
 		return err
@@ -375,7 +389,7 @@ func (c coverage) percent() int {
 	return int(float64(c.seen) / float64(c.stored) * 100)
 }
 
-func scrapeAll(ctx context.Context, sc scraper.StudioScraper, st store.Store, studioURL string, workers int, delay time.Duration, preserve bool, ov sceneOverrides) ([]models.Scene, coverage, error) {
+func scrapeAll(ctx context.Context, sc scraper.StudioScraper, st store.Store, studioURL string, opts scraper.ListOpts, preserve bool, ov sceneOverrides) ([]models.Scene, coverage, error) {
 	existing, err := st.Load(studioURL)
 	if err != nil {
 		return nil, coverage{}, fmt.Errorf("loading existing scenes: %w", err)
@@ -385,7 +399,7 @@ func scrapeAll(ctx context.Context, sc scraper.StudioScraper, st store.Store, st
 		existingByKey[keyOf(s)] = s
 	}
 
-	fresh, tr, err := collectScenes(ctx, sc, studioURL, scraper.ListOpts{Workers: workers, Delay: delay}, ov)
+	fresh, tr, err := collectScenes(ctx, sc, studioURL, opts, ov)
 	if err != nil {
 		return nil, coverage{}, err
 	}
@@ -426,7 +440,7 @@ func scrapeAll(ctx context.Context, sc scraper.StudioScraper, st store.Store, st
 // Scrapers that cannot use early-stop (e.g. recommended-sorted sites) may emit
 // known scenes in correct site order. In that case fresh takes priority and
 // price history is carried forward so no history is lost.
-func scrapeIncremental(ctx context.Context, sc scraper.StudioScraper, st store.Store, studioURL string, workers int, delay time.Duration, preserve bool, ov sceneOverrides) ([]models.Scene, coverage, error) {
+func scrapeIncremental(ctx context.Context, sc scraper.StudioScraper, st store.Store, studioURL string, opts scraper.ListOpts, preserve bool, ov sceneOverrides) ([]models.Scene, coverage, error) {
 	existing, err := st.Load(studioURL)
 	if err != nil {
 		return nil, coverage{}, fmt.Errorf("loading existing scenes: %w", err)
@@ -441,7 +455,8 @@ func scrapeIncremental(ctx context.Context, sc scraper.StudioScraper, st store.S
 
 	// Incremental already merges fresh with existing, so a partial traversal is
 	// inherently non-destructive — the incomplete flag needs no special handling.
-	fresh, tr, err := collectScenes(ctx, sc, studioURL, scraper.ListOpts{Workers: workers, KnownIDs: knownIDs, Delay: delay}, ov)
+	opts.KnownIDs = knownIDs
+	fresh, tr, err := collectScenes(ctx, sc, studioURL, opts, ov)
 	if err != nil {
 		return nil, coverage{}, err
 	}
@@ -478,7 +493,7 @@ func scrapeIncremental(ctx context.Context, sc scraper.StudioScraper, st store.S
 
 // scrapeRefresh re-fetches all scenes and soft-deletes any that have disappeared.
 // Price history from prior scrapes is carried forward onto each re-fetched scene.
-func scrapeRefresh(ctx context.Context, sc scraper.StudioScraper, st store.Store, studioURL string, workers int, delay time.Duration, preserve bool, ov sceneOverrides) ([]models.Scene, coverage, error) {
+func scrapeRefresh(ctx context.Context, sc scraper.StudioScraper, st store.Store, studioURL string, opts scraper.ListOpts, preserve bool, ov sceneOverrides) ([]models.Scene, coverage, error) {
 	existing, err := st.Load(studioURL)
 	if err != nil {
 		return nil, coverage{}, fmt.Errorf("loading existing scenes: %w", err)
@@ -489,7 +504,7 @@ func scrapeRefresh(ctx context.Context, sc scraper.StudioScraper, st store.Store
 	}
 
 	// Full traversal — no KnownIDs
-	fresh, tr, err := collectScenes(ctx, sc, studioURL, scraper.ListOpts{Workers: workers, Delay: delay}, ov)
+	fresh, tr, err := collectScenes(ctx, sc, studioURL, opts, ov)
 	if err != nil {
 		return nil, coverage{}, err
 	}
@@ -779,6 +794,34 @@ func mergeSiteDelays(fromConfig map[string]int, cliPairs []string) (map[string]i
 			return nil, fmt.Errorf("--site-delay %q: ms must not be negative", p)
 		}
 		out[name] = ms
+	}
+	return out, nil
+}
+
+// mergeSiteCookies returns a single map of scraper-ID → Cookie header value by
+// overlaying CLI --site-cookie entries (`name=cookies` pairs) on top of the
+// config map. Only the first `=` separates the two, since a cookie value
+// contains one of its own (`KEY=abc`).
+func mergeSiteCookies(fromConfig map[string]string, cliPairs []string) (map[string]string, error) {
+	out := make(map[string]string, len(fromConfig)+len(cliPairs))
+	for k, v := range fromConfig {
+		out[k] = v
+	}
+	for _, p := range cliPairs {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		eq := strings.IndexByte(p, '=')
+		if eq < 1 || eq == len(p)-1 {
+			return nil, fmt.Errorf("--site-cookie: %q is not in name=cookies form", p)
+		}
+		name := strings.TrimSpace(p[:eq])
+		value := strings.TrimSpace(p[eq+1:])
+		if strings.ContainsAny(value, "\r\n") {
+			return nil, fmt.Errorf("--site-cookie %q: value must not contain a newline", name)
+		}
+		out[name] = value
 	}
 	return out, nil
 }
