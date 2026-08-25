@@ -47,9 +47,19 @@ jobs:
       # both. See CONTRIBUTING.md → "Cutting a release".
       environment-name: manual-smoke-gate
       environment-url: ${{ github.server_url }}/${{ github.repository }}/blob/master/CONTRIBUTING.md#cutting-a-release
+      pre-release-checklist: |
+        - [ ] `make smoke` passed locally — **ALL** scrapers plus the Stash
+              integration tests, not a subset. CI cannot run these: Cloudflare
+              blocks GitHub runner IP ranges and Stash is a local service.
+        - [ ] Release notes accurately describe the user-visible changes.
+        - [ ] `fss version` on the built binary reports this tag.
+        - [ ] No known regression in the high-severity checks you track.
+
+        Long form: CONTRIBUTING.md → "Approver checklist".
       pre-release-notice: >-
-        Approver attests they have run the release checklist (integration smoke
-        tests, changelog review).
+        I ran the FULL integration suite locally before approving — `make smoke`,
+        all scrapers plus Stash, not a subset — and every test passed. I reviewed
+        the release notes.
       # The category must already exist; renaming it on GitHub without changing
       # it here fails the API call after the gate has been approved.
       discussion-category: Announcements
