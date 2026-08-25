@@ -9,6 +9,8 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
+	"sync"
 	"testing"
 	"time"
 
@@ -191,7 +193,22 @@ func makeScene(id int, title string) esScene {
 	}
 }
 
+// TestRunUsesSearchAfter's fake server used to key its response on an
+// unsynchronised call counter incremented in request order. That made the
+// test dependent on requests actually arriving in the order Run() issues
+// them — a guarantee HTTP keep-alive does not provide: Go's Transport can
+// transparently retry a request on a fresh connection when it reused a
+// connection the server was concurrently tearing down, which reaches the
+// fake server as a second handler invocation for what Run() sees as a single
+// logical request. Run() itself is a strictly sequential loop (one s.search
+// call per page, search_after computed from the prior response before the
+// next request is built) and httpx's retry always resends the exact same
+// marshaled body, so this was never a Run/search bug — but an order-keyed
+// fake server can still hand out the same page twice whenever two requests
+// land close together. Keying the response on the request's own
+// search_after cursor instead removes the dependency on arrival order.
 func TestRunUsesSearchAfter(t *testing.T) {
+	var mu sync.Mutex
 	var requests []map[string]any
 
 	page1Scenes := make([]esScene, pageSize)
@@ -208,20 +225,28 @@ func TestRunUsesSearchAfter(t *testing.T) {
 	page2 := fakeESResponse(page2Scenes, pageSize+1)
 	empty := fakeESResponse(nil, pageSize+1)
 
-	call := 0
+	// page1Cursor is the search_after value Run() sends for page 2: it's
+	// built from the last hit of page 1, round-tripped through JSON the same
+	// way the request body is, so it compares equal to what the handler
+	// decodes regardless of concrete Go type (float64 vs int, etc).
+	page1Cursor := sortCursor(page1Scenes[len(page1Scenes)-1])
+
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]any
 		_ = json.NewDecoder(r.Body).Decode(&body)
+
+		mu.Lock()
 		requests = append(requests, body)
-		switch call {
-		case 0:
+		mu.Unlock()
+
+		switch sa := body["search_after"]; {
+		case sa == nil:
 			_, _ = w.Write(page1)
-		case 1:
+		case reflect.DeepEqual(sa, page1Cursor):
 			_, _ = w.Write(page2)
 		default:
 			_, _ = w.Write(empty)
 		}
-		call++
 	}))
 	defer ts.Close()
 
@@ -244,6 +269,9 @@ func TestRunUsesSearchAfter(t *testing.T) {
 		}
 	}
 
+	mu.Lock()
+	defer mu.Unlock()
+
 	if scenes != pageSize+1 {
 		t.Errorf("got %d scenes, want %d", scenes, pageSize+1)
 	}
@@ -264,6 +292,18 @@ func TestRunUsesSearchAfter(t *testing.T) {
 	if _, ok := requests[1]["from"]; ok {
 		t.Error("second request should not have 'from'")
 	}
+}
+
+// sortCursor returns the JSON round-tripped value that a search_after built
+// from this scene's sort tuple would decode to on the wire (e.g. an ItemID
+// becomes float64, as encoding/json decodes any number into map[string]any).
+func sortCursor(s esScene) any {
+	dateBytes, _ := json.Marshal(s.PublishedDate)
+	idBytes, _ := json.Marshal(s.ItemID)
+	raw, _ := json.Marshal([]json.RawMessage{dateBytes, idBytes})
+	var v any
+	_ = json.Unmarshal(raw, &v)
+	return v
 }
 
 // A bare sub-site domain (filterAll) with a configured NickName must constrain
