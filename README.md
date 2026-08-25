@@ -60,7 +60,12 @@ fss version
 ```
 
 `brew upgrade` picks up new releases. The formula installs the same pre-built
-binary as the archives below, so it needs no Go toolchain.
+binary as the archives below (macOS and Linux, arm64 and amd64), so it needs
+no Go toolchain, and it installs bash/zsh/fish completions for you. Every
+release re-renders the formula in
+[`anastylosis/homebrew-tap`](https://github.com/Anastylosis/homebrew-tap),
+where the tap's own CI runs `brew audit`, `brew install` and `brew test` on
+both platforms before you ever see it.
 
 ### Option 2 — pre-built binary
 
