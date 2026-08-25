@@ -46,7 +46,7 @@ jobs:
       # below inherits the gate transitively via `needs`, so one approval covers
       # both. See CONTRIBUTING.md → "Cutting a release".
       environment-name: manual-smoke-gate
-      environment-url: ${{ github.server_url }}/${{ github.repository }}/blob/master/CONTRIBUTING.md#cutting-a-release
+      environment-url: ${{ github.server_url }}/${{ github.repository }}/blob/master/CONTRIBUTING.md#approver-checklist
       pre-release-checklist: |
         - [ ] `make smoke` passed locally — **ALL** scrapers plus the Stash
               integration tests, not a subset. CI cannot run these: Cloudflare
