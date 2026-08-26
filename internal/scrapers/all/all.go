@@ -184,6 +184,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/karups"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/kbproductions"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/kellymadison"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/kickass"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/kingnoirexxx"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/kink"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/kinkacademy"
