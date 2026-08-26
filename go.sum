@@ -1,5 +1,5 @@
-github.com/Anastylosis/stash-go v0.5.0 h1:vEafUCvcMzs9StgDN+7SSPRDUIjomdpGjnhVget5Zg0=
-github.com/Anastylosis/stash-go v0.5.0/go.mod h1:tRUVKaZav6YB9IakMH34N9/F7Dzks1KW80d4d793k64=
+github.com/Anastylosis/stash-go v0.8.0 h1:B8uneOVcRZA6unIRQV/JVFCMoG+bU8dqd4Hi+Uf4sPg=
+github.com/Anastylosis/stash-go v0.8.0/go.mod h1:tRUVKaZav6YB9IakMH34N9/F7Dzks1KW80d4d793k64=
 github.com/adrg/xdg v0.5.3 h1:xRnxJXne7+oWDatRhR1JLnvuccuIeCoBu2rtuLqQB78=
 github.com/adrg/xdg v0.5.3/go.mod h1:nlTsY+NNiCBGCK2tpm09vRqfVzrc2fLmXGpBLF0zlTQ=
 github.com/andybalholm/brotli v1.0.6 h1:Yf9fFpf49Zrxb9NlQaluyE92/+X7UVHlhMNJN2sxfOI=
