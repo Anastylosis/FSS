@@ -42,6 +42,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/bbwhighway"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/beautifulagony"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/belamionline"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/bellesa"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/bigbootytgirls"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/blackpayback"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/bluedonkey"
