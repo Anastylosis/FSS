@@ -76,6 +76,26 @@ var sites = []siteConfig{
 	{"fitnessrooms", "fitnessrooms.com", "Fitness Rooms", nil, nil, ""},
 	{"massagerooms", "massagerooms.com", "Massage Rooms", nil, nil, ""},
 	{"sexyhub", "sexyhub.com", "Sexy Hub", nil, nil, ""},
+
+	// Gay Wire network (Aylo). Every brand with a live standalone domain gets
+	// its own entry so scenes are attributed to the brand rather than the hub;
+	// the gaywire.com entry covers the brands that only exist as
+	// gaywire.com/websites/{slug} pages (Bareback Attack, Bareback Casting,
+	// ExBF, Pound His Ass, Rub Him, Urban Invasion). projectcitybus.com no
+	// longer resolves and has no entry.
+	{"gaywire", "gaywire.com", "Gay Wire", nil, nil, "scene"},
+	{"baitbus", "baitbus.com", "Bait Bus", nil, nil, "scene"},
+	{"outinpublic", "outinpublic.com", "Out In Public", nil, nil, "scene"},
+	{"hazehim", "hazehim.com", "Haze Him", nil, nil, "scene"},
+	{"itsgonnahurt", "itsgonnahurt.com", "It's Gonna Hurt", nil, nil, "scene"},
+	{"thughunter", "thughunter.com", "Thug Hunter", nil, nil, "scene"},
+	{"ungloryhole", "ungloryhole.com", "UngloryHole", nil, nil, "scene"},
+	{"gaypatrol", "gaypatrol.com", "Gay Patrol", nil, nil, "scene"},
+	{"gaypawn", "gaypawn.com", "Gay Pawn", nil, nil, "scene"},
+	{"grabass", "grabass.com", "Grab Ass", nil, nil, "scene"},
+	{"guyselector", "guyselector.com", "Guy Selector", nil, nil, "scene"},
+	{"sausageparty", "sausageparty.com", "Sausage Party", nil, nil, "scene"},
+	{"bigdaddy", "bigdaddy.com", "Bigdaddy", nil, nil, "scene"},
 }
 
 type siteScraper struct {
