@@ -315,6 +315,80 @@ func TestPaginatedScrape(t *testing.T) {
 	}
 }
 
+// TestPaginatedScrape404PastLastPage pins the end-of-list rule: the listing
+// 404s past its last page, and that must end the walk quietly rather than
+// report a failure that demotes a --full run to non-authoritative.
+func TestPaginatedScrape404PastLastPage(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/en/updates/1" {
+			_, _ = fmt.Fprint(w, listingHTML)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer ts.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	s := &Scraper{client: ts.Client()}
+	out := make(chan scraper.SceneResult)
+	go func() {
+		defer close(out)
+		s.runPaginated(ctx, ts.URL+"/en/updates", scraper.ListOpts{Workers: 1}, out, func(page int) string {
+			return fmt.Sprintf("%s/en/updates/%d", ts.URL, page)
+		})
+	}()
+
+	scenes, errs := 0, 0
+	for res := range out {
+		switch res.Kind {
+		case scraper.KindScene:
+			scenes++
+		case scraper.KindError:
+			errs++
+			t.Logf("error: %v", res.Err)
+		}
+	}
+	if scenes != 2 {
+		t.Errorf("got %d scenes, want 2", scenes)
+	}
+	if errs != 0 {
+		t.Errorf("got %d errors, want 0 — a 404 past the last page is the end of the listing", errs)
+	}
+}
+
+// A 404 on page 1 is a bad niche or model slug, not the end of a listing, and
+// must still be reported.
+func TestPaginatedScrape404OnFirstPageStillErrors(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer ts.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	s := &Scraper{client: ts.Client()}
+	out := make(chan scraper.SceneResult)
+	go func() {
+		defer close(out)
+		s.runPaginated(ctx, ts.URL+"/en/niche/nope", scraper.ListOpts{}, out, func(page int) string {
+			return fmt.Sprintf("%s/en/niche/nope/%d", ts.URL, page)
+		})
+	}()
+
+	errs := 0
+	for res := range out {
+		if res.Kind == scraper.KindError {
+			errs++
+		}
+	}
+	if errs != 1 {
+		t.Errorf("got %d errors, want 1", errs)
+	}
+}
+
 func TestKnownIDsStopsEarly(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprint(w, listingHTML)

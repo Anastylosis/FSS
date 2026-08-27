@@ -2,6 +2,7 @@ package maturenl
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"html"
 	"net/http"
@@ -121,6 +122,14 @@ func (s *Scraper) runPaginated(ctx context.Context, studioURL string, opts scrap
 
 		body, err := s.fetch(ctx, pageURL(page))
 		if err != nil {
+			// Past the last page the listing 404s (live-verified: /en/updates/162
+			// is the last, 163 is a 404), so every full run reported a failure
+			// and was demoted to non-authoritative. Only past page 1 — a 404 on
+			// page 1 is a bad niche or model slug and must stay loud.
+			if page > 1 && isNotFound(err) {
+				scraper.Debugf(1, "maturenl: page %d is past the last page (404) — done", page)
+				return
+			}
 			select {
 			case out <- scraper.Error(fmt.Errorf("page %d: %w", page, err)):
 			case <-ctx.Done():
@@ -268,6 +277,12 @@ enqueue:
 
 	close(work)
 	wg.Wait()
+}
+
+// isNotFound reports whether err is the listing answering 404.
+func isNotFound(err error) bool {
+	var se *httpx.StatusError
+	return errors.As(err, &se) && se.StatusCode == http.StatusNotFound
 }
 
 func (s *Scraper) fetch(ctx context.Context, url string) ([]byte, error) {

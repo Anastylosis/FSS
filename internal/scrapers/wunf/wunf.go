@@ -143,8 +143,8 @@ func (s *Scraper) enqueuePages(ctx context.Context, _ string, opts scraper.ListO
 			return
 		}
 
-		scenes := parseListingPage(body, s.base)
-		if len(scenes) == 0 {
+		scenes, found := parseListingPage(body, s.base)
+		if found == 0 {
 			return
 		}
 
@@ -164,7 +164,7 @@ func (s *Scraper) enqueuePages(ctx context.Context, _ string, opts scraper.ListO
 			}
 		}
 
-		if len(scenes) < pageSize {
+		if found < pageSize {
 			return
 		}
 	}
@@ -312,11 +312,16 @@ var (
 	sceneIDRe = regexp.MustCompile(`_(\d+)$`)
 )
 
-func parseListingPage(body []byte, base string) []listingScene {
+// parseListingPage returns the scenes on a listing page and the number of
+// cards the page actually held. The two differ when a card's href yields no
+// id, and only the raw count may be compared against pageSize: measuring the
+// filtered slice made one unparseable card read as "last page" and hand
+// --full's authoritative Save a truncated catalogue.
+func parseListingPage(body []byte, base string) (scenes []listingScene, found int) {
 	page := string(body)
-	var scenes []listingScene
 
 	for _, m := range sceneEntryRe.FindAllStringSubmatch(page, -1) {
+		found++
 		href := m[1]
 		block := m[2]
 
@@ -348,7 +353,7 @@ func parseListingPage(body []byte, base string) []listingScene {
 
 		scenes = append(scenes, ls)
 	}
-	return scenes
+	return scenes, found
 }
 
 func extractID(path string) string {

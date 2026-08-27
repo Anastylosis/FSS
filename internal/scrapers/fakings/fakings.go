@@ -139,7 +139,12 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 			scenes[i] = v.toScene(studioURL, now)
 		}
 
-		done := totalPages == 0 || (totalPages > 0 && page >= totalPages)
+		// An unreadable pagination block must not read as "last page": that
+		// turned one regex miss into a one-page catalogue, which --full's
+		// authoritative Save then treats as the whole studio. With totalPages
+		// unknown the walk continues and ends on Paginate's own empty-page and
+		// repeat-page guards instead.
+		done := totalPages > 0 && page >= totalPages
 		return scraper.PageResult{Scenes: scenes, Total: total, Done: done}, nil
 	})
 }

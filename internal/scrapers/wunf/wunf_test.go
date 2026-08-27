@@ -89,8 +89,26 @@ const testListingHTML = `<html><body>
 </a>
 </body></html>`
 
+// A card whose href carries no numeric id is dropped from the results but must
+// still be counted: the raw card count is what the end-of-listing test reads,
+// and measuring the filtered slice turned one bad slug into a silent stop.
+func TestParseListingPageCountsCardsItCannotParse(t *testing.T) {
+	html := testListingHTML[:len(testListingHTML)-len("</body></html>")] +
+		`<a href="/scene/no-id-here" class="scene item light_background">
+    <div class="informations"><h3>Broken</h3></div>
+</a></body></html>`
+
+	scenes, found := parseListingPage([]byte(html), "https://www.wakeupnfuck.com")
+	if len(scenes) != 2 {
+		t.Errorf("got %d scenes, want 2", len(scenes))
+	}
+	if found != 3 {
+		t.Errorf("found = %d, want 3 — the unparseable card still occupied a slot", found)
+	}
+}
+
 func TestParseListingPage(t *testing.T) {
-	scenes := parseListingPage([]byte(testListingHTML), "https://www.wakeupnfuck.com")
+	scenes, _ := parseListingPage([]byte(testListingHTML), "https://www.wakeupnfuck.com")
 
 	if len(scenes) != 2 {
 		t.Fatalf("got %d scenes, want 2", len(scenes))

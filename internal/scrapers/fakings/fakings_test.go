@@ -251,6 +251,42 @@ func TestListScenes(t *testing.T) {
 	}
 }
 
+// A listing whose pagination block cannot be read must keep walking. Reading a
+// regex miss as "last page" truncated the catalogue to page 1, and --full's
+// authoritative Save would then delete everything behind it.
+func TestListScenesUnreadablePaginationKeepsWalking(t *testing.T) {
+	noPager := strings.Replace(gridHTML,
+		`<script>self.__next_f.push([1,"{\"selectedPage\":1,\"enableQueryFiltering\":false,\"enableParamFiltering\":true,\"total\":80,\"take\":40}"])</script>`,
+		"", 1)
+	if noPager == gridHTML {
+		t.Fatal("fixture changed: the pagination script was not removed")
+	}
+	page2 := strings.ReplaceAll(noPager, "49687", "59687")
+	page2 = strings.ReplaceAll(page2, "49688", "59688")
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.Contains(r.URL.Path, "/f/pag:2"):
+			_, _ = fmt.Fprint(w, page2)
+		case strings.Contains(r.URL.Path, "/f/pag:"):
+			_, _ = fmt.Fprint(w, `<html><body></body></html>`)
+		default:
+			_, _ = fmt.Fprint(w, noPager)
+		}
+	}))
+	defer ts.Close()
+
+	s := &Scraper{client: ts.Client()}
+	ch, err := s.ListScenes(context.Background(), ts.URL+"/videos", scraper.ListOpts{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	scenes := testutil.CollectScenes(t, ch)
+	if len(scenes) != 4 {
+		t.Fatalf("got %d scenes, want 4 — page 2 must still be walked", len(scenes))
+	}
+}
+
 func TestListScenesKnownIDs(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprint(w, gridHTML)
