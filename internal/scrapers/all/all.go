@@ -241,6 +241,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/oopsfamily"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/pantheon"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/paysite"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/paysitenext"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/peatv"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/pegasproductions"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/penthousegold"
