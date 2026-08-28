@@ -78,6 +78,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/crystaleizou"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/cumlouder"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/cumperfection"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/cutlersden"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/czechav"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/czechvr"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/d2pass"

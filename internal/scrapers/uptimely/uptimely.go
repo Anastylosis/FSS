@@ -25,6 +25,7 @@ var sites = []siteConfig{
 	{"honnaka", "honnaka.jp", "Honnaka"},
 	{"ideapocket", "ideapocket.com", "Idea Pocket"},
 	{"kawaii", "kawaiikawaii.jp", "Kawaii"},
+	{"kirakira", "kirakira-av.com", "Kira Kira"},
 	{"madonna", "madonna-av.com", "Madonna"},
 	{"moodyz", "moodyz.com", "MOODYZ"},
 	{"oppai", "oppai-av.com", "Oppai"},

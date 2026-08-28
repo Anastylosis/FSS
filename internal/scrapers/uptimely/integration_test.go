@@ -76,3 +76,7 @@ func TestLiveTameikeGoro(t *testing.T) {
 func TestLiveTameikeGoroCatalogue(t *testing.T) {
 	testutil.RunLiveScrape(t, newTestScraper(findSite("tameikegoro")), "https://tameikegoro.jp/", 2)
 }
+
+func TestLiveKiraKira(t *testing.T) {
+	testutil.RunLiveScrape(t, newTestScraper(findSite("kirakira")), "https://kirakira-av.com/works/list/release", 2)
+}

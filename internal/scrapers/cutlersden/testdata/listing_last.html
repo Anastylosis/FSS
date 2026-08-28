@@ -1,0 +1,76 @@
+<!DOCTYPE html><html><body>
+<div class="pagination">
+	<span>page 43</span></div><!--//pagination-->
+<div class="items items-2-per-row">
+<div class="item">
+		<div class="item-thumb">
+					
+<!--[if IE]><![endif]-->
+
+<script>
+jQuery(function($) {
+	var figure = $(".b577_videothumb_1787875223").parent().parent().hover(
+		function(){
+			$(".b577_videothumb_1787875223 .video-progress").show();
+
+			$(".item-thumb video").each(function(){
+				$(this).remove();
+			});
+
+			setTimeout(
+				function(){
+					var video_code = '<video src="/videothumbs/cxd-braxtoncruz-xavierzane-scene.mp4"" preload="none" id="bVid577_videothumb_1787875223" width="100%" height="100%" loop muted playsinline></video>';
+					$(".b577_videothumb_1787875223").append(video_code);
+					$(".b577_videothumb_1787875223 video").fadeIn("fast", function(){
+						if( $("video#bVid577_videothumb_1787875223").length > 0 ){
+							$("video#bVid577_videothumb_1787875223").get(0).load();
+							$("video#bVid577_videothumb_1787875223").get(0).currentTime=0;
+							$("video#bVid577_videothumb_1787875223").get(0).pause();
+							$("video#bVid577_videothumb_1787875223").get(0).play();
+						}
+						$(".b577_videothumb_1787875223 .video-progress").hide();
+					});
+				}, 200
+			);
+		},
+		function(){
+			$(".b577_videothumb_1787875223 .video-progress").hide();
+			$("video#bVid577_videothumb_1787875223").remove();
+		}
+	);
+
+	$(".b577_videothumb_1787875223").on("touchstart", function (e) {
+		$(".b577_videothumb_1787875223 .video-progress").show();
+
+		// Stop All Videos
+		$(".item-thumb video").each(function(){
+			$(this).remove();
+		});
+		setTimeout(
+			function(){
+				var video_code = '<video src="/videothumbs/cxd-braxtoncruz-xavierzane-scene.mp4"" preload="none" id="bVid577_videothumb_1787875223" width="100%" height="100%" loop muted playsinline poster="content/CXD2026-BRAXTONCRUZ-XAVIERZANE/1.jpg"></video>';
+				$(".b577_videothumb_1787875223").append(video_code);
+				$(".b577_videothumb_1787875223 video").fadeIn("fast", function(){
+					$("video#bVid577_videothumb_1787875223").get(0).play();
+					$(".b577_videothumb_1787875223 .video-progress").hide();
+				});
+			}, 200
+		);
+	});
+});
+</script>
+
+<div class="b577_videothumb_1787875223">
+			<a href="https://cutlersden.com/trailers/-OLD-SCENE.html"></a>
+		<img src="content/CXD2026-BRAXTONCRUZ-XAVIERZANE/1.jpg" alt="" class="video_placeholder" />
+	<div class="video-progress"><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div></div>
+</div>			</div><!--//item-thumb-->
+	<div class="item-info ">
+		<h3><a href="https://cutlersden.com/trailers/-OLD-SCENE.html" title=" OLD SCENE"> OLD SCENE</a></h3>
+		<div class="models">		<a href="https://cutlersden.com/models/BraxtonCruz.html">Braxton Cruz</a>
+				, 			<a href="https://cutlersden.com/models/XavierZane.html">Xavier Zane</a>
+					</div>		<div class="dateCount">August 27, 2026 | <i class="fa fa-play"></i> 22:25 | <i class="fa fa-camera"></i> 66</div>
+	</div><!--//item-info-->
+</div><!--//item-->
+
+</div></body></html>

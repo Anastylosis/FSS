@@ -178,6 +178,11 @@ var sites = []siteConfig{
 	{"soapymassage", "soapymassage.com", "Soapy Massage", "", "", "", "", ""},
 	{"milkingtable", "milkingtable.com", "Milking Table", "", "", "", "", ""},
 	{"trickyspa", "trickyspa.com", "Tricky Spa", "", "", "", "", ""},
+	// Family Sex Massage has its own domain but is a *series* of this site
+	// ("siteType":"series", "siteNetwork":"fantasymassage"), not its own
+	// Algolia site: filtering on availableOnSite:familysexmassage returns
+	// nothing. Its scenes come back through fantasymassage.
+	{"fantasymassage", "fantasymassage.com", "Fantasy Massage", "", "", "", "", ""},
 
 	// Fisting Inferno segment — network hub (all content in the segment)
 	{"fistinginferno", "fistinginferno.com", "", "", "", "", "", ""},

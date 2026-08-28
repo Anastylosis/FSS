@@ -1,6 +1,6 @@
 # Covered Sites — All Domains
 
-1741 scrapers covering 1816 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
+1744 scrapers covering 1819 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
 
 Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scraper ID(s)** column lists every scraper that claims URLs on that domain — most domains have one entry, but table-driven networks (`adultprime`, `tmw`, `nextdoorstudios`, etc.) host many sub-studios on a single root domain. See [`scrapers.md`](scrapers.md) for what each ID covers.
 
@@ -382,6 +382,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | cumtrainer.com | `cumtrainer` |
 | currycreampie.com | `currycreampie` |
 | cutebutts.com | `cutebutts` |
+| cutlersden.com | `cutlersden` |
 | czechamateurs.com | `czechamateurs` |
 | czechar.com | `czechar` |
 | czechbangbus.com | `czechbangbus` |
@@ -555,6 +556,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | familyxxx.com | `familyxxx` |
 | fancentro.com | `fancentro` |
 | fantasyhd.com | `fantasyhd` |
+| fantasymassage.com | `fantasymassage` |
 | faphouse.com | `faphouse` |
 | feedherfuckher.com | `feedherfuckher` |
 | fellatiojapan.com | `fellatiojapan` |
@@ -851,6 +853,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | kinkyfamily.com | `kinkyfamily` |
 | kinkyrubberworld.com | `kinkyrubberworld` |
 | kinkyspa.com | `metro` |
+| kirakira-av.com | `kirakira` |
 | kirstenprice.puba.com | `pubakirstenprice` |
 | km-produce.com | `kmproduce` |
 | ko-tube.com | `kobeast`, `kobump`, `kodeep` (+10 more) |

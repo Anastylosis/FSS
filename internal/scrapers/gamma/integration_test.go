@@ -263,3 +263,8 @@ func TestLivePrideStudios(t *testing.T) {
 		})
 	}
 }
+
+func TestLiveFantasyMassage(t *testing.T) {
+	cfg := findSite("fantasymassage")
+	testutil.RunLiveScrape(t, newTestScraper(cfg), "https://www."+cfg.Domain+"/", 2)
+}
