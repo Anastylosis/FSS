@@ -1,6 +1,6 @@
 # Covered Sites — All Domains
 
-1734 scrapers covering 1809 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
+1739 scrapers covering 1814 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
 
 Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scraper ID(s)** column lists every scraper that claims URLs on that domain — most domains have one entry, but table-driven networks (`adultprime`, `tmw`, `nextdoorstudios`, etc.) host many sub-studios on a single root domain. See [`scrapers.md`](scrapers.md) for what each ID covers.
 
@@ -1757,6 +1757,10 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | www.hucows.com | `hucows` |
 | www.humiliationpov.com | `humiliationpov` |
 | www.hungarianhoneys.com | `hungarianhoneys` |
+| www.ladyboycrush.com | `ladyboycrush` |
+| www.ladyboypussy.com | `ladyboypussy` |
+| www.ladyboysfuckedbareback.com | `ladyboysfuckedbareback` |
+| www.ladyboyvice.com | `ladyboyvice` |
 | www.metalbondage.com | `metalbondage` |
 | www.mountainfuckfest.com | `mountainfuckfest` |
 | www.msnympho.com | `msnympho` |
@@ -1780,6 +1784,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | www.sybian1.com | `sybian1` |
 | www.tieable.com | `tieable` |
 | www.touchthatboy.com | `touchthatboy` |
+| www.tsraw.com | `tsraw` |
 | www.twinksinshorts.com | `twinksinshorts` |
 | www.urbanamateurs.net | `urbanamateurs` |
 | www.virtualxporn.com | `virtualxporn` |
