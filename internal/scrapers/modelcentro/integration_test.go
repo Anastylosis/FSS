@@ -80,3 +80,25 @@ func TestLiveGoddessdiane(t *testing.T) {
 	}
 	testutil.RunLiveScrape(t, s, url, 2)
 }
+
+func TestLiveNewSites(t *testing.T) {
+	for _, id := range []string{
+		"aussiefellatioqueens", "arabellesplayground", "samantalily", "jenysmith", "rebeccalordproductions",
+	} {
+		id := id
+		t.Run(id, func(t *testing.T) {
+			var domain string
+			for _, c := range sites {
+				if c.SiteID == id {
+					domain = c.Domain
+				}
+			}
+			url := "https://" + domain + "/videos"
+			s, err := scraper.ForURL(url)
+			if err != nil {
+				t.Fatalf("no scraper matched %s: %v", url, err)
+			}
+			testutil.RunLiveScrape(t, s, url, 2)
+		})
+	}
+}

@@ -57,6 +57,11 @@ var sites = []siteConfig{
 	{"thelionxxx", "thelionxxx.com", "The Lion XXX", nil, nil},
 	{"kinkyrubberworld", "kinkyrubberworld.com", "Kinky Rubber World", []string{"Latex Lara"}, nil},
 	{"naughtylada", "naughty-lada.com", "Naughty Lada", []string{"Naughty Lada"}, []string{"naughtylada.com"}},
+	{"aussiefellatioqueens", "aussiefellatioqueens.com", "Aussie Fellatio Queens", nil, nil},
+	{"arabellesplayground", "arabellesplayground.com", "Arabelle's Playground", []string{"Arabelle Raphael"}, nil},
+	{"samantalily", "samantalily.xxx", "Samanta Lily", []string{"Samanta Lily"}, nil},
+	{"jenysmith", "jenysmith.net", "Jeny Smith", []string{"Jeny Smith"}, nil},
+	{"rebeccalordproductions", "rebeccalordproductions.com", "Rebecca Lord Productions", nil, nil},
 }
 
 // matchReFor accepts the site's own domain plus any alias that redirects to it.

@@ -1,6 +1,6 @@
 # Covered Sites — All Domains
 
-1729 scrapers covering 1804 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
+1734 scrapers covering 1809 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
 
 Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scraper ID(s)** column lists every scraper that claims URLs on that domain — most domains have one entry, but table-driven networks (`adultprime`, `tmw`, `nextdoorstudios`, etc.) host many sub-studios on a single root domain. See [`scrapers.md`](scrapers.md) for what each ID covers.
 
@@ -104,6 +104,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | any-pornstarplatinum-network-sister-site | `pornstarplatinum` |
 | apclips.com | `apclips` |
 | apovstory.com | `apovstory` |
+| arabellesplayground.com | `arabellesplayground` |
 | archangelvideo.com | `archangelvideo` |
 | arporn.com | `arporn` |
 | asaakira.puba.com | `pubaasaakira` |
@@ -125,6 +126,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | attackers.net | `attackers` |
 | auntjudys.com | `auntjudys` |
 | auntjudysxxx.com | `auntjudys` |
+| aussiefellatioqueens.com | `aussiefellatioqueens` |
 | autumn-jade.com | `autumn-jade` |
 | av-e-body.com | `ebody` |
 | avidolz.com | `avidolz` |
@@ -804,6 +806,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | jeffsmodels.com | `jeffsmodels` |
 | jelenajensen.com | `jelenajensen` |
 | jenhexxx.puba.com | `pubajenhexxx` |
+| jenysmith.net | `jenysmith` |
 | jerk-buddies.com | `jerkbuddies` |
 | jerkoffinstructions.com | `jerkoffinstructions` |
 | jezebellebond.puba.com | `pubajezebellebond` |
@@ -1278,6 +1281,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | realsensual.com | `realsensual` |
 | realtgirls.com | `realtgirls` |
 | realvr.com | `realvr` |
+| rebeccalordproductions.com | `rebeccalordproductions` |
 | redhotstraightboys.com | `redhotstraightboys` |
 | redneckjohn.com | `redneckjohn` |
 | reflectivedesire.com | `reflectivedesire` |
@@ -1305,6 +1309,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | rylskyart.com | `rylskyart` |
 | s1s1s1.com | `s1no1style` |
 | sallydangeloxxx.com | `citygirlz` |
+| samantalily.xxx | `samantalily` |
 | samanthafucks.com | `pubasamanthasaint` |
 | samanthasaint.puba.com | `pubasamanthasaint` |
 | samuelotoole.com | `samuelotoole` |
