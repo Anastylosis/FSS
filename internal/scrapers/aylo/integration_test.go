@@ -80,3 +80,13 @@ func TestLiveGayWire(t *testing.T) {
 		})
 	}
 }
+
+func TestLiveVOYR(t *testing.T) {
+	var cfg siteConfig
+	for _, c := range sites {
+		if c.SiteID == "voyr" {
+			cfg = c
+		}
+	}
+	testutil.RunLiveScrape(t, newTestScraper(cfg), "https://www.voyr.com/", 2)
+}

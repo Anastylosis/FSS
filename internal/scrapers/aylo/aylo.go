@@ -96,6 +96,9 @@ var sites = []siteConfig{
 	{"guyselector", "guyselector.com", "Guy Selector", nil, nil, "scene"},
 	{"sausageparty", "sausageparty.com", "Sausage Party", nil, nil, "scene"},
 	{"bigdaddy", "bigdaddy.com", "Bigdaddy", nil, nil, "scene"},
+
+	// VOYR — an Aylo instance of its own, unrelated to the networks above.
+	{"voyr", "voyr.com", "VOYR", nil, nil, "scene"},
 }
 
 type siteScraper struct {
