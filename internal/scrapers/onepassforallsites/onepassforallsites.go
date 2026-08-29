@@ -20,7 +20,6 @@ const (
 	hubBase      = "https://1passforallsites.com"
 	siteID       = "1passforallsites"
 	studioName   = "1 Pass for All Sites"
-	perPage      = 38
 	defaultDelay = 500 * time.Millisecond
 )
 
@@ -184,6 +183,13 @@ func (s *Scraper) resolveBase(studioURL string) string {
 func (s *Scraper) scrapePaginated(ctx context.Context, base string, opts scraper.ListOpts, out chan<- scraper.SceneResult, work chan<- listItem, delay time.Duration) {
 	totalSent := false
 	isHub := base == s.base
+	// The hub serves 38 cards a page and the child domains 18, so a hardcoded
+	// page size read every child's first page as its last and truncated the
+	// catalogue at 18 scenes. The first page's own count is the page size, and
+	// the pager's highest page number is the end of the walk; a page that
+	// yields nothing still stops the loop above.
+	pageSize, lastPage := 0, 0
+	prevPageKey := ""
 
 	for page := 1; ; page++ {
 		if ctx.Err() != nil {
@@ -220,8 +226,20 @@ func (s *Scraper) scrapePaginated(ctx context.Context, base string, opts scraper
 			return
 		}
 
+		// A listing that ignores the page parameter echoes the same cards
+		// forever. Comparing the whole page's ordered ids stops that without
+		// depending on a page count the markup may not carry.
+		key := pageKey(items)
+		if key == prevPageKey {
+			scraper.Debugf(1, "1passforallsites: page %d repeats the previous page, stopping", page)
+			return
+		}
+		prevPageKey = key
+
 		if !totalSent {
-			total := parseTotalPages(body) * perPage
+			pageSize = len(items)
+			lastPage = parseTotalPages(body)
+			total := lastPage * pageSize
 			if total > 0 {
 				scraper.Debugf(1, "1passforallsites: %d total scenes", total)
 				select {
@@ -249,7 +267,11 @@ func (s *Scraper) scrapePaginated(ctx context.Context, base string, opts scraper
 			}
 		}
 
-		if len(items) < perPage {
+		if lastPage > 0 && page >= lastPage {
+			return
+		}
+		// With no pager to read, a short page is the only end signal left.
+		if lastPage == 0 && pageSize > 0 && len(items) < pageSize {
 			return
 		}
 	}
@@ -331,6 +353,15 @@ func parseListingCards(body []byte, base string) []listItem {
 }
 
 var maxPageRe = regexp.MustCompile(`page=(\d+)`)
+
+// pageKey builds a stable signature from a page's ordered scene ids.
+func pageKey(items []listItem) string {
+	ids := make([]string, len(items))
+	for i, it := range items {
+		ids[i] = it.id
+	}
+	return strings.Join(ids, "\x00")
+}
 
 func parseTotalPages(body []byte) int {
 	maxPage := 0

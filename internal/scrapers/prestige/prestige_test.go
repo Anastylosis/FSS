@@ -566,8 +566,32 @@ func TestListResponseUnmarshalArray(t *testing.T) {
 	if len(lr.Data) != 2 {
 		t.Errorf("len(Data) = %d, want 2", len(lr.Data))
 	}
-	if lr.Total != 2 {
-		t.Errorf("Total = %d, want 2", lr.Total)
+	// A bare array carries no catalogue size. Recording len(arr) as the total
+	// made an exactly-full first page look like the whole catalogue.
+	if lr.TotalKnown {
+		t.Error("TotalKnown = true for a bare array")
+	}
+	if lr.Total != 0 {
+		t.Errorf("Total = %d, want 0", lr.Total)
+	}
+}
+
+// An object whose `data` is empty is a legitimate "no results", not a
+// malformed response.
+func TestListResponseUnmarshalEmptyObject(t *testing.T) {
+	var lr listResponse
+	if err := json.Unmarshal([]byte(`{"data":[],"total":0}`), &lr); err != nil {
+		t.Fatalf("empty result should decode, got %v", err)
+	}
+	if len(lr.Data) != 0 || !lr.TotalKnown {
+		t.Errorf("Data = %v, TotalKnown = %v", lr.Data, lr.TotalKnown)
+	}
+}
+
+func TestListResponseUnmarshalGarbage(t *testing.T) {
+	var lr listResponse
+	if err := json.Unmarshal([]byte(`"nope"`), &lr); err == nil {
+		t.Error("a non-object, non-array body should be an error")
 	}
 }
 
@@ -747,5 +771,50 @@ func TestListingKeysMatchesExtractSceneID(t *testing.T) {
 	got := listingKeys(item)
 	if len(got) == 0 || got[0] != want {
 		t.Errorf("listingKeys first key = %v, want %q (extractSceneID)", got, want)
+	}
+}
+
+// An exactly-full first page in the bare-array shape used to end the walk: the
+// total was set to the page length, so `page*perPage >= total` was true on
+// page 1 and --full's authoritative Save saw one page as the whole catalogue.
+func TestBareArrayExactlyFullFirstPageKeepsWalking(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.URL.Path == "/api/kanbi/sku":
+			page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+			var items []string
+			switch page {
+			case 1:
+				for i := 0; i < perPage; i++ {
+					items = append(items, fmt.Sprintf(`{"uuid":"p1-%d"}`, i))
+				}
+			case 2:
+				items = append(items, `{"uuid":"p2-0"}`)
+			}
+			// The bare-array shape: no envelope, no total.
+			_, _ = fmt.Fprintf(w, "[%s]", strings.Join(items, ","))
+		case strings.HasPrefix(r.URL.Path, "/api/kanbi/sku/"):
+			uuid := strings.TrimPrefix(r.URL.Path, "/api/kanbi/sku/")
+			_, _ = fmt.Fprint(w, productJSON(sampleProduct(uuid, "ABF-001", "タイトル")))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer ts.Close()
+
+	s := newTestScraper(ts)
+	ch, err := s.ListScenes(context.Background(), ts.URL+"/goods", scraper.ListOpts{Delay: time.Millisecond})
+	if err != nil {
+		t.Fatal(err)
+	}
+	scenes := 0
+	for r := range ch {
+		if r.Kind == scraper.KindScene {
+			scenes++
+		}
+	}
+	if scenes != perPage+1 {
+		t.Errorf("got %d scenes, want %d — page 2 must still be walked", scenes, perPage+1)
 	}
 }

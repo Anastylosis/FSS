@@ -69,22 +69,55 @@ func (s *Scraper) ListScenes(ctx context.Context, studioURL string, opts scraper
 type listResponse struct {
 	Data  []listProduct `json:"-"`
 	Total int           `json:"-"`
+	// TotalKnown reports whether Total came from the response. The bare-array
+	// shape carries no count, so termination falls back to a short page.
+	TotalKnown bool `json:"-"`
+}
+
+// firstToken returns the first non-whitespace byte of a JSON document, or 0.
+func firstToken(b []byte) byte {
+	for _, c := range b {
+		switch c {
+		case ' ', '\t', '\r', '\n':
+			continue
+		default:
+			return c
+		}
+	}
+	return 0
 }
 
 func (lr *listResponse) UnmarshalJSON(b []byte) error {
-	var obj struct {
-		Data  []listProduct `json:"data"`
-		Total int           `json:"total"`
-	}
-	if err := json.Unmarshal(b, &obj); err == nil && len(obj.Data) > 0 {
+	// The endpoint answers in two shapes: an object carrying `data` and
+	// `total`, or a bare array of products. Which one it is is decided by the
+	// first token, not by whether the decode produced anything — an object
+	// with an empty `data` is a legitimate "no results", and treating it as a
+	// failed object decode made it fall through to the array decode and come
+	// back as a format error.
+	switch firstToken(b) {
+	case '{':
+		var obj struct {
+			Data  []listProduct `json:"data"`
+			Total int           `json:"total"`
+		}
+		if err := json.Unmarshal(b, &obj); err != nil {
+			return fmt.Errorf("prestige: decoding listing object: %w", err)
+		}
 		lr.Data = obj.Data
 		lr.Total = obj.Total
+		lr.TotalKnown = true
 		return nil
-	}
-	var arr []listProduct
-	if err := json.Unmarshal(b, &arr); err == nil {
+	case '[':
+		var arr []listProduct
+		if err := json.Unmarshal(b, &arr); err != nil {
+			return fmt.Errorf("prestige: decoding listing array: %w", err)
+		}
 		lr.Data = arr
-		lr.Total = len(arr)
+		// A bare array carries no catalogue size. Recording len(arr) as the
+		// total made an exactly-full first page look like the whole
+		// catalogue, and the walk stopped there.
+		lr.Total = 0
+		lr.TotalKnown = false
 		return nil
 	}
 	return fmt.Errorf("prestige: unexpected listing response format")
@@ -333,7 +366,11 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 				}
 			}
 
-			if page*perPage >= lr.Total {
+			if lr.TotalKnown && lr.Total > 0 {
+				if page*perPage >= lr.Total {
+					return
+				}
+			} else if len(lr.Data) < perPage {
 				return
 			}
 		}

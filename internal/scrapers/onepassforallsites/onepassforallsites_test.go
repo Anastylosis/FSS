@@ -299,3 +299,76 @@ func TestKnownIDsStopsEarly(t *testing.T) {
 func TestScraperInterface(t *testing.T) {
 	var _ scraper.StudioScraper = New()
 }
+
+// The hub serves 38 cards a page and the child domains 18. A hardcoded page
+// size read every child's first page as its last, truncating 30 catalogues to
+// their first 18 scenes — which --full's authoritative Save then treats as the
+// whole studio.
+func TestChildDomainPageSizeIsNotHardcoded(t *testing.T) {
+	page1 := []int{1, 2, 3, 4, 5}
+	page2 := []int{6, 7}
+
+	var ts *httptest.Server
+	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/episode/"):
+			var id int
+			_, _ = fmt.Sscanf(r.URL.Path, "/episode/%d/", &id)
+			_, _ = fmt.Fprintf(w, detailTpl, id, id, id, id)
+		case r.URL.Query().Get("page") == "2":
+			_, _ = fmt.Fprint(w, buildListingPage(ts.URL, page2))
+		default:
+			_, _ = fmt.Fprint(w, buildListingPage(ts.URL, page1))
+		}
+	}))
+	defer ts.Close()
+
+	s := New()
+	s.base = ts.URL
+	ch, err := s.ListScenes(context.Background(), ts.URL+"/", scraper.ListOpts{Workers: 2})
+	if err != nil {
+		t.Fatalf("ListScenes: %v", err)
+	}
+	ids := map[string]bool{}
+	for res := range ch {
+		if res.Kind == scraper.KindScene {
+			ids[res.Scene.ID] = true
+		}
+	}
+	if len(ids) != len(page1)+len(page2) {
+		t.Errorf("got %d scenes, want %d — page 2 must still be walked", len(ids), len(page1)+len(page2))
+	}
+}
+
+// A listing that ignores ?page= must not loop forever.
+func TestRepeatedPageStopsTheWalk(t *testing.T) {
+	var ts *httptest.Server
+	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		if strings.HasPrefix(r.URL.Path, "/episode/") {
+			var id int
+			_, _ = fmt.Sscanf(r.URL.Path, "/episode/%d/", &id)
+			_, _ = fmt.Fprintf(w, detailTpl, id, id, id, id)
+			return
+		}
+		_, _ = fmt.Fprint(w, buildListingPage(ts.URL, []int{1, 2, 3}))
+	}))
+	defer ts.Close()
+
+	s := New()
+	s.base = ts.URL
+	ch, err := s.ListScenes(context.Background(), ts.URL+"/", scraper.ListOpts{Workers: 1})
+	if err != nil {
+		t.Fatalf("ListScenes: %v", err)
+	}
+	scenes := 0
+	for res := range ch {
+		if res.Kind == scraper.KindScene {
+			scenes++
+		}
+	}
+	if scenes != 3 {
+		t.Errorf("scenes = %d, want 3", scenes)
+	}
+}
