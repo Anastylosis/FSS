@@ -411,3 +411,65 @@ func TestCheckCMSErrorDetectsTheDBOutagePage(t *testing.T) {
 		}
 	}
 }
+
+// The separator between "of" and "video" is a plain space on some sites in
+// this template and an &nbsp; on others. Requiring the entity lost the
+// duration wherever a space appeared.
+func TestDurationAcceptsMixedSeparators(t *testing.T) {
+	cases := []struct {
+		info string
+		want int
+	}{
+		{`<div class="videoInfo clear"><p>868&nbsp;Photos, 57&nbsp;min&nbsp;of&nbsp;video</p></div>`, 57 * 60},
+		{`<div class="videoInfo clear"><p>48&nbsp;min&nbsp;of video</p></div>`, 48 * 60},
+		{`<div class="videoInfo clear"><p>30 min of video</p></div>`, 30 * 60},
+	}
+	for _, c := range cases {
+		var item sceneItem
+		enrichFromDetail([]byte(c.info), &item)
+		if item.duration != c.want {
+			t.Errorf("duration for %q = %d, want %d", c.info, item.duration, c.want)
+		}
+	}
+}
+
+// Dreamnet's build of the template titles the scene with an <h3> inside a
+// videoDetails block and prints a publication date the Adult Doorway sites
+// do not have.
+func TestDreamnetDetailShape(t *testing.T) {
+	body := []byte(`<div class="videoDetails clear">
+		<h3>OMG 14 Loads on the Face</h3>
+		<p>Cute petite blonde Charlie takes 14 facials!</p>
+	</div>
+	<div class="videoInfo clear">
+		<p><span>Date Added:</span> August 12, 2026</p>
+		<p>48&nbsp;min&nbsp;of video</p>
+	</div>`)
+	var item sceneItem
+	enrichFromDetail(body, &item)
+	if item.title != "OMG 14 Loads on the Face" {
+		t.Errorf("title = %q", item.title)
+	}
+	if item.description != "Cute petite blonde Charlie takes 14 facials!" {
+		t.Errorf("description = %q", item.description)
+	}
+	if item.date.Format("2006-01-02") != "2026-08-12" {
+		t.Errorf("date = %v", item.date)
+	}
+	if item.duration != 48*60 {
+		t.Errorf("duration = %d", item.duration)
+	}
+}
+
+func TestAbsURL(t *testing.T) {
+	cases := []struct{ base, in, want string }{
+		{"https://www.blowbanggirls.com", "/v3/content/x.jpg", "https://www.blowbanggirls.com/v3/content/x.jpg"},
+		{"https://blackpayback.com", "https://cdn77.blackpayback.com/x.jpg", "https://cdn77.blackpayback.com/x.jpg"},
+		{"https://x.com", "", ""},
+	}
+	for _, c := range cases {
+		if got := absURL(c.base, c.in); got != c.want {
+			t.Errorf("absURL(%q,%q) = %q, want %q", c.base, c.in, got, c.want)
+		}
+	}
+}

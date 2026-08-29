@@ -1,6 +1,6 @@
 # Covered Sites — All Domains
 
-1747 scrapers covering 1823 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
+1751 scrapers covering 1827 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
 
 Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scraper ID(s)** column lists every scraper that claims URLs on that domain — most domains have one entry, but table-driven networks (`adultprime`, `tmw`, `nextdoorstudios`, etc.) host many sub-studios on a single root domain. See [`scrapers.md`](scrapers.md) for what each ID covers.
 
@@ -157,6 +157,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | barebackstudios.com | `barebackstudios` |
 | barefootconfidential.com | `barefootconfidential` |
 | bathhousebait.com | `bathhousebait` |
+| bathroomcreepers.com | `bathroomcreepers` |
 | bbcpie.com | `bbcpie` |
 | bbcsurprise.com | `bbcsurprise` |
 | bbctitans.com | `bbctitans` |
@@ -216,6 +217,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | blackwhitefuckfest.com | `blackwhitefuckfest` |
 | blakemason.com | `blakemason` |
 | blondeslovedick.com | `porngutter` |
+| blowbanggirls.com | `blowbanggirls` |
 | blownbyrone.com | `blownbyrone` |
 | blowpass.com | `blowpass` |
 | blowvr.com | `blowvr` |
@@ -654,6 +656,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | girlgirlmania.com | `girlgirlmania` |
 | girlgirlxxx.com | `girlgirlxxx` |
 | girlgrind.com | `metro` |
+| girls.dreamnet.com | `girlsdreamnet` |
 | girlsabuseguys.com | `girlsabuseguys` |
 | girlsgonegyno.com | `girlsgonegyno` |
 | girlsgonehypnotized.com | `girlsgonehypnotized` |
@@ -1343,6 +1346,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | seehimsolo.com | `seehimsolo` |
 | seemomsuck.com | `seemomsuck` |
 | selfiefetish.com | `selfiefetish` |
+| selfiesuck.com | `selfiesuck` |
 | sellyourgf.com | `sellyourgf` |
 | sensual.love | `sensuallove` |
 | sexart.com | `sexart` |

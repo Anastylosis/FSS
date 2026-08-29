@@ -92,6 +92,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/dirtyflix"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/dorcelclub"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/doubleviewcasting"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/dreamnet"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/dreamtranny"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/dungeoncorp"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/eastboys"

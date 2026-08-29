@@ -56,6 +56,7 @@ import (
 
 	"github.com/Anastylosis/FSS/internal/httpx"
 	"github.com/Anastylosis/FSS/models"
+	"github.com/Anastylosis/FSS/parseutil"
 	"github.com/Anastylosis/FSS/scraper"
 )
 
@@ -110,9 +111,13 @@ func (s *Scraper) ListScenes(ctx context.Context, studioURL string, opts scraper
 // thumbRe pulls the lazy-loaded high-res thumb attribute `src0_1x`. The base
 // CDN path is `cdn77.{site}/tour/content/contentthumbs/{XX}/{YY}/{N}-1x.jpg`.
 var (
-	// Trailer URL accepts both `/tour/trailers/{slug}.html` (blackpayback) and
-	// `/trailers/{slug}.html` (babearchives — no /tour/ prefix).
-	cardRe       = regexp.MustCompile(`(?s)<div class="item-thumb"[^>]*>\s*<a\s+href="([^"]*(?:/tour)?/trailers/([a-z0-9][a-z0-9-]*)\.html)"[^>]*title="([^"]*)"`)
+	// Trailer URL accepts any tour prefix — `/tour/trailers/{slug}.html`
+	// (blackpayback), `/trailers/{slug}.html` (babearchives), `/v3/trailers/…`
+	// and `/creeper/trailers/…` (Dreamnet). The slug charset is deliberately
+	// case-insensitive: Dreamnet's slugs are mixed case
+	// ("OMG-14-Loads-on-the-Face"), and a lowercase-only pattern matched no
+	// card at all there.
+	cardRe       = regexp.MustCompile(`(?s)<div class="item-thumb"[^>]*>\s*<a\s+href="([^"]*/trailers/([A-Za-z0-9][A-Za-z0-9_-]*)\.html)"[^>]*title="([^"]*)"`)
 	thumbRe      = regexp.MustCompile(`src0_1x="([^"]+)"`)
 	pageLinkRe   = regexp.MustCompile(`(?:/tour)?/categories/movies/(\d+)/latest/?`)
 	categorySlug = regexp.MustCompile(`(?:/tour)?/categories/([^/]+)/\d+/latest/?`)
@@ -120,13 +125,26 @@ var (
 
 // Detail regexes.
 var (
-	detailH1Re      = regexp.MustCompile(`<h1[^>]*>([^<]+)</h1>`)
-	detailDescRe    = regexp.MustCompile(`(?s)<h1[^>]*>[^<]+</h1>\s*(?:<br\s*/?>\s*)?<p>(.+?)</p>`)
-	videoInfoRe     = regexp.MustCompile(`(?s)<div class="videoInfo[^"]*"[^>]*>(.*?)</div>`)
-	durationMinsRe  = regexp.MustCompile(`(\d+)\s*&nbsp;?\s*min\s*&nbsp;?\s*of\s*&nbsp;?\s*video`)
+	detailH1Re   = regexp.MustCompile(`<h1[^>]*>([^<]+)</h1>`)
+	detailDescRe = regexp.MustCompile(`(?s)<h1[^>]*>[^<]+</h1>\s*(?:<br\s*/?>\s*)?<p>(.+?)</p>`)
+	videoInfoRe  = regexp.MustCompile(`(?s)<div class="videoInfo[^"]*"[^>]*>(.*?)</div>`)
+	// The separators between the number and the words are any mix of spaces
+	// and &nbsp; entities — Adult Doorway prints "57&nbsp;min&nbsp;of&nbsp;video",
+	// Dreamnet prints "48&nbsp;min&nbsp;of video". Writing the entity as
+	// `&nbsp;?` made the entity itself mandatory (only its semicolon optional),
+	// so a plain space anywhere in the phrase lost the duration.
+	durationMinsRe  = regexp.MustCompile(`(\d+)(?:\s|&nbsp;)*min(?:\s|&nbsp;)*of(?:\s|&nbsp;)*video`)
 	durationColonRe = regexp.MustCompile(`(\d{1,2}:\d{2}(?::\d{2})?)`)
 	featuringRe     = regexp.MustCompile(`(?s)<div class="featuring[^"]*"[^>]*>(.*?)</div>`)
-	tagItemRe       = regexp.MustCompile(`<a[^>]+href="[^"]*(?:/tour)?/categories/[^"]+"[^>]*>([^<]+)</a>`)
+	// Dreamnet's build of the template puts the title and description in a
+	// `videoDetails` block under an <h3> instead of the bare <h1>/<p> the
+	// Adult Doorway sites use.
+	detailH3Re     = regexp.MustCompile(`(?s)<div class="videoDetails[^"]*"[^>]*>\s*<h3[^>]*>([^<]+)</h3>`)
+	detailH3DescRe = regexp.MustCompile(`(?s)<div class="videoDetails[^"]*"[^>]*>\s*<h3[^>]*>[^<]*</h3>\s*<p>(.+?)</p>`)
+	// The same build prints the publication date in the videoInfo strip. The
+	// Adult Doorway sites print none at all.
+	detailDateRe = regexp.MustCompile(`(?i)Date Added:\s*</span>\s*([A-Z][a-z]+ \d{1,2}, \d{4})`)
+	tagItemRe    = regexp.MustCompile(`<a[^>]+href="[^"]*(?:/tour)?/categories/[^"]+"[^>]*>([^<]+)</a>`)
 )
 
 type sceneItem struct {
@@ -135,6 +153,7 @@ type sceneItem struct {
 	url         string
 	thumb       string
 	duration    int // seconds (from detail "N min of video")
+	date        time.Time
 	description string
 	tags        []string
 }
@@ -197,9 +216,20 @@ func enrichFromDetail(body []byte, item *sceneItem) {
 		if t := html.UnescapeString(strings.TrimSpace(m[1])); t != "" {
 			item.title = t
 		}
+	} else if m := detailH3Re.FindStringSubmatch(s); m != nil {
+		if t := html.UnescapeString(strings.TrimSpace(m[1])); t != "" {
+			item.title = t
+		}
 	}
 	if m := detailDescRe.FindStringSubmatch(s); m != nil {
 		item.description = strings.TrimSpace(html.UnescapeString(stripTags(m[1])))
+	} else if m := detailH3DescRe.FindStringSubmatch(s); m != nil {
+		item.description = strings.TrimSpace(html.UnescapeString(stripTags(m[1])))
+	}
+	if m := detailDateRe.FindStringSubmatch(s); m != nil {
+		if d, err := parseutil.TryParseDate(m[1], "January 2, 2006"); err == nil {
+			item.date = d
+		}
 	}
 	if m := videoInfoRe.FindStringSubmatch(s); m != nil {
 		section := m[1]
@@ -222,6 +252,15 @@ func enrichFromDetail(body []byte, item *sceneItem) {
 			item.tags = append(item.tags, name)
 		}
 	}
+}
+
+// absURL resolves a root-relative thumbnail against the site base. Most sites
+// in this template print an absolute CDN URL; Dreamnet's prints "/v3/content/…".
+func absURL(siteBase, u string) string {
+	if strings.HasPrefix(u, "/") {
+		return siteBase + u
+	}
+	return u
 }
 
 // stripTags removes the minimum HTML noise (br, anchors) likely to sneak into
@@ -421,7 +460,8 @@ func (item sceneItem) toScene(siteID, siteBase, studio string, now time.Time) mo
 		StudioURL:   siteBase,
 		Title:       item.title,
 		URL:         url,
-		Thumbnail:   item.thumb,
+		Thumbnail:   absURL(siteBase, item.thumb),
+		Date:        item.date,
 		Duration:    item.duration,
 		Description: item.description,
 		Tags:        item.tags,
