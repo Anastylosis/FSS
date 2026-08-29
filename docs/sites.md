@@ -1,6 +1,6 @@
 # Covered Sites — All Domains
 
-1744 scrapers covering 1819 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
+1747 scrapers covering 1823 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
 
 Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scraper ID(s)** column lists every scraper that claims URLs on that domain — most domains have one entry, but table-driven networks (`adultprime`, `tmw`, `nextdoorstudios`, etc.) host many sub-studios on a single root domain. See [`scrapers.md`](scrapers.md) for what each ID covers.
 
@@ -826,6 +826,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | julesjordan.com | `julesjordan` |
 | juliaannlive.com | `juliaann` |
 | justdanica.com | `justdanica` |
+| justpov.com | `pawged` |
 | kanbi-av.com | `prestige` |
 | karinahart.com | `karinahart` |
 | karissa-diamond.com | `karissadiamond` |
@@ -1130,6 +1131,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | oldje-3some.com | `oldje3some` |
 | oldje.com | `oldje` |
 | oliviaaustin.puba.com | `pubaoliviaaustin` |
+| onlybbc.com | `onlybbc` |
 | onlytarts.com | `onlytarts` |
 | onlyteenblowjobs.com | `onlyteenblowjobs` |
 | oopsfamily.com | `oopsfamily` |
@@ -1154,6 +1156,8 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | partyhardcore.com | `tainster` |
 | passion-hd.com | `passionhd` |
 | passionpov.com | `passionpov` |
+| pawged.com | `pawged` |
+| pawgnextdoor.com | `pawgnextdoor` |
 | pea-tv.jp | `peatv` |
 | peccatriciproduzioni.com | `peccatriciproduzioni` |
 | peeonher.com | `peeonher` |

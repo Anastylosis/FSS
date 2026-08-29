@@ -249,6 +249,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/perfectgirlfriend"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/perfectgonzo"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/pervcity"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/pervypass"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/peterfever"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/pinko"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/pinupfiles"
