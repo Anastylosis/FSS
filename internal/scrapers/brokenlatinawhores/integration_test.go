@@ -1,6 +1,6 @@
 //go:build integration
 
-package pervypass
+package brokenlatinawhores
 
 import (
 	"testing"
@@ -10,10 +10,5 @@ import (
 )
 
 func TestLiveScrape(t *testing.T) {
-	for _, cfg := range sites {
-		cfg := cfg
-		t.Run(cfg.SiteID, func(t *testing.T) {
-			testutil.RunLiveScrape(t, elxupdateutil.New(cfg), "https://www."+cfg.Domain+"/", 3)
-		})
-	}
+	testutil.RunLiveScrape(t, elxupdateutil.New(site), "https://brokenlatinawhores.com/", 3)
 }

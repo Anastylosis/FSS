@@ -1,6 +1,6 @@
 # Covered Sites — All Domains
 
-1751 scrapers covering 1827 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
+1752 scrapers covering 1828 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
 
 Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scraper ID(s)** column lists every scraper that claims URLs on that domain — most domains have one entry, but table-driven networks (`adultprime`, `tmw`, `nextdoorstudios`, etc.) host many sub-studios on a single root domain. See [`scrapers.md`](scrapers.md) for what each ID covers.
 
@@ -264,6 +264,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | brettrossi.puba.com | `pubabrettrossi` |
 | britishbratz.com | `britishbratz` |
 | britneyamber.puba.com | `pubabritneyamber` |
+| brokenlatinawhores.com | `brokenlatinawhores` |
 | brokensluts.net | `brokensluts` |
 | brokestraightboys.com | `brokestraightboys` |
 | bromo.com | `bromo` |
