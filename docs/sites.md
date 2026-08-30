@@ -1,6 +1,6 @@
 # Covered Sites — All Domains
 
-1752 scrapers covering 1828 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
+1756 scrapers covering 1832 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
 
 Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scraper ID(s)** column lists every scraper that claims URLs on that domain — most domains have one entry, but table-driven networks (`adultprime`, `tmw`, `nextdoorstudios`, etc.) host many sub-studios on a single root domain. See [`scrapers.md`](scrapers.md) for what each ID covers.
 
@@ -246,6 +246,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | boysfirsttime.com | `realitydudes` |
 | boyzparty.com | `boyzparty` |
 | bracefaced.com | `bracefaced` |
+| brandnewamateurs.com | `brandnewamateurs` |
 | brandnewfaces.com | `brandnewfaces` |
 | brasilvr.com | `brasilvr` |
 | bratprincess.us | `bratprincess` |
@@ -594,6 +595,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | flexidolls.com | `flexidolls` |
 | flourishuniv.com | `flourishuniv` |
 | footfetishdaily.com | `footfetishdaily` |
+| footjobvirgin.com | `footjobvirgin` |
 | footsiebabes.com | `footsiebabes` |
 | forbiddenhookups.puba.com | `pubaforbiddenhookups` |
 | fostertapes.com | `fostertapes` |
@@ -799,6 +801,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | itsgonnahurt.com | `itsgonnahurt` |
 | itspov.com | `itspov` |
 | iwantclips.com | `iwantclips` |
+| jackoffgirls.com | `jackoffgirls` |
 | jacquieetmicheltv.net | `jacquieetmichel` |
 | jakecruise.com | `jakecruise` |
 | jalifstudio.com | `jalifstudio` |
@@ -1283,6 +1286,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | realbikinigirls.com | `realbikinigirls` |
 | realgangbangs.com | `realgangbangs` |
 | realgirlsgonebad.com | `realgirlsgonebad` |
+| realhotvr.com | `realhotvr` |
 | realitydudes.com | `realitydudes` |
 | realityjunkies.com | `realityjunkies` |
 | realitykings.com | `realitykings` |

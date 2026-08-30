@@ -116,8 +116,10 @@ var (
 	// and `/creeper/trailers/…` (Dreamnet). The slug charset is deliberately
 	// case-insensitive: Dreamnet's slugs are mixed case
 	// ("OMG-14-Loads-on-the-Face"), and a lowercase-only pattern matched no
-	// card at all there.
-	cardRe       = regexp.MustCompile(`(?s)<div class="item-thumb"[^>]*>\s*<a\s+href="([^"]*/trailers/([A-Za-z0-9][A-Za-z0-9_-]*)\.html)"[^>]*title="([^"]*)"`)
+	// card at all there. The href may carry trailing whitespace inside the
+	// attribute (Brand New Amateurs writes `…​.html "`), which is why the
+	// closing quote is reached through `\s*`.
+	cardRe       = regexp.MustCompile(`(?s)<div class="item-thumb"[^>]*>\s*<a\s+href="([^"]*/trailers/([A-Za-z0-9][A-Za-z0-9_-]*)\.html)\s*"[^>]*title="([^"]*)"`)
 	thumbRe      = regexp.MustCompile(`src0_1x="([^"]+)"`)
 	pageLinkRe   = regexp.MustCompile(`(?:/tour)?/categories/movies/(\d+)/latest/?`)
 	categorySlug = regexp.MustCompile(`(?:/tour)?/categories/([^/]+)/\d+/latest/?`)

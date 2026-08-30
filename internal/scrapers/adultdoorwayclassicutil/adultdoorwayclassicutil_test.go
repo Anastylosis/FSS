@@ -473,3 +473,36 @@ func TestAbsURL(t *testing.T) {
 		}
 	}
 }
+
+// Brand New Amateurs writes a trailing space inside the href attribute
+// (`…​.html "`). Requiring the closing quote right after `.html` matched no
+// card on that site at all.
+func TestCardHrefWithTrailingSpace(t *testing.T) {
+	body := []byte(`<div class="item-thumb">
+		<a href="https://brandnewamateurs.com/trailers/Amanda-Feisty.html " title="Amanda Feisty!!" class="409vids">
+			<img class="mainThumb thumbs stdimage" src0_1x="/content//contentthumbs/38/31/23831-1x.jpg" />
+		</a>
+	</div>`)
+	items := parseListing(body)
+	if len(items) != 1 {
+		t.Fatalf("got %d items, want 1", len(items))
+	}
+	if items[0].id != "Amanda-Feisty" {
+		t.Errorf("id = %q", items[0].id)
+	}
+	if items[0].url != "https://brandnewamateurs.com/trailers/Amanda-Feisty.html" {
+		t.Errorf("url = %q — the trailing space must not survive into the URL", items[0].url)
+	}
+	if items[0].title != "Amanda Feisty!!" {
+		t.Errorf("title = %q", items[0].title)
+	}
+}
+
+// Dreamnet's slugs are mixed case; a lowercase-only pattern matched no card.
+func TestCardSlugIsCaseInsensitive(t *testing.T) {
+	body := []byte(`<div class="item-thumb"><a href="https://www.blowbanggirls.com/v3/trailers/OMG-14-Loads.html" title="OMG 14 Loads"><img src0_1x="/v3/content/x-1x.jpg" /></a></div>`)
+	items := parseListing(body)
+	if len(items) != 1 || items[0].id != "OMG-14-Loads" {
+		t.Fatalf("items = %+v", items)
+	}
+}
