@@ -356,6 +356,86 @@ func TestListScenesPagination(t *testing.T) {
 	}
 }
 
+// The API decides the page size; the request does not ask for one. Assuming
+// 100 truncated any studio it served in smaller pages, and --full's
+// authoritative Save then deleted the tail.
+func TestListScenesSmallerPageSize(t *testing.T) {
+	page1 := make([]listItem, 40)
+	for i := range page1 {
+		page1[i] = listItem{ContentID: fmt.Sprintf("p1_%03d", i), DvdID: strPtr(fmt.Sprintf("P1-%03d", i))}
+	}
+	page2 := []listItem{{ContentID: "p2_000", DvdID: strPtr("P2-000")}}
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/videos/vod/movies/list2/json":
+			if r.URL.Query().Get("page") == "2" {
+				_, _ = fmt.Fprint(w, listJSON(page2, 41))
+			} else {
+				_, _ = fmt.Fprint(w, listJSON(page1, 41))
+			}
+		case strings.HasPrefix(r.URL.Path, "/videos/vod/movies/detail/"):
+			_, _ = fmt.Fprint(w, detailJSON(detailResponse{ContentID: "x", TitleJA: strPtr("Title")}))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer ts.Close()
+
+	s := New()
+	ch, err := s.ListScenes(context.Background(), ts.URL+"/videos/vod/movies/list/?id=1&type=category", scraper.ListOpts{Delay: time.Millisecond})
+	if err != nil {
+		t.Fatal(err)
+	}
+	scenes := 0
+	for r := range ch {
+		if r.Kind == scraper.KindScene {
+			scenes++
+		}
+	}
+	if scenes != 41 {
+		t.Errorf("got %d scenes, want 41 — page 2 must still be walked", scenes)
+	}
+}
+
+// With no total to compare against, a short page is the end of the listing.
+func TestListScenesNoTotalStopsOnShortPage(t *testing.T) {
+	page1 := make([]listItem, 10)
+	for i := range page1 {
+		page1[i] = listItem{ContentID: fmt.Sprintf("a_%03d", i), DvdID: strPtr(fmt.Sprintf("A-%03d", i))}
+	}
+	page2 := page1[:3]
+
+	pagesAsked := 0
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/videos/vod/movies/list2/json":
+			pagesAsked++
+			if r.URL.Query().Get("page") == "1" {
+				_, _ = fmt.Fprint(w, listJSON(page1, 0))
+			} else {
+				_, _ = fmt.Fprint(w, listJSON(page2, 0))
+			}
+		case strings.HasPrefix(r.URL.Path, "/videos/vod/movies/detail/"):
+			_, _ = fmt.Fprint(w, detailJSON(detailResponse{ContentID: "x", TitleJA: strPtr("Title")}))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer ts.Close()
+
+	s := New()
+	ch, err := s.ListScenes(context.Background(), ts.URL+"/videos/vod/movies/list/?id=1&type=category", scraper.ListOpts{Delay: time.Millisecond})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for range ch {
+	}
+	if pagesAsked != 2 {
+		t.Errorf("pages asked = %d, want 2", pagesAsked)
+	}
+}
+
 func TestListScenesDedup(t *testing.T) {
 	items := []listItem{
 		{ContentID: "abc001", DvdID: strPtr("ABC-001")},

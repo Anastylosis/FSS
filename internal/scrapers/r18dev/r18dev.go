@@ -139,6 +139,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 		defer close(work)
 
 		seen := map[string]bool{}
+		pageSize := 0
 
 		for page := 1; ; page++ {
 			if page > 1 {
@@ -165,6 +166,10 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 			}
 
 			if page == 1 {
+				// The API decides the page size; the request does not ask for
+				// one. Assuming 100 truncated any studio it served in smaller
+				// pages, and --full's authoritative Save then deleted the tail.
+				pageSize = len(lr.Results)
 				total := lr.TotalResults
 				if total <= 0 {
 					total = len(lr.Results)
@@ -198,7 +203,12 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 				}
 			}
 
-			if page*100 >= lr.TotalResults {
+			if lr.TotalResults > 0 {
+				if page*pageSize >= lr.TotalResults {
+					return
+				}
+			} else if len(lr.Results) < pageSize {
+				// With no count to compare against, a short page is the end.
 				return
 			}
 		}
