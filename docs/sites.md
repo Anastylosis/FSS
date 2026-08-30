@@ -1,6 +1,6 @@
 # Covered Sites — All Domains
 
-1756 scrapers covering 1832 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
+1758 scrapers covering 1834 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
 
 Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scraper ID(s)** column lists every scraper that claims URLs on that domain — most domains have one entry, but table-driven networks (`adultprime`, `tmw`, `nextdoorstudios`, etc.) host many sub-studios on a single root domain. See [`scrapers.md`](scrapers.md) for what each ID covers.
 
@@ -222,6 +222,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | blowpass.com | `blowpass` |
 | blowvr.com | `blowvr` |
 | bludreamsxxx.com | `bludreams` |
+| blusheroticavr.com | `blusheroticavr` |
 | bobstgirls.com | `bobstgirls` |
 | bobsvideos.empirestores.co | `bobsvideos` |
 | bolatino.com | `bolatino` |
@@ -527,6 +528,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | excogigirls.com | `excogigirls` |
 | exgfbox.com | `tmw-exgfbox` |
 | exotic4k.com | `exotic4k` |
+| experiencehelenaprice.com | `helenascockquest` |
 | exploitedcollegegirls.com | `exploitedcollegegirls` |
 | exploitedteens.com | `exploitedteens` |
 | exposedlatinas.com | `exposedlatinas` |
@@ -1833,7 +1835,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | yourwifemymeat.com | `yourwifemymeat` |
 | youthlust.club | `youthlust` |
 | yummygirl.com | `yummygirl` |
-| yummysofie.com | `sofiemarie` |
+| yummysofie.com (rewritten to sofiemariexxx.com) | `sofiemarie` |
 | yungdumbsluts.com | `yungdumbsluts` |
 | zerotolerancefilms.com | `zerotolerancefilms` |
 | zishy.com | `zishy` |

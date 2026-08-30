@@ -5,17 +5,14 @@ package sofiemarie
 import (
 	"testing"
 
+	"github.com/Anastylosis/FSS/internal/scrapers/latestupdateutil"
 	"github.com/Anastylosis/FSS/internal/scrapers/testutil"
 )
 
-func TestLiveScrapeAll(t *testing.T) {
-	testutil.RunLiveScrape(t, New(), "https://sofiemariexxx.com/", 5)
+func TestLiveScrape(t *testing.T) {
+	testutil.RunLiveScrape(t, latestupdateutil.New(site), "https://sofiemariexxx.com/categories/movies.html", 3)
 }
 
-func TestLiveScrapeModel(t *testing.T) {
-	testutil.RunLiveScrape(t, New(), "https://sofiemariexxx.com/models/sofie-marie.html", 5)
-}
-
-func TestLiveScrapeDVD(t *testing.T) {
-	testutil.RunLiveScrape(t, New(), "https://sofiemariexxx.com/dvds/Dirt-Road-Warriors.html", 3)
+func TestLiveModelPage(t *testing.T) {
+	testutil.RunLiveScrape(t, latestupdateutil.New(site), "https://sofiemariexxx.com/models/Sofie-Marie.html", 3)
 }
