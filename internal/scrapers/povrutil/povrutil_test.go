@@ -484,3 +484,56 @@ func TestEmptyPageDoesNotSetDoneItself(t *testing.T) {
 		}
 	}
 }
+
+// The export is enrichment only. Aborting when it fails threw away the whole
+// catalogue on all four sites for a file that costs four fields.
+func TestExportFailureStillWalksTheListing(t *testing.T) {
+	listingPage := `<div class="cards-list__item card "><div class="card__body"><a href="/scene-one-100" class="card__video video"><div class="video__body"></div></a><div class="card__footer"><div class="card__h">Scene One</div><div class="card__inf"><div class="card__links"><a href="/actor-a">Actor A</a></div><div class="card__date"><svg><use xlink:href="#date"></use></svg> 20 April, 2026</div></div></div></div>`
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/export/videos.json":
+			w.WriteHeader(http.StatusInternalServerError)
+		case r.URL.Query().Get("p") == "2":
+			_, _ = w.Write([]byte(`<html><body></body></html>`))
+		default:
+			_, _ = w.Write([]byte(listingPage))
+		}
+	}))
+	defer ts.Close()
+
+	s := &Scraper{
+		cfg: SiteConfig{
+			ID: "milfvr", Studio: "MilfVR", SiteBase: ts.URL,
+			MatchRe: regexp.MustCompile(`.*`),
+		},
+		Client: ts.Client(),
+	}
+
+	ch, err := s.ListScenes(context.Background(), ts.URL, scraper.ListOpts{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	scenes, errs := 0, 0
+	for r := range ch {
+		switch r.Kind {
+		case scraper.KindScene:
+			scenes++
+			if r.Scene.Title != "Scene One" {
+				t.Errorf("Title = %q", r.Scene.Title)
+			}
+			// The four export-only fields are absent, the rest is intact.
+			if r.Scene.Duration != 0 || len(r.Scene.Tags) != 0 {
+				t.Errorf("expected no export enrichment, got %+v", r.Scene)
+			}
+		case scraper.KindError:
+			errs++
+		}
+	}
+	if scenes != 1 {
+		t.Errorf("scenes = %d, want 1", scenes)
+	}
+	if errs != 1 {
+		t.Errorf("errors = %d, want 1 — the export failure must still be reported", errs)
+	}
+}

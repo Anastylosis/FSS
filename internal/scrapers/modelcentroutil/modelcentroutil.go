@@ -100,10 +100,18 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 				}
 			}
 
+			// The listing already carries the id, title, duration and date;
+			// only the description and tags come from the detail call. A
+			// detail that will not load costs those two fields, so the error
+			// is reported and the walk continues — aborting here dropped the
+			// rest of the catalogue on every site this template serves, and
+			// --full's authoritative Save would then delete it.
 			detail, err := s.FetchDetail(ctx, item.ID)
 			if err != nil {
-				send(ctx, out, scraper.Error(err))
-				return
+				if !send(ctx, out, scraper.Error(err)) {
+					return
+				}
+				detail = nil
 			}
 
 			scene := ToScene(s.cfg, item, detail, studioURL, now)

@@ -226,10 +226,7 @@ func (s *Scraper) runWithBase(ctx context.Context, base, studioURL string, opts 
 			total = estimateTotal(body, len(items))
 		}
 
-		scenes, err := s.fetchDetails(ctx, items, base, studioURL, opts, now)
-		if err != nil {
-			return scraper.PageResult{}, err
-		}
+		scenes := s.fetchDetails(ctx, items, base, studioURL, opts, now, out)
 
 		return scraper.PageResult{
 			Scenes: scenes,
@@ -253,7 +250,13 @@ func estimateTotal(body []byte, perPage int) int {
 	return maxPage * perPage
 }
 
-func (s *Scraper) fetchDetails(ctx context.Context, items []listItem, base, studioURL string, opts scraper.ListOpts, now time.Time) ([]models.Scene, error) {
+// fetchDetails enriches each card with its detail page. A detail that will not
+// load costs the description, tags and cast — the listing already carries the
+// id, title, thumbnail and date — so the failure is reported and the scene is
+// still emitted. Returning an error aborted the whole walk from inside the
+// Paginate callback, and --full's authoritative Save would then delete every
+// scene the run never reached.
+func (s *Scraper) fetchDetails(ctx context.Context, items []listItem, base, studioURL string, opts scraper.ListOpts, now time.Time, out chan<- scraper.SceneResult) []models.Scene {
 	workers := opts.Workers
 	if workers <= 0 {
 		workers = 4
@@ -297,15 +300,19 @@ func (s *Scraper) fetchDetails(ctx context.Context, items []listItem, base, stud
 
 	var scenes []models.Scene
 	for _, r := range results {
-		if r.err != nil {
-			return nil, fmt.Errorf("detail %s: %w", r.item.id, r.err)
-		}
 		if r.item.id == "" {
 			continue
 		}
+		if r.err != nil {
+			select {
+			case out <- scraper.Error(fmt.Errorf("detail %s: %w", r.item.id, r.err)):
+			case <-ctx.Done():
+				return scenes
+			}
+		}
 		scenes = append(scenes, toScene(r.item, r.detail, studioURL, now))
 	}
-	return scenes, nil
+	return scenes
 }
 
 func (s *Scraper) fetchDetail(ctx context.Context, base, videoID string) (detailData, error) {

@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -469,5 +470,56 @@ func TestGoldenContentLoadKeepsIDKeyedMap(t *testing.T) {
 	}
 	if !bytes.Contains(body, []byte(`"class":`)) {
 		t.Error("fixture lost the PHP class marker; unknown-field tolerance is no longer covered")
+	}
+}
+
+// A detail call that fails costs the description and tags, not the rest of the
+// catalogue. Aborting the walk there handed --full's authoritative Save a
+// truncated studio.
+func TestDetailFailureDoesNotAbortTheWalk(t *testing.T) {
+	const items = 3
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		if q.Get("filter[id][values][0]") != "" || strings.Contains(q.Get("transitParameters[preset]"), "scene") {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		var sb strings.Builder
+		sb.WriteString(`{"status":true,"response":{"collection":[`)
+		for i := 0; i < items; i++ {
+			if i > 0 {
+				sb.WriteString(",")
+			}
+			fmt.Fprintf(&sb, `{"id":%d,"title":"Scene %d","length":600}`, 100+i, i)
+		}
+		fmt.Fprintf(&sb, `],"meta":{"totalCount":%d}}}`, items)
+		_, _ = fmt.Fprint(w, sb.String())
+	}))
+	defer ts.Close()
+
+	s := New(SiteConfig{SiteID: "test", SiteBase: ts.URL, StudioName: "Test"})
+	s.Client = ts.Client()
+
+	ch, err := s.ListScenes(context.Background(), ts.URL+"/videos", scraper.ListOpts{})
+	if err != nil {
+		t.Fatalf("ListScenes: %v", err)
+	}
+	scenes, errs := 0, 0
+	for res := range ch {
+		switch res.Kind {
+		case scraper.KindScene:
+			scenes++
+			if res.Scene.Title == "" {
+				t.Error("a scene without its detail still keeps the listing fields")
+			}
+		case scraper.KindError:
+			errs++
+		}
+	}
+	if scenes != items {
+		t.Errorf("scenes = %d, want %d", scenes, items)
+	}
+	if errs != items {
+		t.Errorf("errors = %d, want %d", errs, items)
 	}
 }

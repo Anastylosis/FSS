@@ -410,3 +410,47 @@ func TestPagination(t *testing.T) {
 func TestScraperInterface(t *testing.T) {
 	var _ scraper.StudioScraper = (*Scraper)(nil)
 }
+
+// A detail page that will not load costs the description, tags and cast — the
+// listing already carries the rest. Returning an error from inside the
+// Paginate callback aborted the whole walk, and --full's authoritative Save
+// would then delete every scene the run never reached.
+func TestDetailFailureKeepsTheSceneAndContinues(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/en/publish/tag/all/all/all/1" {
+			_, _ = fmt.Fprint(w, testListingPage(testCard, false))
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer ts.Close()
+
+	s := &Scraper{client: ts.Client(), base: ts.URL}
+	out := make(chan scraper.SceneResult)
+	go func() {
+		defer close(out)
+		s.runWithBase(context.Background(), ts.URL, "https://vip4k.com", scraper.ListOpts{}, out)
+	}()
+
+	scenes, errs := 0, 0
+	for r := range out {
+		switch r.Kind {
+		case scraper.KindScene:
+			scenes++
+			if r.Scene.ID != "1350" || r.Scene.Title == "" {
+				t.Errorf("the listing fields must survive: %+v", r.Scene)
+			}
+			if r.Scene.Description != "" {
+				t.Errorf("Description = %q, want empty without a detail page", r.Scene.Description)
+			}
+		case scraper.KindError:
+			errs++
+		}
+	}
+	if scenes != 1 {
+		t.Errorf("scenes = %d, want 1", scenes)
+	}
+	if errs == 0 {
+		t.Error("the detail failure must still be reported")
+	}
+}

@@ -68,14 +68,19 @@ func extractID(rawURL string) string {
 func (s *Scraper) run(ctx context.Context, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
 	defer close(out)
 
+	// The export is enrichment only — tags, duration, thumbnail and a fallback
+	// cast, all keyed off the listing walk that follows. Aborting when it
+	// fails threw away the whole catalogue on all four sites for a file that
+	// costs four fields, so the failure is reported and the walk continues
+	// with an empty lookup.
 	scraper.Debugf(1, "%s: fetching video export", s.cfg.ID)
 	export, err := s.fetchExport(ctx)
 	if err != nil {
 		select {
 		case out <- scraper.Error(fmt.Errorf("export: %w", err)):
 		case <-ctx.Done():
+			return
 		}
-		return
 	}
 
 	lookup := make(map[string]exportVideo, len(export))
