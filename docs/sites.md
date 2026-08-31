@@ -1,6 +1,6 @@
 # Covered Sites — All Domains
 
-1760 scrapers covering 1836 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
+1763 scrapers covering 1839 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
 
 Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scraper ID(s)** column lists every scraper that claims URLs on that domain — most domains have one entry, but table-driven networks (`adultprime`, `tmw`, `nextdoorstudios`, etc.) host many sub-studios on a single root domain. See [`scrapers.md`](scrapers.md) for what each ID covers.
 
@@ -548,6 +548,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | fakehostel.com | `fakehub` |
 | fakehub.com | `fakehub` |
 | fakehuboriginals.com | `fakehub` |
+| fakeshooting.com | `fakeshooting` |
 | faketaxi.com | `fakehub` |
 | fakings.com | `fakings` |
 | falconstudios.com | `falconstudios` |
@@ -1009,6 +1010,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | misspussycat.com | `misspussycat` |
 | mistresst.net | `mistresst` |
 | mixedx.com | `mixedx` |
+| mmpnetwork.com | `mmpnetwork` |
 | mmvfilms.com | `gasm` |
 | modeltime.com | `modeltime` |
 | moderndaysins.com | `moderndaysins` |
@@ -1227,6 +1229,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | porntugal.com | `porntugal` |
 | pornworld.com | `pornworld` |
 | portagloryhole.com | `portagloryhole` |
+| povbitch.com | `povbitch` |
 | povd.com | `povd` |
 | povhotel.com | `povhotel` |
 | povlife.com | `povlife` |

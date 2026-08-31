@@ -226,6 +226,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/mindcontroltheatre"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/missax"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/mistresst"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/mmpnetwork"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/modelcentro"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/momcomesfirst"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/mousouzoku"
