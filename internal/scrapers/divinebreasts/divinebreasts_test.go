@@ -186,9 +186,10 @@ func TestListScenes(t *testing.T) {
 	}
 }
 
-// A page whose cards were all seen on an earlier page must not be read as the
-// end of the listing — the walk continues on the pager's own count.
-func TestRepeatedCardsDoNotEndTheWalk(t *testing.T) {
+// Cards repeat within a page and the tour re-serves its last page past the
+// end, so an all-repeats page is the clamp and ends the walk — without that
+// the pager's 51-page count would be walked out in full for nothing.
+func TestAllRepeatsPageEndsTheWalk(t *testing.T) {
 	var fetched int
 	var srv *httptest.Server
 	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -211,8 +212,8 @@ func TestRepeatedCardsDoNotEndTheWalk(t *testing.T) {
 	if scenes != 2 {
 		t.Errorf("scenes = %d, want 2 — the repeats must be deduplicated", scenes)
 	}
-	if fetched < 3 {
-		t.Errorf("fetched %d pages — a page of repeats must not stop the walk", fetched)
+	if fetched != 2 {
+		t.Errorf("fetched %d pages, want 2 — the second page was all repeats", fetched)
 	}
 }
 

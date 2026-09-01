@@ -152,11 +152,13 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 			seen[item.id] = true
 			scenes = append(scenes, s.toScene(item, studioURL, now))
 		}
+		// A page whose cards were all seen already is the listing clamping —
+		// the tour re-serves its last page past the end — so it ends the walk.
+		// Cards do not otherwise repeat wholesale between pages.
 		return scraper.PageResult{
-			Scenes:   scenes,
-			Total:    total,
-			Done:     lastPage > 0 && page >= lastPage,
-			Continue: len(scenes) == 0,
+			Scenes: scenes,
+			Total:  total,
+			Done:   len(scenes) == 0 || (lastPage > 0 && page >= lastPage),
 		}, nil
 	})
 }

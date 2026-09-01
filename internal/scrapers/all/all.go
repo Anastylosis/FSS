@@ -233,6 +233,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/momcomesfirst"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/mousouzoku"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/mplstudios"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/mundomais"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/mydirtyhobby"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/nadinejansen"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/nakednews"
