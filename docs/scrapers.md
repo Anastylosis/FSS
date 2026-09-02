@@ -937,3 +937,4 @@ Scrapers that share a platform use common utility packages to avoid duplication:
 ## Adding a new scraper
 
 See the [contributing guide](../CONTRIBUTING.md) for step-by-step instructions and reference implementations.
+| [XXX Job Interviews](https://xxxjobinterviews.com) | `xxxjobinterviews.com`, `xxxjobinterviews.com/videos/` | MechBunny | No | Standalone `xxxjobinterviews`. Listing at `/videos/` then `/videos/page/{N}`, six cards a page over ~39 pages; the card gives title, runtime, date and thumbnail and `/video/{slug}-{id}.html` adds the cast (`/pornstars/` links), a trailer mp4 and — **only in its meta tags** — the description and keyword list, from which the cast names are filtered back out. The date carries an English ordinal ("August 22nd, 2026"), stripped before parsing, and the CDN URLs are protocol-relative. Details are fetched a page at a time so scenes stream out rather than arriving in one burst. |
