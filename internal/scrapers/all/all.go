@@ -209,6 +209,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/lifeselector"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/littlecapricedreams"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/littlemutt"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/lostbetsgames"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/loveherfilms"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/lovinglyhandmade"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/loyalfans"
