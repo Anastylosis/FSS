@@ -322,3 +322,40 @@ func TestExtractMaxPageOptionForms(t *testing.T) {
 		})
 	}
 }
+
+// The cast link is the second anchor inside the vidname paragraph. A single
+// `(?s)…<br…<a…` pattern crossed the closing </p> and picked up the join
+// call-to-action further down the card instead.
+func TestPerformerDoesNotCrossTheParagraph(t *testing.T) {
+	block := `<!-- start_link -->
+<a href="refstat.php?lid=4242">x</a>
+<p class="vidname"><a href="#">A Scene Title</a></p>
+<p class="join"><br /><a href="/join">Watch Full Scene Instantly!</a></p>`
+
+	card := parseCard(block)
+	if card == nil {
+		t.Fatal("parseCard returned nil")
+	}
+	if card.Title != "A Scene Title" {
+		t.Errorf("Title = %q", card.Title)
+	}
+	if len(card.Performers) != 0 {
+		t.Errorf("Performers = %v — the join call-to-action is not a performer", card.Performers)
+	}
+}
+
+// The real shape: title anchor, <br>, then the cast anchor, all inside the one
+// paragraph.
+func TestPerformerInsideTheParagraph(t *testing.T) {
+	block := `<!-- start_link -->
+<a href="refstat.php?lid=4242">x</a>
+<p class="vidname"><a href="#">A Scene Title</a><br /><a href="/model/jane">Jane Doe</a></p>`
+
+	card := parseCard(block)
+	if card == nil {
+		t.Fatal("parseCard returned nil")
+	}
+	if len(card.Performers) != 1 || card.Performers[0] != "Jane Doe" {
+		t.Errorf("Performers = %v", card.Performers)
+	}
+}

@@ -126,8 +126,13 @@ var (
 
 	refstatRe = regexp.MustCompile(`refstat\.php\?lid=(\d+)`)
 
-	vidnameTitleRe     = regexp.MustCompile(`(?s)<p class="vidname"><a[^>]*>(.*?)</a>`)
-	vidnamePerformerRe = regexp.MustCompile(`(?s)<p class="vidname">.*?<br\s*/?>\s*<a[^>]*>(.*?)</a>`)
+	vidnameTitleRe = regexp.MustCompile(`(?s)<p class="vidname"><a[^>]*>(.*?)</a>`)
+	// The cast link is the second anchor inside the vidname paragraph. It is
+	// found in two steps rather than one pattern, because RE2 has no lookahead
+	// and a single `(?s)…<br…<a…` crossed the closing </p> and matched the
+	// join call-to-action further down the card ("Watch Full Scene Instantly!").
+	vidnameBlockRe     = regexp.MustCompile(`(?s)<p class="vidname">(.*?)</p>`)
+	vidnamePerformerRe = regexp.MustCompile(`(?s)<br\s*/?>\s*<a[^>]*>(.*?)</a>`)
 
 	h3PerformerRe = regexp.MustCompile(`(?s)<h3><a[^>]*>(.*?)</a></h3>`)
 	plainTitleRe  = regexp.MustCompile(`(?s)<div class="itemminfo">(?:.*?<h3>.*?</h3>)?.*?<p>([^<]+)</p>`)
@@ -186,10 +191,11 @@ func parseCard(block string) *CardData {
 		if name != "" {
 			card.Performers = []string{name}
 		}
-	} else if m := vidnamePerformerRe.FindStringSubmatch(block); m != nil {
-		name := cleanText(m[1])
-		if name != "" {
-			card.Performers = []string{name}
+	} else if b := vidnameBlockRe.FindStringSubmatch(block); b != nil {
+		if m := vidnamePerformerRe.FindStringSubmatch(b[1]); m != nil {
+			if name := cleanText(m[1]); name != "" {
+				card.Performers = []string{name}
+			}
 		}
 	}
 
