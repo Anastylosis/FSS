@@ -268,6 +268,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/pissinghd"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/pissplay"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/pjgirls"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/pkfstudios"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/playboyplus"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/pornbox"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/porncz"

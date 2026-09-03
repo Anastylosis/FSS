@@ -1,6 +1,6 @@
 # Covered Sites — All Domains
 
-1774 scrapers covering 1850 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
+1775 scrapers covering 1852 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
 
 Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scraper ID(s)** column lists every scraper that claims URLs on that domain — most domains have one entry, but table-driven networks (`adultprime`, `tmw`, `nextdoorstudios`, etc.) host many sub-studios on a single root domain. See [`scrapers.md`](scrapers.md) for what each ID covers.
 
@@ -1209,6 +1209,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | pissinginaction.com | `tainster` |
 | pissplay.com | `pissplay` |
 | pjgirls.com | `pjgirls` |
+| pkfstudios.com | `pkfstudios` |
 | plantsvscunts.com | `plantsvscunts` |
 | playboyplus.com | `playboyplus` |
 | playboytv.com | `playboytv` |
@@ -1803,6 +1804,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | www.mybangvan.com | `mybangvan` |
 | www.pacopacomama.com | `pacopacomama` |
 | www.pegasproductions.com | `pegasproductions` |
+| www.pkfstudios.com | `pkfstudios` |
 | www.pornonstage.com | `pornonstage` |
 | www.priyaraiofficial.com | `pubapriyarai` |
 | www.puba.com | `puba`, `puba1girl1camera`, `pubaabigailmac` (+70 more) |
