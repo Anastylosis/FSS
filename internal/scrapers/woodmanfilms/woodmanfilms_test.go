@@ -124,8 +124,8 @@ func TestParseListingPage(t *testing.T) {
 	if s1.series != "SEX THERAPY 2" {
 		t.Errorf("scene 0 series = %q", s1.series)
 	}
-	if s1.performer != "Storm" {
-		t.Errorf("scene 0 performer = %q", s1.performer)
+	if len(s1.performers) != 1 || s1.performers[0] != "Storm" {
+		t.Errorf("scene 0 performers = %v", s1.performers)
 	}
 	if s1.duration != 840 {
 		t.Errorf("scene 0 duration = %d, want 840", s1.duration)
@@ -138,8 +138,10 @@ func TestParseListingPage(t *testing.T) {
 	if s2.duration != 7800 {
 		t.Errorf("scene 1 duration = %d, want 7800", s2.duration)
 	}
-	if s2.performer != "Ivana Sugar, Lola Taylor" {
-		t.Errorf("scene 1 performer = %q", s2.performer)
+	// The Casting line names the whole cast on one line; storing it verbatim
+	// filed a two-hander as a single performer called "Ivana Sugar, Lola Taylor".
+	if len(s2.performers) != 2 || s2.performers[0] != "Ivana Sugar" || s2.performers[1] != "Lola Taylor" {
+		t.Errorf("scene 1 performers = %v", s2.performers)
 	}
 }
 
@@ -277,5 +279,30 @@ func TestRunPornstarKnownIDsFinishesThePage(t *testing.T) {
 	}
 	if pages != 1 {
 		t.Errorf("fetched %d pages, want 1 — the stop must skip the next request", pages)
+	}
+}
+
+func TestSplitCast(t *testing.T) {
+	cases := []struct {
+		in   string
+		want []string
+	}{
+		{"Storm", []string{"Storm"}},
+		{"Ivana Sugar, Lola Taylor", []string{"Ivana Sugar", "Lola Taylor"}},
+		{"  Jane  ,  jane ,  ", []string{"Jane"}},
+		{"", nil},
+	}
+	for _, c := range cases {
+		got := splitCast(c.in)
+		if len(got) != len(c.want) {
+			t.Errorf("splitCast(%q) = %v, want %v", c.in, got, c.want)
+			continue
+		}
+		for i := range c.want {
+			if got[i] != c.want[i] {
+				t.Errorf("splitCast(%q) = %v, want %v", c.in, got, c.want)
+				break
+			}
+		}
 	}
 }

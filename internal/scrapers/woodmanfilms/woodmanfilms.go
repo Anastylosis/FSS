@@ -318,8 +318,8 @@ func (s *Scraper) fetchDetail(ctx context.Context, ls listingScene, studioURL st
 
 	if len(det.performers) > 0 {
 		scene.Performers = det.performers
-	} else if ls.performer != "" {
-		scene.Performers = []string{ls.performer}
+	} else if len(ls.performers) > 0 {
+		scene.Performers = ls.performers
 	}
 
 	if det.duration > 0 {
@@ -342,13 +342,32 @@ func defaultHeaders() map[string]string {
 // ---- listing page parsing ----
 
 type listingScene struct {
-	id        string
-	url       string
-	title     string
-	performer string
-	series    string
-	thumb     string
-	duration  int
+	id  string
+	url string
+	// performers is the card's Casting line, which names the whole cast on one
+	// line separated by commas — storing it verbatim filed a two-hander as a
+	// single performer called "Jane Doe, John Smith".
+	performers []string
+	title      string
+	series     string
+	thumb      string
+	duration   int
+}
+
+// splitCast turns the card's Casting line into individual names. The site
+// writes the whole cast on one line, separated by commas.
+func splitCast(raw string) []string {
+	var names []string
+	seen := make(map[string]bool)
+	for _, part := range strings.Split(html.UnescapeString(raw), ",") {
+		name := titleCase(strings.TrimSpace(part))
+		if name == "" || seen[strings.ToLower(name)] {
+			continue
+		}
+		seen[strings.ToLower(name)] = true
+		names = append(names, name)
+	}
+	return names
 }
 
 var (
@@ -409,7 +428,7 @@ func parseListingPage(body []byte, base string) []listingScene {
 		}
 
 		if cm := castingRe.FindStringSubmatch(block); cm != nil {
-			ls.performer = titleCase(strings.TrimSpace(html.UnescapeString(cm[1])))
+			ls.performers = splitCast(cm[1])
 		}
 
 		scenes = append(scenes, ls)

@@ -61,17 +61,29 @@ func (s *Scraper) ListScenes(ctx context.Context, studioURL string, opts scraper
 var titlePerformersRe = regexp.MustCompile(`^(.+)\s+-\s+(.+?)\s+-\s+Family Therapy XXX$`)
 var titleSuffixRe = regexp.MustCompile(`\s+-\s+Family Therapy XXX$`)
 
+// partMarkerRe recognises the part/episode markers the site puts where the
+// cast normally goes. Reading one as a performer filed "Part 2" as a person.
+var partMarkerRe = regexp.MustCompile(`(?i)^(?:part|pt\.?|episode|ep\.?|vol\.?|chapter)\s*\d+$`)
+
 func parsePage(studioURL, pageURL string, body []byte, now time.Time) (models.Scene, bool, error) {
 	meta := wputil.ParseMeta(body, "")
 
 	var performers []string
 	if m := titlePerformersRe.FindStringSubmatch(meta.Title); m != nil {
-		meta.Title = strings.TrimSpace(m[1])
 		for _, p := range strings.Split(m[2], ",") {
 			p = strings.TrimSpace(p)
-			if p != "" {
+			// The middle segment is usually the cast, but the site also uses
+			// it for a part marker ("Title - Part 2 - Family Therapy XXX"),
+			// which is part of the title rather than a person.
+			if p != "" && !partMarkerRe.MatchString(p) {
 				performers = append(performers, p)
 			}
+		}
+		if len(performers) > 0 {
+			meta.Title = strings.TrimSpace(m[1])
+		} else {
+			// Nothing in that segment was a name, so it belongs to the title.
+			meta.Title = titleSuffixRe.ReplaceAllString(meta.Title, "")
 		}
 	} else {
 		meta.Title = titleSuffixRe.ReplaceAllString(meta.Title, "")

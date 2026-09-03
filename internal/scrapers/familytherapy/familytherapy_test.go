@@ -205,3 +205,47 @@ func TestListScenes(t *testing.T) {
 func fixedTime() time.Time {
 	return time.Date(2026, 4, 24, 12, 0, 0, 0, time.UTC)
 }
+
+// The middle segment of the title is usually the cast, but the site also uses
+// it for a part marker, which is part of the title rather than a person.
+func TestPartMarkerIsNotAPerformer(t *testing.T) {
+	cases := []struct {
+		title      string
+		wantTitle  string
+		wantPeople []string
+	}{
+		{"Stepmom's Lesson - Jane Doe, John Smith - Family Therapy XXX", "Stepmom's Lesson", []string{"Jane Doe", "John Smith"}},
+		{"Stepmom's Lesson - Part 2 - Family Therapy XXX", "Stepmom's Lesson - Part 2", nil},
+		{"Stepmom's Lesson - Pt. 3 - Family Therapy XXX", "Stepmom's Lesson - Pt. 3", nil},
+		{"Stepmom's Lesson - Family Therapy XXX", "Stepmom's Lesson", nil},
+	}
+	for _, c := range cases {
+		body := []byte(`<html><head><meta property="og:title" content="` + c.title + `"><meta name="post-id" content="1"></head><body></body></html>`)
+		sc, skip, err := parsePage("https://familytherapyxxx.com/", "https://familytherapyxxx.com/scene/x/", body, time.Now().UTC())
+		if err != nil {
+			t.Fatalf("parsePage(%q): %v", c.title, err)
+		}
+		if skip {
+			continue
+		}
+		if sc.Title != c.wantTitle {
+			t.Errorf("Title for %q = %q, want %q", c.title, sc.Title, c.wantTitle)
+		}
+		if len(sc.Performers) != len(c.wantPeople) {
+			t.Errorf("Performers for %q = %v, want %v", c.title, sc.Performers, c.wantPeople)
+		}
+	}
+}
+
+func TestPartMarkerRe(t *testing.T) {
+	for _, s := range []string{"Part 2", "part 10", "Pt. 3", "Episode 4", "Vol. 1", "Chapter 12"} {
+		if !partMarkerRe.MatchString(s) {
+			t.Errorf("%q should be a part marker", s)
+		}
+	}
+	for _, s := range []string{"Jane Doe", "Part Time Lover", "Partner 2 Partner", "Ep Jones"} {
+		if partMarkerRe.MatchString(s) {
+			t.Errorf("%q should not be a part marker", s)
+		}
+	}
+}
