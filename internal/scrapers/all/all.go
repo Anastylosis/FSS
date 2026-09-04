@@ -80,6 +80,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/collegeuniform"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/corbinfisher"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/cosplayground"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/cruelgirlfriend"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/crunchboy"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/crystaleizou"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/cumlouder"
