@@ -151,7 +151,7 @@ func TestParseDetail(t *testing.T) {
 		price:      8.99,
 	}
 
-	scene := parseDetail([]byte(detailHTML), entry)
+	scene := parseDetail([]byte(detailHTML), entry, "https://www.ladyfyre.com"+entry.url)
 
 	if scene.Title != "Test Scene" {
 		t.Errorf("title = %q", scene.Title)
@@ -437,5 +437,32 @@ func TestListScenesModelPageReportsUnparseablePage(t *testing.T) {
 	if errs == 0 {
 		t.Error("a model page with no parseable cards reported success with zero scenes; " +
 			"that silence is what let this mode ship broken")
+	}
+}
+
+// The listing links are site-relative; a scene stored with "/tour/updates/x.html"
+// as its URL resolves against nothing outside the scraper.
+func TestParseDetailStoresAnAbsoluteURL(t *testing.T) {
+	entry := listEntry{
+		slug:  "abc",
+		title: "A Scene",
+		url:   "/tour/updates/abc.html",
+	}
+	scene := parseDetail([]byte(`<html><body></body></html>`), entry, "https://www.ladyfyre.com"+entry.url)
+	if scene.URL != "https://www.ladyfyre.com/tour/updates/abc.html" {
+		t.Errorf("URL = %q, want the absolute form", scene.URL)
+	}
+}
+
+func TestResolveURL(t *testing.T) {
+	s := New()
+	cases := []struct{ in, want string }{
+		{"/tour/updates/a.html", "https://www.ladyfyre.com/tour/updates/a.html"},
+		{"https://www.ladyfyre.com/tour/updates/a.html", "https://www.ladyfyre.com/tour/updates/a.html"},
+	}
+	for _, c := range cases {
+		if got := s.resolveURL(c.in); got != c.want {
+			t.Errorf("resolveURL(%q) = %q, want %q", c.in, got, c.want)
+		}
 	}
 }

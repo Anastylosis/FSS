@@ -130,11 +130,18 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 				Title:       item.title,
 				Thumbnail:   item.thumbnail,
 				Description: item.description,
-				URL:         fmt.Sprintf("%s/videos?page=%d", tourBase, page),
+				URL:         fmt.Sprintf("%s/videos#inline%s", tourBase, item.id),
 				Studio:      "Pissing",
 				ScrapedAt:   now,
 			})
 		}
+		// The tour has no per-scene page: each card plays inline from an anchor
+		// on the listing, and /video/{id}, /videos/{id} and /scene/{id} all 404.
+		// The scene's own anchor is the closest stable address there is —
+		// `?page=N` is a real URL but the page a scene sits on shifts as the
+		// catalogue grows, so every stored URL silently starts naming a
+		// different scene.
+		//
 		// No catalogue total is exposed anywhere in the listing markup, and
 		// reporting the page size as the total made the progress line claim the
 		// scrape was finished after page one.

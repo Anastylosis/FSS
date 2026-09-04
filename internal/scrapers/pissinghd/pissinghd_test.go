@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -138,3 +139,50 @@ func TestKnownIDs(t *testing.T) {
 		t.Error("expected StoppedEarly")
 	}
 }
+
+// Scenes used to be stored with the listing page they happened to appear on
+// ("/videos?page=3"), so every scene on a page shared one URL and, as the
+// catalogue grew and cards shifted between pages, a stored URL started naming
+// a different scene. The tour publishes no per-scene page at all, so the card's
+// own inline anchor is the only stable address.
+func TestSceneURLsAreStableAndPerScene(t *testing.T) {
+	items := parseListingPage([]byte(twoCardListing))
+	if len(items) != 2 {
+		t.Fatalf("got %d items, want 2", len(items))
+	}
+
+	seen := map[string]bool{}
+	for _, item := range items {
+		u := fmt.Sprintf("%s/videos#inline%s", tourBase, item.id)
+		if seen[u] {
+			t.Errorf("two scenes share the URL %q", u)
+		}
+		seen[u] = true
+		if strings.Contains(u, "page=") {
+			t.Errorf("URL %q still embeds the listing page number", u)
+		}
+	}
+}
+
+const twoCardListing = `<html><body>
+<div class="col-md-4 col-xs-12 col-sm-6"><!-- Thumbs -->
+	<a class="fancybox thumbs" href="#inline30965" data-id="30965">
+		<img src="https://cdn.example.com/a.jpg" class="img-responsive thumb" />
+	</a>
+	<div class="col-md-12 tit-main">
+		<div class="tit-title one-liner"><div align="center">Scene A</div></div>
+		<div id="episodedesc30965"><p class="western">Description A.</p></div>
+	</div>
+	<!-- End Thumbs -->
+</div>
+<div class="col-md-4 col-xs-12 col-sm-6"><!-- Thumbs -->
+	<a class="fancybox thumbs" href="#inline30966" data-id="30966">
+		<img src="https://cdn.example.com/b.jpg" class="img-responsive thumb" />
+	</a>
+	<div class="col-md-12 tit-main">
+		<div class="tit-title one-liner"><div align="center">Scene B</div></div>
+		<div id="episodedesc30966"><p class="western">Description B.</p></div>
+	</div>
+	<!-- End Thumbs -->
+</div>
+</body></html>`

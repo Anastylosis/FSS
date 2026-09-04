@@ -405,17 +405,19 @@ func (s *Scraper) fetchDetail(ctx context.Context, entry listEntry) (models.Scen
 		return models.Scene{}, fmt.Errorf("detail %s: %w", entry.slug, err)
 	}
 
-	return parseDetail(body, entry), nil
+	// The listing links are site-relative. Storing them verbatim left every
+	// scene with a URL that resolves against nothing outside the scraper.
+	return parseDetail(body, entry, s.resolveURL(entry.url)), nil
 }
 
-func parseDetail(body []byte, entry listEntry) models.Scene {
+func parseDetail(body []byte, entry listEntry, sceneURL string) models.Scene {
 	now := time.Now().UTC()
 	scene := models.Scene{
 		ID:         entry.slug,
 		SiteID:     "ladyfyre",
 		StudioURL:  "https://www.ladyfyre.com",
 		Title:      entry.title,
-		URL:        entry.url,
+		URL:        sceneURL,
 		Thumbnail:  entry.thumbnail,
 		Performers: entry.performers,
 		Studio:     "Lady Fyre",

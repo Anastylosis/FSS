@@ -99,7 +99,8 @@ func TestDecodeHTMLEntities(t *testing.T) {
 
 func TestParseProductCards(t *testing.T) {
 	html := `
-<div data-id="101" data-title="Flexy Splits" data-price="9.99">
+<div class="o-cat-item e--video">
+  <button class="a-btn-buy add_to_cart" data-id="101" data-title="Flexy Splits" data-price="9.99"></button>
   <a href="https://legsemporium.com/product/flexy-splits" class="a-card">
     <img class="a-img" src="/uploads/thumb1.jpg" alt="Flexy Splits">
   </a>
@@ -108,7 +109,8 @@ func TestParseProductCards(t *testing.T) {
     <i class="icon-clap"></i> <span>56</span>
   </div>
 </div>
-<div data-id="102" data-title="High Kicks &amp; Splits" data-price="12.50">
+<div class="o-cat-item e--video">
+  <button class="a-btn-buy add_to_cart" data-id="102" data-title="High Kicks &amp; Splits" data-price="12.50"></button>
   <a href="https://legsemporium.com/product/high-kicks" class="a-card">
     <img class="a-img" src="/uploads/thumb2.jpg" alt="High Kicks">
   </a>
@@ -157,7 +159,8 @@ func TestParseProductCards(t *testing.T) {
 
 func TestParseProductCardsSalePrice(t *testing.T) {
 	html := `
-<div data-id="200" data-title="Sale Video" data-price="15.00">
+<div class="o-cat-item e--video">
+  <button class="a-btn-buy add_to_cart" data-id="200" data-title="Sale Video" data-price="15.00"></button>
   <a href="https://legsemporium.com/product/sale-video" class="a-card">
     <img class="a-img" src="/uploads/sale.jpg" alt="Sale">
   </a>
@@ -313,14 +316,16 @@ func TestListScenes(t *testing.T) {
 			Value string `json:"value"`
 		}{
 			{El: ".products-block", Value: `
-<div data-id="1" data-title="Video One" data-price="5.00">
+<div class="o-cat-item e--video">
+  <button class="a-btn-buy add_to_cart" data-id="1" data-title="Video One" data-price="5.00"></button>
   <a href="DETAIL_URL/product/video-one">
     <img class="a-img" src="/thumb1.jpg">
   </a>
   <i class="icon-eye"></i> <span>100</span>
   <i class="icon-clap"></i> <span>10</span>
 </div>
-<div data-id="2" data-title="Video Two" data-price="8.00">
+<div class="o-cat-item e--video">
+  <button class="a-btn-buy add_to_cart" data-id="2" data-title="Video Two" data-price="8.00"></button>
   <a href="DETAIL_URL/product/video-two">
     <img class="a-img" src="/thumb2.jpg">
   </a>
@@ -404,14 +409,16 @@ func TestListScenesKnownIDs(t *testing.T) {
 			Value string `json:"value"`
 		}{
 			{El: ".products-block", Value: `
-<div data-id="1" data-title="New" data-price="5.00">
+<div class="o-cat-item e--video">
+  <button class="a-btn-buy add_to_cart" data-id="1" data-title="New" data-price="5.00"></button>
   <a href="DETAIL_URL/product/new">
     <img class="a-img" src="/t1.jpg">
   </a>
   <i class="icon-eye"></i> <span>10</span>
   <i class="icon-clap"></i> <span>1</span>
 </div>
-<div data-id="2" data-title="Known" data-price="5.00">
+<div class="o-cat-item e--video">
+  <button class="a-btn-buy add_to_cart" data-id="2" data-title="Known" data-price="5.00"></button>
   <a href="DETAIL_URL/product/known">
     <img class="a-img" src="/t2.jpg">
   </a>
@@ -533,6 +540,20 @@ func TestGoldenAjaxPage(t *testing.T) {
 	if entries[0].url == "" || entries[0].title == "" {
 		t.Errorf("first card = %+v, want a url and title", entries[0])
 	}
+
+	// Per-card parsing means every card in the real markup must carry its own
+	// fields; under the old index-zip a short list left the tail of the page
+	// with borrowed or missing values.
+	seen := map[string]bool{}
+	for i, e := range entries {
+		if e.id == "" || e.title == "" || e.url == "" || e.price == 0 || e.views == 0 {
+			t.Errorf("card %d is incomplete: %+v", i, e)
+		}
+		if seen[e.url] {
+			t.Errorf("card %d repeats url %q — cards are being read across boundaries", i, e.url)
+		}
+		seen[e.url] = true
+	}
 }
 
 // The ordering guard: reverse the blocks and productsHTML must still find the
@@ -568,5 +589,86 @@ func TestGoldenAjaxPageCarriesNoToken(t *testing.T) {
 	}
 	if !bytes.Contains(body, []byte(`\/`)) {
 		t.Error(`fixture lost the escaped forward slashes (\/) — it looks re-encoded`)
+	}
+}
+
+// The listing used to be parsed by sweeping each field's regex over the whole
+// page and zipping the seven result lists by index. A card that omits a field —
+// here the first card has no view/clap counters and no sale price — shortened
+// those lists and shifted every later card's stats and price onto the wrong
+// product, with nothing about the result looking wrong.
+func TestParseProductCardsWithMissingFieldsStayAligned(t *testing.T) {
+	html := `
+<div class="o-cat-item e--video">
+  <a href="https://legsemporium.com/product/no-stats" class="o-cat-video">x</a>
+  <button class="a-btn-buy add_to_cart" data-id="301" data-title="No Stats" data-price="5.00"></button>
+</div>
+<div class="o-cat-item e--video">
+  <a href="https://legsemporium.com/product/full-card" class="o-cat-video">x</a>
+  <div class="stats">
+    <i class="icon-eye"></i> <span>900</span>
+    <i class="icon-clap"></i> <span>42</span>
+  </div>
+  <div class="price"><u>$20.00</u> <span class="u-cl-red">$12.00</span></div>
+  <button class="a-btn-buy add_to_cart" data-id="302" data-title="Full Card" data-price="20.00"></button>
+</div>`
+
+	entries := parseProductCards(html, defaultBaseURL)
+	if len(entries) != 2 {
+		t.Fatalf("got %d entries, want 2", len(entries))
+	}
+
+	first := entries[0]
+	if first.id != "301" || first.url != "https://legsemporium.com/product/no-stats" {
+		t.Errorf("first card = %+v", first)
+	}
+	if first.views != 0 || first.likes != 0 || first.salePrice != 0 {
+		t.Errorf("first card borrowed its neighbour's stats: views=%d likes=%d sale=%v",
+			first.views, first.likes, first.salePrice)
+	}
+
+	second := entries[1]
+	if second.id != "302" || second.url != "https://legsemporium.com/product/full-card" {
+		t.Errorf("second card = %+v", second)
+	}
+	if second.views != 900 || second.likes != 42 || second.salePrice != 12.0 {
+		t.Errorf("second card lost its own stats: views=%d likes=%d sale=%v",
+			second.views, second.likes, second.salePrice)
+	}
+}
+
+// The real listing markup nests two product links per card and puts data-id on
+// the buy button rather than the wrapper, so the split has to key on the card
+// wrapper itself.
+func TestSplitCardsOnLiveMarkupShape(t *testing.T) {
+	html := `<div class="products-block">
+  <div class="u-wd50p">
+    <div class="o-cat-item e--video u-mv4 js-cat-video ">
+      <a class="u-cl-white" href="https://legsemporium.com/product/a">A</a>
+      <button class="a-btn-buy add_to_cart" data-id="1" data-title="A" data-price="4.99"></button>
+      <a href="https://legsemporium.com/product/a" class="o-cat-video e--shot"></a>
+    </div>
+  </div>
+  <div class="u-wd50p">
+    <div class="o-cat-item e--video u-mv4 js-cat-video ">
+      <a class="u-cl-white" href="https://legsemporium.com/product/b">B</a>
+      <button class="a-btn-buy add_to_cart" data-id="2" data-title="B" data-price="4.99"></button>
+      <a href="https://legsemporium.com/product/b" class="o-cat-video e--shot"></a>
+    </div>
+  </div>
+</div>`
+
+	if got := len(splitCards(html)); got != 2 {
+		t.Fatalf("splitCards returned %d blocks, want 2", got)
+	}
+	entries := parseProductCards(html, defaultBaseURL)
+	if len(entries) != 2 {
+		t.Fatalf("got %d entries, want 2", len(entries))
+	}
+	if entries[0].url != "https://legsemporium.com/product/a" {
+		t.Errorf("entry 0 url = %q", entries[0].url)
+	}
+	if entries[1].url != "https://legsemporium.com/product/b" {
+		t.Errorf("entry 1 url = %q", entries[1].url)
 	}
 }

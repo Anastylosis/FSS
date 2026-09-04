@@ -85,6 +85,7 @@ var (
 	tagRe        = regexp.MustCompile(`<a\s+href="https?://[^"]*legsemporium\.com/product-tag/[^"]*"\s+class="a-tag[^"]*">([^<]+)</a>`)
 	breadcrumbRe = regexp.MustCompile(`<a[^>]+class="o-breadcrumbs-link"[^>]*>([^<]+)</a>`)
 	posterRe     = regexp.MustCompile(`poster="([^"]+)"`)
+	cardStartRe  = regexp.MustCompile(`<div class="o-cat-item[ "]`)
 )
 
 func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
@@ -458,59 +459,69 @@ func paginateLeaf(ctx context.Context, sess *session, slug, tab string, opts scr
 	return all, nil
 }
 
+// parseProductCards splits the listing into one block per card and reads each
+// block on its own.
+//
+// It used to sweep seven regexes over the whole page and zip the results by
+// index. That is only correct while every card carries every field: a card
+// with no view counter, no sale price or no poster shortened one list and
+// shifted every later card's price, views and likes onto its neighbour — and
+// the scenes still looked complete, so nothing reported a problem.
 func parseProductCards(html, base string) []productEntry {
-	ids := dataIDRe.FindAllStringSubmatch(html, -1)
-	titles := dataTitleRe.FindAllStringSubmatch(html, -1)
-	prices := dataPriceRe.FindAllStringSubmatch(html, -1)
-	hrefs := hrefRe.FindAllStringSubmatch(html, -1)
-
-	n := len(ids)
-	if n == 0 {
-		return nil
-	}
-
-	entries := make([]productEntry, n)
-	for i := range n {
-		entries[i].id = ids[i][1]
-		if i < len(titles) {
-			entries[i].title = decodeHTMLEntities(titles[i][1])
+	var entries []productEntry
+	for _, block := range splitCards(html) {
+		id := dataIDRe.FindStringSubmatch(block)
+		if id == nil {
+			continue
 		}
-		if i < len(prices) {
-			entries[i].price, _ = strconv.ParseFloat(prices[i][1], 64)
+		e := productEntry{id: id[1]}
+		if m := dataTitleRe.FindStringSubmatch(block); m != nil {
+			e.title = decodeHTMLEntities(m[1])
 		}
-		if i < len(hrefs) {
-			entries[i].url = hrefs[i][1]
+		if m := dataPriceRe.FindStringSubmatch(block); m != nil {
+			e.price, _ = strconv.ParseFloat(m[1], 64)
 		}
-	}
-
-	imgs := imgSrcRe.FindAllStringSubmatch(html, -1)
-	viewsList := viewsRe.FindAllStringSubmatch(html, -1)
-	likesList := likesRe.FindAllStringSubmatch(html, -1)
-
-	for i := range entries {
-		if i < len(imgs) {
-			src := imgs[i][1]
+		if m := hrefRe.FindStringSubmatch(block); m != nil {
+			e.url = m[1]
+		}
+		if m := imgSrcRe.FindStringSubmatch(block); m != nil {
+			src := m[1]
 			if !strings.HasPrefix(src, "http") {
 				src = base + src
 			}
-			entries[i].thumbnail = src
+			e.thumbnail = src
 		}
-		if i < len(viewsList) {
-			entries[i].views = parseCount(viewsList[i][1])
+		if m := viewsRe.FindStringSubmatch(block); m != nil {
+			e.views = parseCount(m[1])
 		}
-		if i < len(likesList) {
-			entries[i].likes = parseCount(likesList[i][1])
+		if m := likesRe.FindStringSubmatch(block); m != nil {
+			e.likes = parseCount(m[1])
 		}
+		if m := salePriceRe.FindStringSubmatch(block); m != nil {
+			e.salePrice, _ = strconv.ParseFloat(strings.TrimSpace(m[1]), 64)
+		}
+		entries = append(entries, e)
 	}
-
-	salePrices := salePriceRe.FindAllStringSubmatch(html, -1)
-	for i := range entries {
-		if i < len(salePrices) {
-			entries[i].salePrice, _ = strconv.ParseFloat(strings.TrimSpace(salePrices[i][1]), 64)
-		}
-	}
-
 	return entries
+}
+
+// splitCards returns the markup of each product card. A card runs from its own
+// opening div to the start of the next one, so a field can only ever be read
+// from the card it sits in.
+func splitCards(html string) []string {
+	starts := cardStartRe.FindAllStringIndex(html, -1)
+	if len(starts) == 0 {
+		return nil
+	}
+	blocks := make([]string, len(starts))
+	for i, loc := range starts {
+		end := len(html)
+		if i+1 < len(starts) {
+			end = starts[i+1][0]
+		}
+		blocks[i] = html[loc[0]:end]
+	}
+	return blocks
 }
 
 func fetchDetail(ctx context.Context, sess *session, e productEntry, studioURL string) (models.Scene, error) {
