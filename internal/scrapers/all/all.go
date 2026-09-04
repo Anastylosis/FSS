@@ -52,6 +52,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/blusherotica"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/bondagecafe"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/bondagejunkies"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/borntobebound"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/boundhoneys"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/boyfun"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/boynapped"
