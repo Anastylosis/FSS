@@ -248,6 +248,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/newsensations"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/next11"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/nextcontents"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/nextdooramateur"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/nookies"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/nubiles"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/nudolls"

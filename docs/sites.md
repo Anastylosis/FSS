@@ -1,6 +1,6 @@
 # Covered Sites — All Domains
 
-1779 scrapers covering 1856 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
+1786 scrapers covering 1863 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
 
 Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scraper ID(s)** column lists every scraper that claims URLs on that domain — most domains have one entry, but table-driven networks (`adultprime`, `tmw`, `nextdoorstudios`, etc.) host many sub-studios on a single root domain. See [`scrapers.md`](scrapers.md) for what each ID covers.
 
@@ -72,6 +72,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | amateurallure.com | `amateurallure` |
 | amateurallureclassics.com | `amateurallureclassics` |
 | amateurcfnm.com | `amateurcfnm` |
+| amateurcreampies.com | `amateurcreampies` |
 | amateurgaypov.com | `amateurgaypov` |
 | amateurthroats.com | `amateurthroats` |
 | ambushmassage.com | `ambushmassage` |
@@ -365,7 +366,9 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | creamher.com | `creamher` |
 | creampie-angels.com | `tmw-creampie-angels` |
 | creampiecuties.com | `creampiecuties` |
+| creampieebony.com | `creampieebony` |
 | creampieforgranny.com | `creampieforgranny` |
+| creampiesquad.com | `creampiesquad` |
 | creampiethais.com | `creampiethais` |
 | creampiled.com | `creampiled` |
 | creativeporn.com | `creativeporn` |
@@ -670,6 +673,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | girlgrind.com | `metro` |
 | girls.dreamnet.com | `girlsdreamnet` |
 | girlsabuseguys.com | `girlsabuseguys` |
+| girlsclimaxing.com | `girlsclimaxing` |
 | girlsgonegyno.com | `girlsgonegyno` |
 | girlsgonehypnotized.com | `girlsgonehypnotized` |
 | girlskissxxx.com | `girlskissxxx` |
@@ -776,6 +780,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | hotpantyfun.com | `hotpantyfun` |
 | hotsexyplumpers.com | `hotsexyplumpers` |
 | hotwifexxx.com | `hotwifexxx` |
+| hotwivesandgirlfriends.com | `hotwivesandgirlfriends` |
 | househumpers.com | `househumpers` |
 | houseofyre.com | `houseofyre` |
 | housewifekelly.com | `housewifekelly` |
@@ -1108,6 +1113,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | new.allover30.com | `allover30` |
 | newsensations.com | `newsensations` |
 | next11.co.jp | `next11` |
+| nextdooramateur.com | `nextdooramateur` |
 | nextdoorbuddies.com | `nextdoorbuddies` |
 | nextdoorcasting.com | `nextdoorcasting` |
 | nextdoorebony.com | `nextdoorebony` |
@@ -1747,6 +1753,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | wearehairy.com | `wearehairy` |
 | webyoung.com | `webyoung` |
 | weliketosuck.com | `weliketosuck` |
+| westcoastgangbangs.com | `westcoastgangbangs` |
 | wetandpissy.com | `wetandpissy` |
 | wetandpuffy.com | `wetandpuffy` |
 | wetvr.com | `wetvr` |
