@@ -645,6 +645,7 @@
 | [Mr. LuckyVIP](https://www.mrluckyvip.com) | `mrluckyvip.com` | Spizoo CMS | No | Uses `spizooutil` |
 | [Pervert College](https://www.pervertcollege.com) | `pervertcollege.com` | Spizoo CMS | No | Uses `spizooutil` |
 | [Porn Goes Pro](https://www.porngoespro.com) | `porngoespro.com` | Spizoo CMS | No | Uses `spizooutil` |
+| [Raw Hole](https://www.rawhole.com) | `rawhole.com`, `rawhole.com/free-videos.html`, `rawhole.com/{category}/free-videos.html` | ZMS (Zoom Media) tour | No | Standalone `rawhole`. `/free-videos.html` shows 24 cards and **ignores its own `?page=` parameter** — every page returns the same 24 — so the catalogue comes from `/sitemap.xml` (648 scene pages), fetched a chunk at a time by a worker pool. The sitemap is not in date order, so `KnownIDs` cannot stop the walk early and is not consulted. Dates go through Django's AP-style month filter, which emits four months no Go layout parses (`Sept.` above all), so the month is resolved by name. The cast is rendered as one profile card per performer, each with its own `<h1>`, which is why the title is taken from the first `<h1>` specifically; scenes crediting nobody are normal. A `/{category}/free-videos.html` URL is a single-page filtered view, not page one of one. |
 | [RawAttack](https://www.rawattack.com) | `rawattack.com` | Spizoo CMS | No | Uses `spizooutil` |
 | [Real Sensual](https://www.realsensual.com) | `realsensual.com` | Spizoo CMS | No | Uses `spizooutil` |
 | [TagTeamPOV](https://www.tagteampov.com) | `tagteampov.com` | Spizoo CMS | No | Uses `spizooutil` |
