@@ -9,8 +9,11 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/Anastylosis/FSS/scraper"
 )
@@ -670,5 +673,99 @@ func TestSplitCardsOnLiveMarkupShape(t *testing.T) {
 	}
 	if entries[1].url != "https://legsemporium.com/product/b" {
 		t.Errorf("entry 1 url = %q", entries[1].url)
+	}
+}
+
+// The category tree cross-links: a child category links back to its parent, and
+// a subtree is often reachable two ways. discoverLeaves had no depth cap and no
+// visited set, so the first case recursed until the stack ran out and the
+// second refetched whole subtrees.
+func TestDiscoverLeavesTerminatesOnACategoryCycle(t *testing.T) {
+	var mu sync.Mutex
+	hits := map[string]int{}
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		hits[r.URL.Path]++
+		mu.Unlock()
+
+		// Sub-category links are matched by their canonical host; only the
+		// slug is used to build the next request, which goes to sess.base.
+		const site = "https://legsemporium.com"
+		switch r.URL.Path {
+		case "/product-category/parent":
+			// Model cards mark this as a branch, and it links to a child that
+			// links straight back here.
+			_, _ = fmt.Fprintf(w, `<div class="o-cat-item-models"></div>
+				<a href="%s/product-category/child">child</a>`, site)
+		case "/product-category/child":
+			_, _ = fmt.Fprintf(w, `<div class="o-cat-item-models"></div>
+				<a href="%s/product-category/parent">back to parent</a>
+				<a href="%s/product-category/leaf">leaf</a>`, site, site)
+		case "/product-category/leaf":
+			_, _ = fmt.Fprint(w, `<div class="products-block"></div>`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer ts.Close()
+
+	sess := &session{client: ts.Client(), base: ts.URL}
+	done := make(chan struct{})
+	var leaves []string
+	var err error
+	go func() {
+		defer close(done)
+		leaves, err = discoverLeaves(context.Background(), sess, "parent", ts.URL+"/product-category/parent",
+			map[string]bool{}, 0)
+	}()
+	select {
+	case <-done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("discoverLeaves did not terminate on a category cycle")
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(leaves, "leaf") {
+		t.Errorf("leaves = %v, want the leaf category", leaves)
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	for path, n := range hits {
+		if n > 1 {
+			t.Errorf("fetched %s %d times — the visited set is not holding", path, n)
+		}
+	}
+}
+
+// A tree deeper than the cap stops descending rather than walking forever, and
+// the category it stopped on is still returned as something to scrape.
+func TestDiscoverLeavesStopsAtTheDepthCap(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var n int
+		if _, err := fmt.Sscanf(r.URL.Path, "/product-category/level%d", &n); err != nil {
+			http.NotFound(w, r)
+			return
+		}
+		_, _ = fmt.Fprintf(w, `<div class="o-cat-item-models"></div>
+			<a href="https://legsemporium.com/product-category/level%d">deeper</a>`, n+1)
+	}))
+	defer ts.Close()
+
+	sess := &session{client: ts.Client(), base: ts.URL}
+	leaves, err := discoverLeaves(context.Background(), sess, "level0", ts.URL, map[string]bool{}, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(leaves) == 0 {
+		t.Fatal("an infinitely deep tree yielded nothing to scrape")
+	}
+	for _, l := range leaves {
+		var n int
+		if _, err := fmt.Sscanf(l, "level%d", &n); err == nil && n > maxCategoryDepth+1 {
+			t.Errorf("descended to %s, past the depth cap of %d", l, maxCategoryDepth)
+		}
 	}
 }

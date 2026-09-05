@@ -259,12 +259,31 @@ func parseListingPage(body []byte, _ string) []listingScene {
 	return scenes
 }
 
-var pageRe = regexp.MustCompile(`page=(\d+)`)
+// The pager renders its links as a bare query (`<a href="?page=3">`), while
+// tag and model links carry a path in front of theirs. Reading `page=` off the
+// whole page counted those too, which inflated the scene total reported to the
+// progress line — `len(scenes) * totalPages` — by however many such links a
+// listing happened to carry.
+//
+// pagerPageRe is preferred, but a page where it finds nothing falls back to the
+// loose form rather than concluding there is one page: an absolute-href pager
+// would otherwise end every walk after page one, and a silent single-page
+// scrape is far worse than an over-counted total.
+var (
+	pagerPageRe = regexp.MustCompile(`href="\?page=(\d+)"`)
+	pageRe      = regexp.MustCompile(`page=(\d+)`)
+)
+
+func pageNumbers(body []byte) [][][]byte {
+	if m := pagerPageRe.FindAllSubmatch(body, -1); len(m) > 0 {
+		return m
+	}
+	return pageRe.FindAllSubmatch(body, -1)
+}
 
 func extractMaxPage(body []byte) int {
-	matches := pageRe.FindAllSubmatch(body, -1)
 	maxPage := 1
-	for _, m := range matches {
+	for _, m := range pageNumbers(body) {
 		n, _ := strconv.Atoi(string(m[1]))
 		if n > maxPage {
 			maxPage = n
@@ -274,8 +293,7 @@ func extractMaxPage(body []byte) int {
 }
 
 func hasNextPage(body []byte, current int) bool {
-	matches := pageRe.FindAllSubmatch(body, -1)
-	for _, m := range matches {
+	for _, m := range pageNumbers(body) {
 		n, _ := strconv.Atoi(string(m[1]))
 		if n > current {
 			return true

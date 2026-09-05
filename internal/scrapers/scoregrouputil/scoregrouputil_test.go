@@ -273,3 +273,50 @@ func TestStripNATS(t *testing.T) {
 		}
 	}
 }
+
+// Tag buttons carry `?page=1` and model links can carry higher numbers; both
+// used to be counted as pager links, inflating the scene total the progress
+// line reports.
+func TestExtractMaxPageIgnoresNonPagerLinks(t *testing.T) {
+	body := []byte(`
+<a href="/updates-tag/Big-Tits/2/?page=1" class="btn btn-ol-2">Big Tits</a>
+<a href="/model/jane/?page=97" class="model">Jane</a>
+<nav><a href="?page=1">1</a><a href="?page=2">2</a><a href="?page=3">3</a></nav>`)
+
+	if got := extractMaxPage(body); got != 3 {
+		t.Errorf("extractMaxPage = %d, want 3 — the pager, not the tag and model links", got)
+	}
+	if hasNextPage(body, 3) {
+		t.Error("hasNextPage said there was a page after the last one")
+	}
+	if !hasNextPage(body, 2) {
+		t.Error("hasNextPage missed the real next page")
+	}
+}
+
+// A listing with no bare-query pager falls back to the loose match rather than
+// concluding there is a single page: ending every walk after page one would be
+// a silent, total data loss, and an over-counted progress total is not.
+func TestExtractMaxPageFallsBackWhenThePagerIsAbsolute(t *testing.T) {
+	body := []byte(`<nav>
+		<a href="/scenes/?page=1">1</a>
+		<a href="/scenes/?page=2">2</a>
+	</nav>`)
+
+	if got := extractMaxPage(body); got != 2 {
+		t.Errorf("extractMaxPage = %d, want 2 via the fallback", got)
+	}
+	if !hasNextPage(body, 1) {
+		t.Error("the fallback must still find the next page")
+	}
+}
+
+func TestExtractMaxPageOnASinglePageListing(t *testing.T) {
+	body := []byte(`<div class="listing"><a href="/scene/1">one</a></div>`)
+	if got := extractMaxPage(body); got != 1 {
+		t.Errorf("extractMaxPage = %d, want 1", got)
+	}
+	if hasNextPage(body, 1) {
+		t.Error("a listing with no pager has no next page")
+	}
+}

@@ -106,7 +106,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 	slug := extractSlug(studioURL)
 	scraper.Debugf(1, "slug: %q", slug)
 
-	leaves, err := discoverLeaves(ctx, sess, slug, studioURL)
+	leaves, err := discoverLeaves(ctx, sess, slug, studioURL, map[string]bool{}, 0)
 	if err != nil {
 		select {
 		case out <- scraper.Error(fmt.Errorf("discovering categories: %w", err)):
@@ -244,7 +244,24 @@ func extractSlug(u string) string {
 	return ""
 }
 
-func discoverLeaves(ctx context.Context, sess *session, slug, studioURL string) ([]string, error) {
+// maxCategoryDepth bounds the category walk. discoverFromPage has always had
+// this cap; discoverLeaves had neither it nor a visited set, so a category
+// linking back to an ancestor — which the site's own cross-links do — recursed
+// until the process ran out of stack, and a subtree reachable two ways was
+// fetched twice.
+const maxCategoryDepth = 5
+
+func discoverLeaves(ctx context.Context, sess *session, slug, studioURL string, visited map[string]bool, depth int) ([]string, error) {
+	if depth > maxCategoryDepth {
+		scraper.Debugf(1, "discover: %s is past the depth cap, treating as a leaf", slug)
+		return []string{slug}, nil
+	}
+	if slug != "" {
+		if visited[slug] {
+			return nil, nil
+		}
+		visited[slug] = true
+	}
 	if slug == "" {
 		scraper.Debugf(1, "discover: no slug, scanning root category page")
 		return discoverFromPage(ctx, sess, sess.base+"/product-category", 0)
@@ -269,7 +286,7 @@ func discoverLeaves(ctx context.Context, sess *session, slug, studioURL string) 
 			if subSlug == "" || subSlug == slug {
 				continue
 			}
-			sub, err := discoverLeaves(ctx, sess, subSlug, studioURL)
+			sub, err := discoverLeaves(ctx, sess, subSlug, studioURL, visited, depth+1)
 			if err != nil {
 				return nil, err
 			}
