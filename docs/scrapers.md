@@ -455,6 +455,7 @@
 | [MetArt](https://www.metart.com) | `metart.com` | MetArt Network | No | JSON API, table-driven `metart` package using `metartutil`, 13 sites |
 | [MetArt Network](https://www.metartnetwork.com) | `metartnetwork.com` | MetArt Network | No | MetArt Network aggregator, `metartutil` |
 | [SexArt](https://www.sexart.com) | `sexart.com` | MetArt Network | No | MetArt Network, `metartutil` |
+| [The Habib Show](https://thehabibshow.com) | `thehabibshow.com`, `thehabibshow.com/tour/`, `thehabibshow.com/tour/channels/{id}/{slug}/` | Custom PHP tour | No | Standalone `thehabibshow`. The tour is a feed of `pageN.html` files (65 pages, 10 articles each) and every field — title, description, poster, canonical URL, and the running time stated inside the copy — is already in the article, so there is no detail fetch. Channels paginate identically, so a channel URL only changes which directory is walked. No page count is published anywhere, so the end is found by asking for one page too many; that 404 stops the walk quietly rather than marking the run incomplete. The site publishes no date at all, on the feed or the detail page, so `Scene.Date` is left zero. |
 | [The Life Erotic](https://www.thelifeerotic.com) | `thelifeerotic.com` | MetArt Network | No | MetArt Network, `metartutil` |
 | [Errotica Archives](https://www.errotica-archives.com) | `errotica-archives.com` | MetArt Network | No | MetArt Network, `metartutil` |
 | [ALS Scan](https://www.alsscan.com) | `alsscan.com` | MetArt Network | No | MetArt Network, `metartutil` |
