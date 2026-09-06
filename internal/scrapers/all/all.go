@@ -254,6 +254,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/nextdooramateur"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/nookies"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/nubiles"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/nucosplay"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/nudolls"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/nvg"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/onepassforallsites"
