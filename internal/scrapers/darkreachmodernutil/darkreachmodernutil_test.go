@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 
@@ -263,3 +264,167 @@ func TestListScenes_knownIDsStopsEarly(t *testing.T) {
 
 // Ensure strings import is used even when fixtures don't.
 var _ = strings.Contains
+
+func TestLastPage(t *testing.T) {
+	body := []byte(`<ul class="pagination">
+		<li><a href="/t1/categories/movies_1_d.html">1</a></li>
+		<li><a href="/t1/categories/movies_2_d.html">2</a></li>
+		<li><a href="/t1/categories/movies_11_d.html">11</a></li>
+		<li><a href="/t1/categories/movies_30_d.html">30</a></li>
+	</ul>`)
+	if got := lastPage(body); got != 30 {
+		t.Errorf("lastPage = %d, want 30", got)
+	}
+	if got := lastPage([]byte(`<div>no pager</div>`)); got != 1 {
+		t.Errorf("lastPage = %d, want 1", got)
+	}
+}
+
+// The pager names the last page, so the walk can stop on purpose. Without that
+// the only end marker is an empty page, which costs a wasted request every run
+// and — on a site that 404s past the end — turns the normal end of the
+// catalogue into a reported error that marks the run incomplete.
+func TestRunStopsAtTheLastPageThePagerNames(t *testing.T) {
+	const pages = 3
+	var requested []int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var n int
+		if _, err := fmt.Sscanf(r.URL.Path, "/categories/movies_%d_d.html", &n); err != nil {
+			http.NotFound(w, r)
+			return
+		}
+		requested = append(requested, n)
+		if n > pages {
+			http.NotFound(w, r)
+			return
+		}
+		var b strings.Builder
+		for i := range 2 {
+			fmt.Fprintf(&b, `<div class="item item-update item-video"><div class="img-div">
+				<a href="/trailers/Scene%d%d.html" title="Scene %d%d">
+				<img id="set-target-%d%d" class="update_thumb thumbs stdimage" src0_1x="/content/x%d%d.jpg" /></a>
+				</div><div class="content-div"><h4>
+				<a href="/trailers/Scene%d%d.html" title="Scene %d%d">Scene %d%d</a></h4>
+				<div class="more-info-div"><i class="fa fa-calendar"></i> Jan 23, 2026</div></div></div>`,
+				n, i, n, i, n, i, n, i, n, i, n, i, n, i)
+		}
+		for p := 1; p <= pages; p++ {
+			fmt.Fprintf(&b, `<a href="/categories/movies_%d_d.html">%d</a>`, p, p)
+		}
+		_, _ = fmt.Fprint(w, b.String())
+	}))
+	defer srv.Close()
+
+	s := New(SiteConfig{
+		ID: "test", SiteBase: srv.URL, Studio: "Test",
+		MatchRe: regexp.MustCompile(`^` + regexp.QuoteMeta(srv.URL)),
+	})
+	s.client = srv.Client()
+
+	out := make(chan scraper.SceneResult, 100)
+	go s.run(context.Background(), srv.URL, scraper.ListOpts{}, out)
+	var n int
+	for r := range out {
+		switch r.Kind {
+		case scraper.KindScene:
+			n++
+		case scraper.KindError:
+			t.Errorf("error: %v", r.Err)
+		}
+	}
+	if n != pages*2 {
+		t.Errorf("got %d scenes, want %d", n, pages*2)
+	}
+	if slices.Contains(requested, pages+1) {
+		t.Errorf("requested page %d past the pager's last page: %v", pages+1, requested)
+	}
+}
+
+// A site whose pager is missing has no last page to read, so the walk must
+// still fall back to stopping on the first page with no cards rather than
+// stopping after page one.
+func TestRunFallsBackToAnEmptyPageWhenThereIsNoPager(t *testing.T) {
+	const pages = 2
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var n int
+		if _, err := fmt.Sscanf(r.URL.Path, "/categories/movies_%d_d.html", &n); err != nil {
+			http.NotFound(w, r)
+			return
+		}
+		if n > pages {
+			_, _ = fmt.Fprint(w, `<div class="empty"></div>`)
+			return
+		}
+		_, _ = fmt.Fprintf(w, `<div class="item item-update item-video"><div class="img-div">
+			<a href="/trailers/Scene%d.html" title="Scene %d">
+			<img id="set-target-%d" class="update_thumb thumbs stdimage" src0_1x="/content/x%d.jpg" /></a>
+			</div><div class="content-div"><h4>
+			<a href="/trailers/Scene%d.html" title="Scene %d">Scene %d</a></h4>
+			<div class="more-info-div"><i class="fa fa-calendar"></i> Jan 23, 2026</div></div></div>`,
+			n, n, n, n, n, n, n)
+	}))
+	defer srv.Close()
+
+	s := New(SiteConfig{
+		ID: "test", SiteBase: srv.URL, Studio: "Test",
+		MatchRe: regexp.MustCompile(`^` + regexp.QuoteMeta(srv.URL)),
+	})
+	s.client = srv.Client()
+
+	out := make(chan scraper.SceneResult, 100)
+	go s.run(context.Background(), srv.URL, scraper.ListOpts{}, out)
+	var n int
+	for r := range out {
+		if r.Kind == scraper.KindScene {
+			n++
+		}
+	}
+	if n != pages {
+		t.Errorf("got %d scenes, want %d — the empty-page fallback did not run", n, pages)
+	}
+}
+
+// A page past the end that 404s is the normal end of the catalogue on some of
+// these sites, not a failure: reporting it would mark every full run incomplete
+// and block the authoritative Save.
+func TestRunTreatsA404PastPageOneAsDone(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/categories/movies_1_d.html" {
+			http.NotFound(w, r)
+			return
+		}
+		// No pager at all, so the walk must probe page 2 and meet the 404.
+		_, _ = fmt.Fprint(w, `<div class="item item-update item-video"><div class="img-div">
+			<a href="/trailers/Only.html" title="Only">
+			<img id="set-target-1" class="update_thumb thumbs stdimage" src0_1x="/content/x.jpg" /></a>
+			</div><div class="content-div"><h4>
+			<a href="/trailers/Only.html" title="Only">Only</a></h4>
+			<div class="more-info-div"><i class="fa fa-calendar"></i> Jan 23, 2026</div></div></div>`)
+	}))
+	defer srv.Close()
+
+	s := New(SiteConfig{
+		ID: "test", SiteBase: srv.URL, Studio: "Test",
+		MatchRe: regexp.MustCompile(`^` + regexp.QuoteMeta(srv.URL)),
+	})
+	s.client = srv.Client()
+
+	out := make(chan scraper.SceneResult, 100)
+	go s.run(context.Background(), srv.URL, scraper.ListOpts{}, out)
+	var n int
+	var errs []error
+	for r := range out {
+		switch r.Kind {
+		case scraper.KindScene:
+			n++
+		case scraper.KindError:
+			errs = append(errs, r.Err)
+		}
+	}
+	if n != 1 {
+		t.Errorf("got %d scenes, want 1", n)
+	}
+	if len(errs) != 0 {
+		t.Errorf("the end of the catalogue was reported as an error: %v", errs)
+	}
+}

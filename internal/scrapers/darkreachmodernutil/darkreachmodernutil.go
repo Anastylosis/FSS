@@ -36,6 +36,7 @@ package darkreachmodernutil
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"html"
 	"net/http"
@@ -154,7 +155,10 @@ func parseListing(body []byte) []sceneItem {
 	return items
 }
 
-func estimateTotal(body []byte, perPage int) int {
+// lastPage reads the highest page the listing's own pager names. It is 1 for a
+// single-page listing, and 1 whenever the pager is missing — in which case the
+// walk falls back to stopping on an empty page.
+func lastPage(body []byte) int {
 	maxPage := 1
 	for _, m := range maxPageRe.FindAllSubmatch(body, -1) {
 		n, _ := strconv.Atoi(string(m[1]))
@@ -162,7 +166,11 @@ func estimateTotal(body []byte, perPage int) int {
 			maxPage = n
 		}
 	}
-	return maxPage * perPage
+	return maxPage
+}
+
+func estimateTotal(body []byte, perPage int) int {
+	return lastPage(body) * perPage
 }
 
 func (s *Scraper) listingURL(page int) string {
@@ -174,11 +182,34 @@ func (s *Scraper) run(ctx context.Context, _ string, opts scraper.ListOpts, out 
 	scraper.Debugf(1, "%s: scraping full catalog", s.cfg.ID)
 
 	now := time.Now().UTC()
+	// The pager on page 1 names the last page. Reading it is what lets the walk
+	// stop on purpose: without it the only end marker is a page with no cards,
+	// which costs one wasted request on every run and — on a site that answers
+	// a past-the-end page with 404 rather than an empty grid — turns the normal
+	// end of the catalogue into a reported error that marks the run incomplete.
+	last := 0
 	scraper.Paginate(ctx, opts, s.cfg.ID, out, func(ctx context.Context, page int) (scraper.PageResult, error) {
 		pageURL := s.listingURL(page)
 		body, err := s.fetchPage(ctx, pageURL)
 		if err != nil {
+			if page > 1 && isNotFound(err) {
+				scraper.Debugf(1, "%s: page %d past the end (404), stopping", s.cfg.ID, page)
+				return scraper.PageResult{Done: true}, nil
+			}
 			return scraper.PageResult{}, err
+		}
+
+		if page == 1 {
+			// A pager naming only page 1 is indistinguishable from no pager at
+			// all, and these sites do not all render one. Treating that as
+			// "one page" would end every walk after the first page — a silent,
+			// total loss — so it is treated as unknown and the empty-page stop
+			// takes over, at the cost of one extra request on a genuinely
+			// single-page listing.
+			if n := lastPage(body); n > 1 {
+				last = n
+			}
+			scraper.Debugf(1, "%s: listing pager names %d pages", s.cfg.ID, last)
 		}
 
 		items := parseListing(body)
@@ -186,12 +217,15 @@ func (s *Scraper) run(ctx context.Context, _ string, opts scraper.ListOpts, out 
 			return scraper.PageResult{}, nil
 		}
 
-		total := estimateTotal(body, len(items))
 		scenes := make([]models.Scene, len(items))
 		for i, item := range items {
 			scenes[i] = item.toScene(s.cfg.ID, s.cfg.SiteBase, s.cfg.Studio, now)
 		}
-		return scraper.PageResult{Scenes: scenes, Total: total}, nil
+		return scraper.PageResult{
+			Scenes: scenes,
+			Total:  estimateTotal(body, len(items)),
+			Done:   last > 0 && page >= last,
+		}, nil
 	})
 }
 
@@ -216,6 +250,11 @@ func (item sceneItem) toScene(siteID, siteBase, studio string, now time.Time) mo
 		Studio:    studio,
 		ScrapedAt: now,
 	}
+}
+
+func isNotFound(err error) bool {
+	var se *httpx.StatusError
+	return errors.As(err, &se) && se.StatusCode == http.StatusNotFound
 }
 
 func (s *Scraper) fetchPage(ctx context.Context, url string) ([]byte, error) {

@@ -171,6 +171,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/housewifekelly"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/humiliationpov"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/hungyoungbrit"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/hushpass"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/hussiepass"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/hustler"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/ifeelmyself"
