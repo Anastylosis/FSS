@@ -11,6 +11,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/abbywinters"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/ad4x"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/adultdoorway"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/adultempirestore"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/adultprime"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/africanbucks"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/alettaoceanlive"
