@@ -16,6 +16,11 @@ import (
 	"github.com/Anastylosis/FSS/scraper"
 )
 
+// maxPages bounds the listing walk. The largest studio on the site is a few
+// hundred pages; this is well above that and exists only so a misbehaving
+// origin cannot spin.
+const maxPages = 2000
+
 type Scraper struct {
 	client *http.Client
 }
@@ -96,7 +101,12 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 
 		seen := map[string]bool{}
 
-		for page := 1; ; page++ {
+		// The walk already skips ids it has seen, but that alone does not end
+		// it: an origin that clamps `/page/N/` back to page 1 would serve the
+		// same items forever while the loop kept incrementing. A page with no
+		// id the walk has not already emitted is that clamp, and ends it;
+		// maxPages is the backstop for anything stranger.
+		for page := 1; page <= maxPages; page++ {
 			if ctx.Err() != nil {
 				return
 			}
@@ -136,11 +146,13 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 				}
 			}
 
+			fresh := 0
 			for _, item := range items {
 				if seen[item.id] {
 					continue
 				}
 				seen[item.id] = true
+				fresh++
 
 				if opts.KnownIDs[item.id] {
 					scraper.Debugf(1, "javdatabase: hit known ID, stopping early")
@@ -155,6 +167,11 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 				case <-ctx.Done():
 					return
 				}
+			}
+
+			if fresh == 0 {
+				scraper.Debugf(1, "javdatabase: page %d repeated a page already seen, stopping", page)
+				return
 			}
 
 			if page == 1 && !hasPagination(body) {

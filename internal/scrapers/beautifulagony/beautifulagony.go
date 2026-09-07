@@ -13,9 +13,15 @@ import (
 	"github.com/Anastylosis/FSS/scraper"
 )
 
+// siteBase is a var so offline tests can point the walk at an httptest server;
+// nothing else reassigns it.
+var siteBase = "https://beautifulagony.com"
+
 const (
-	siteBase = "https://beautifulagony.com"
 	pageSize = 20
+	// maxPages bounds the offset walk. The catalogue is a few thousand scenes;
+	// this is far above it and exists only so a misbehaving origin cannot spin.
+	maxPages = 500
 )
 
 type Scraper struct {
@@ -52,7 +58,12 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 	delay := opts.Delay
 
 	totalSent := false
-	for offset := 0; ; offset += pageSize {
+	// The offset walk has no page count to end on and the listing carries no
+	// pager, so an origin that ever ignored `offset` and echoed page 1 would
+	// loop forever re-emitting the same scenes. A page yielding no id the walk
+	// has not already seen is that echo, and ends it; maxPages is the backstop.
+	seen := map[string]bool{}
+	for offset := 0; offset < maxPages*pageSize; offset += pageSize {
 		if ctx.Err() != nil {
 			return
 		}
@@ -90,7 +101,13 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 			totalSent = true
 		}
 
+		fresh := 0
 		for _, scene := range scenes {
+			if seen[scene.ID] {
+				continue
+			}
+			seen[scene.ID] = true
+			fresh++
 			if opts.KnownIDs[scene.ID] {
 				scraper.Debugf(1, "beautifulagony: hit known ID, stopping early")
 				select {
@@ -105,7 +122,12 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 				return
 			}
 		}
+		if fresh == 0 {
+			scraper.Debugf(1, "beautifulagony: offset %d repeated a page already seen, stopping", offset)
+			return
+		}
 	}
+	scraper.Debugf(1, "beautifulagony: stopped at the %d-page cap", maxPages)
 }
 
 var (

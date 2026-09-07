@@ -6,7 +6,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/Anastylosis/FSS/scraper"
 )
@@ -580,5 +582,66 @@ func TestNormalizeSpace(t *testing.T) {
 		if got != c.want {
 			t.Errorf("normalizeSpace(%q) = %q, want %q", c.input, got, c.want)
 		}
+	}
+}
+
+// The walk skips ids it has already seen, but that alone never ends it: an
+// origin that clamps `/page/N/` back to page 1 serves the same cards forever
+// while the loop keeps incrementing.
+func TestListScenesStopsWhenPagingIsClamped(t *testing.T) {
+	var requests int
+	var mu sync.Mutex
+
+	var ts *httptest.Server
+	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/movies/") {
+			_, _ = w.Write(censoredDetailHTML("Full Title One", "TEST-001", "2026-01-15",
+				"120 min.", "Test Studio", "", "", []string{"Tag A"}, []string{"Actor One"}))
+			return
+		}
+		mu.Lock()
+		requests++
+		mu.Unlock()
+		// Every page — including /page/2/ and beyond — is page 1, and the
+		// pager keeps claiming there are more.
+		cards := []cardFixture{{
+			url: ts.URL + "/movies/test-001/", label: "TEST-001", thumb: "/thumb/t1.webp",
+			title: "Test Movie One", date: "2026-01-15",
+			studioSlug: "test-studio", studioName: "Test Studio",
+		}}
+		_, _ = w.Write(listingHTML(cards, 99))
+	}))
+	defer ts.Close()
+
+	s := &Scraper{client: ts.Client()}
+	ch, err := s.ListScenes(context.Background(), ts.URL+"/studios/test-studio/", scraper.ListOpts{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	done := make(chan map[string]bool, 1)
+	go func() {
+		got := map[string]bool{}
+		for r := range ch {
+			if r.Kind == scraper.KindScene {
+				got[r.Scene.ID] = true
+			}
+		}
+		done <- got
+	}()
+
+	select {
+	case got := <-done:
+		if len(got) != 1 {
+			t.Errorf("got %d scenes, want 1", len(got))
+		}
+	case <-time.After(15 * time.Second):
+		t.Fatal("the walk did not terminate against a clamped pager")
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	if requests > 2 {
+		t.Errorf("made %d listing requests, want the walk to stop on the first repeat", requests)
 	}
 }

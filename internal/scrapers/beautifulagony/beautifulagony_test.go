@@ -1,8 +1,14 @@
 package beautifulagony
 
 import (
+	"context"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"slices"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/Anastylosis/FSS/internal/scrapers/testutil"
 	"github.com/Anastylosis/FSS/scraper"
@@ -158,4 +164,62 @@ func TestSceneValidation(t *testing.T) {
 		t.Fatal("expected 1 scene")
 	}
 	testutil.ValidateScene(t, scenes[0])
+}
+
+// The offset walk has no page count and the listing carries no pager, so an
+// origin that ignored `offset` and served page 1 forever would spin, emitting
+// the same scenes on every iteration.
+func TestRunStopsWhenTheOriginIgnoresOffset(t *testing.T) {
+	var requests int
+	var mu sync.Mutex
+	page := buildBAPage([]struct {
+		id, date, thumb string
+		hd              bool
+	}{
+		{id: "1001", date: "01 January 2024", thumb: "https://bcdn.beautifulagony.com/a.jpg"},
+		{id: "1002", date: "02 January 2024", thumb: "https://bcdn.beautifulagony.com/b.jpg"},
+	})
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		requests++
+		mu.Unlock()
+		_, _ = fmt.Fprint(w, page)
+	}))
+	defer srv.Close()
+
+	old := siteBase
+	siteBase = srv.URL
+	t.Cleanup(func() { siteBase = old })
+
+	s := New()
+	s.client = srv.Client()
+
+	out := make(chan scraper.SceneResult, 100)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		s.run(context.Background(), siteBase, scraper.ListOpts{}, out)
+	}()
+
+	var ids []string
+	for r := range out {
+		if r.Kind == scraper.KindScene {
+			ids = append(ids, r.Scene.ID)
+		}
+	}
+	select {
+	case <-done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("run did not terminate against an origin that ignores offset")
+	}
+
+	if !slices.Equal(ids, []string{"1001", "1002"}) {
+		t.Errorf("ids = %v, want each scene once", ids)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if requests > 2 {
+		t.Errorf("made %d requests, want the walk to stop on the first repeated page", requests)
+	}
 }
