@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/Anastylosis/FSS/scraper"
 )
@@ -498,5 +499,56 @@ func TestLabelledRuntimeStillWins(t *testing.T) {
 	}
 	if items[0].duration != 1*3600+2*60+47 {
 		t.Errorf("duration = %d", items[0].duration)
+	}
+}
+
+// The listing has no page count to end on, and parseListing deduplicates only
+// within a page. An origin that clamps `?page=N` back to page 1 — or a tour
+// that repeats its last page rather than 404ing — used to loop forever,
+// appending the same cards until the process ran out of memory.
+func TestCollectListingStopsWhenPagingIsClamped(t *testing.T) {
+	var mu sync.Mutex
+	var pages int
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		body := strings.ReplaceAll(listingHTMLVideothumb, "https://tour5m.facialabuse.com", "http://x")
+		if strings.HasPrefix(r.URL.Path, "/tour/categories/") {
+			mu.Lock()
+			pages++
+			mu.Unlock()
+			// Every page is page 1, forever.
+			_, _ = fmt.Fprint(w, body)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer ts.Close()
+
+	s := New(testConfig(ts.URL))
+	out := make(chan scraper.SceneResult, 200)
+	done := make(chan struct{})
+	var items []sceneItem
+	go func() {
+		defer close(done)
+		items, _ = s.collectListing(context.Background(), parseStudioURL(ts.URL), scraper.ListOpts{}, out)
+		close(out)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(15 * time.Second):
+		t.Fatal("collectListing did not terminate against a clamped pager")
+	}
+	for range out {
+	}
+
+	if len(items) != 2 {
+		t.Errorf("collected %d items, want the 2 distinct cards once each", len(items))
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if pages > 2 {
+		t.Errorf("fetched %d listing pages, want the walk to stop on the first repeat", pages)
 	}
 }

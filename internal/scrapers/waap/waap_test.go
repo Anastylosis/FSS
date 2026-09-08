@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+
+	"golang.org/x/text/encoding/japanese"
 
 	"github.com/Anastylosis/FSS/internal/scrapers/testutil"
 	"github.com/Anastylosis/FSS/scraper"
@@ -232,5 +235,71 @@ func TestRunKnownIDs(t *testing.T) {
 	}
 	if len(results) != 1 {
 		t.Fatalf("got %d scenes, want 1", len(results))
+	}
+}
+
+// The charset used to be taken from the Content-Type header alone, and this
+// site labels most of its pages only in a <meta> tag — so those decoded as
+// UTF-8 and every Japanese title came out as replacement characters.
+func TestDecodeShiftJIS(t *testing.T) {
+	const jp = "美少女とデート"
+	sjis, err := japanese.ShiftJIS.NewEncoder().Bytes([]byte(jp))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cases := []struct {
+		name        string
+		body        []byte
+		contentType string
+		want        string
+	}{
+		{
+			name:        "header names the charset",
+			body:        sjis,
+			contentType: "text/html; charset=Shift_JIS",
+			want:        jp,
+		},
+		{
+			name:        "header is silent, the page declares it",
+			body:        append([]byte(`<meta http-equiv="Content-Type" content="text/html; charset=Shift_JIS">`), sjis...),
+			contentType: "text/html",
+			want:        jp,
+		},
+		{
+			name:        "nothing declares it and the bytes are not UTF-8",
+			body:        sjis,
+			contentType: "text/html",
+			want:        jp,
+		},
+		{
+			name:        "a genuine UTF-8 page is left alone",
+			body:        []byte(jp),
+			contentType: "text/html; charset=UTF-8",
+			want:        jp,
+		},
+		{
+			name:        "an undeclared UTF-8 page is left alone",
+			body:        []byte(jp),
+			contentType: "text/html",
+			want:        jp,
+		},
+		{
+			name:        "ASCII is untouched",
+			body:        []byte("<html><body>plain</body></html>"),
+			contentType: "text/html",
+			want:        "<html><body>plain</body></html>",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := decodeShiftJIS(c.body, c.contentType)
+			if !strings.Contains(got, c.want) {
+				t.Errorf("decodeShiftJIS = %q, want it to contain %q", got, c.want)
+			}
+			if strings.Contains(got, "�") {
+				t.Errorf("decodeShiftJIS produced replacement characters: %q", got)
+			}
+		})
 	}
 }

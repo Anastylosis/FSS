@@ -11,9 +11,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"golang.org/x/text/encoding/japanese"
-	"golang.org/x/text/transform"
 
 	"github.com/Anastylosis/FSS/internal/httpx"
 	"github.com/Anastylosis/FSS/models"
@@ -376,14 +376,35 @@ func (s *Scraper) fetchShiftJIS(ctx context.Context, rawURL string) (string, err
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	var reader io.Reader = resp.Body
-	ct := resp.Header.Get("Content-Type")
-	if strings.Contains(strings.ToLower(ct), "shift-jis") || strings.Contains(strings.ToLower(ct), "shift_jis") {
-		reader = transform.NewReader(resp.Body, japanese.ShiftJIS.NewDecoder())
-	}
-	b, err := io.ReadAll(io.LimitReader(reader, 10*1024*1024))
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, 10*1024*1024))
 	if err != nil {
 		return "", fmt.Errorf("read body: %w", err)
 	}
-	return string(b), nil
+	return decodeShiftJIS(raw, resp.Header.Get("Content-Type")), nil
+}
+
+var metaShiftJISRe = regexp.MustCompile(`(?i)<meta[^>]+charset\s*=\s*["']?\s*shift[-_]?jis`)
+
+// decodeShiftJIS converts a page body to UTF-8. The charset is taken from the
+// Content-Type header when it names one, from the page's own <meta> tag when it
+// does not — which is how this site labels most of its pages — and finally from
+// the bytes themselves: a body that is not valid UTF-8 is Shift-JIS here, and
+// decoding it is strictly better than emitting a page of replacement
+// characters. A body that *is* valid UTF-8 is returned untouched, so an
+// ASCII-only or genuinely UTF-8 page is never mangled by the fallback.
+func decodeShiftJIS(raw []byte, contentType string) string {
+	ct := strings.ToLower(contentType)
+	switch {
+	case strings.Contains(ct, "shift-jis"), strings.Contains(ct, "shift_jis"), strings.Contains(ct, "sjis"):
+	case strings.Contains(ct, "utf-8"):
+		return string(raw)
+	case metaShiftJISRe.Match(raw):
+	case utf8.Valid(raw):
+		return string(raw)
+	}
+	decoded, err := japanese.ShiftJIS.NewDecoder().Bytes(raw)
+	if err != nil {
+		return string(raw)
+	}
+	return string(decoded)
 }

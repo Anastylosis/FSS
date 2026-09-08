@@ -75,6 +75,11 @@ type SiteConfig struct {
 	MatchRe    *regexp.Regexp
 }
 
+// maxListingPages bounds the listing walk. The largest tour on this platform
+// is a few hundred pages; this is well above that and exists only so a
+// misbehaving origin cannot spin.
+const maxListingPages = 1000
+
 type Scraper struct {
 	cfg    SiteConfig
 	client *http.Client
@@ -342,7 +347,14 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 }
 
 func (s *Scraper) collectListing(ctx context.Context, lc listConfig, opts scraper.ListOpts, out chan<- scraper.SceneResult) (items []sceneItem, sentTotal bool) {
-	for page := 1; ; page++ {
+	// The listing has no page count to end on, and parseListing only
+	// deduplicates within a single page. An origin that clamps `?page=N` back
+	// to page 1 — or a tour that repeats its last page rather than 404ing —
+	// would otherwise loop forever, appending the same cards until the process
+	// ran out of memory. A page that yields no id the walk has not already
+	// seen is that clamp; maxListingPages is the backstop.
+	acrossPages := map[string]bool{}
+	for page := 1; page <= maxListingPages; page++ {
 		if ctx.Err() != nil {
 			return items, sentTotal
 		}
@@ -384,7 +396,13 @@ func (s *Scraper) collectListing(ctx context.Context, lc listConfig, opts scrape
 			sentTotal = true
 		}
 
+		fresh := 0
 		for _, item := range scenes {
+			if acrossPages[item.id] {
+				continue
+			}
+			acrossPages[item.id] = true
+			fresh++
 			if opts.KnownIDs[item.id] {
 				scraper.Debugf(1, "%s: hit known ID %s, stopping early", s.cfg.ID, item.id)
 				select {
@@ -395,7 +413,13 @@ func (s *Scraper) collectListing(ctx context.Context, lc listConfig, opts scrape
 			}
 			items = append(items, item)
 		}
+		if fresh == 0 {
+			scraper.Debugf(1, "%s: page %d repeats a page already walked, stopping", s.cfg.ID, page)
+			return items, sentTotal
+		}
 	}
+	scraper.Debugf(1, "%s: stopped at the %d-page cap", s.cfg.ID, maxListingPages)
+	return items, sentTotal
 }
 
 func (s *Scraper) fetchDetails(ctx context.Context, items []sceneItem, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
