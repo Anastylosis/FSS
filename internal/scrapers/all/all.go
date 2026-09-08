@@ -190,6 +190,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/javdatabase"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/jayspov"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/jeffsmodels"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/jeshbyjesh"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/jizzonteens"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/joannajet"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/joybear"
