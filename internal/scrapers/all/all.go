@@ -235,6 +235,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/meninosonline"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/mercury"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/metart"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/mfcshare"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/mindcontroltheatre"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/missax"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/mistresst"
