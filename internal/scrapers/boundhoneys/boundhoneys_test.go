@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -119,9 +120,16 @@ func TestToScene(t *testing.T) {
 }
 
 func TestListScenes(t *testing.T) {
-	var asked []string
+	// The detail fetches run in a worker pool, so handler goroutines overlap
+	// and the record of what was requested needs guarding.
+	var (
+		mu    sync.Mutex
+		asked []string
+	)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
 		asked = append(asked, r.URL.Path)
+		mu.Unlock()
 		if strings.HasPrefix(r.URL.Path, "/bondage-video/") {
 			_, _ = w.Write(readFixture(t, "detail.html"))
 			return
@@ -153,6 +161,8 @@ func TestListScenes(t *testing.T) {
 		t.Fatalf("got %d scenes / total %d, want 2", len(scenes), total)
 	}
 	// One listing request, then one per scene: the catalogue is a single page.
+	mu.Lock()
+	defer mu.Unlock()
 	listings := 0
 	for _, p := range asked {
 		if !strings.HasPrefix(p, "/bondage-video/") {

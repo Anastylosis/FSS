@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -236,10 +237,17 @@ func TestListScenesStopsAtKnownID(t *testing.T) {
 }
 
 func TestTagURLScrapesThatTag(t *testing.T) {
-	var asked []string
+	// The detail fetches run in a worker pool, so handler goroutines overlap
+	// and the record of what was requested needs guarding.
+	var (
+		mu    sync.Mutex
+		asked []string
+	)
 	var srv *httptest.Server
 	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
 		asked = append(asked, r.URL.Path)
+		mu.Unlock()
 		if strings.HasPrefix(r.URL.Path, "/updates/") {
 			_, _ = w.Write(serveFixture(t, "detail.html", srv.URL))
 			return
@@ -255,6 +263,8 @@ func TestTagURLScrapesThatTag(t *testing.T) {
 	ch, _ := s.ListScenes(context.Background(), "https://thesensitivespot.com/tags/lesbianarmpit", scraper.ListOpts{})
 	for range ch {
 	}
+	mu.Lock()
+	defer mu.Unlock()
 	if len(asked) == 0 || asked[0] != "/tags/lesbianarmpit" {
 		t.Errorf("fetched %v, want the tag listing first", asked)
 	}
