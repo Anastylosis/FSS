@@ -276,3 +276,27 @@ func TestNounFor(t *testing.T) {
 		t.Errorf("nounFor(2) = %q", got)
 	}
 }
+
+// formatPrice renders a store's offer for the report. An offer with no amount
+// is blank rather than "0.00": a zero would rank the store with the worst data
+// as the cheapest place to buy.
+func TestFormatPrice(t *testing.T) {
+	cases := []struct {
+		name string
+		o    offer
+		want string
+	}{
+		{"priced", offer{price: 12.5, priced: true}, "12.50"},
+		{"rounds to two decimals", offer{price: 19.999, priced: true}, "20.00"},
+		{"free is a real price", offer{price: 0, priced: true}, "0.00"},
+		{"unpriced is blank, not zero", offer{price: 0, priced: false}, ""},
+		{"amount ignored when unpriced", offer{price: 9.99, priced: false}, ""},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := formatPrice(c.o); got != c.want {
+				t.Errorf("formatPrice(%+v) = %q, want %q", c.o, got, c.want)
+			}
+		})
+	}
+}

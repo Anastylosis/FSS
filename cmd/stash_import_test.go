@@ -1074,3 +1074,19 @@ func TestApplyScene_keepsPerformersAlreadyOnTheStashScene(t *testing.T) {
 		t.Errorf("performer_ids = %v — the merged performer was not added", raw)
 	}
 }
+
+// truncateEach maps truncate over a slice, keeping it the same length so the
+// caller's columns still line up.
+func TestTruncateEach(t *testing.T) {
+	got := truncateEach([]string{"hello world", "hi", "another long one"}, 8)
+	want := []string{"hello...", "hi", "anoth..."} // limit-3 runes plus the ellipsis
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("truncateEach = %q, want %q", got, want)
+	}
+}
+
+func TestTruncateEachEmpty(t *testing.T) {
+	if got := truncateEach(nil, 8); len(got) != 0 {
+		t.Errorf("truncateEach(nil) = %q, want empty", got)
+	}
+}

@@ -2285,3 +2285,101 @@ func TestPruneVocabularyKeepsSharedEntities(t *testing.T) {
 		t.Fatalf("shared tag lost from studio B: %+v", got)
 	}
 }
+
+// SceneCounts backs `fss doctor`'s store comparison, which is the only thing
+// that tells an operator a studio exists as JSON but not in the database.
+
+func TestSQLiteSceneCountsPerStudio(t *testing.T) {
+	s := newTestDB(t)
+	now := time.Now().UTC().Truncate(time.Second)
+
+	const otherStudio = "https://www.manyvids.com/Profile/999/other/Store/Videos"
+	if err := s.Save(testStudioURL, []models.Scene{
+		{ID: "1", SiteID: "manyvids", StudioURL: testStudioURL, Title: "One", ScrapedAt: now},
+		{ID: "2", SiteID: "manyvids", StudioURL: testStudioURL, Title: "Two", ScrapedAt: now},
+	}); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	if err := s.Save(otherStudio, []models.Scene{
+		{ID: "1", SiteID: "manyvids", StudioURL: otherStudio, Title: "Solo", ScrapedAt: now},
+	}); err != nil {
+		t.Fatalf("Save other: %v", err)
+	}
+
+	counts, err := s.SceneCounts()
+	if err != nil {
+		t.Fatalf("SceneCounts: %v", err)
+	}
+	if got := counts[testStudioURL]; got != 2 {
+		t.Errorf("count for %s = %d, want 2", testStudioURL, got)
+	}
+	if got := counts[otherStudio]; got != 1 {
+		t.Errorf("count for %s = %d, want 1", otherStudio, got)
+	}
+	if len(counts) != 2 {
+		t.Errorf("got %d studios, want 2: %v", len(counts), counts)
+	}
+}
+
+// A soft-deleted scene is still a row, but it is one the site stopped
+// publishing. Counting it would make the database look ahead of a JSON file
+// that never recorded it, i.e. report a spurious mismatch.
+func TestSQLiteSceneCountsExcludesSoftDeleted(t *testing.T) {
+	s := newTestDB(t)
+	now := time.Now().UTC().Truncate(time.Second)
+
+	if err := s.Save(testStudioURL, []models.Scene{
+		{ID: "1", SiteID: "manyvids", StudioURL: testStudioURL, Title: "One", ScrapedAt: now},
+		{ID: "2", SiteID: "manyvids", StudioURL: testStudioURL, Title: "Two", ScrapedAt: now},
+	}); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	if err := s.MarkDeleted(testStudioURL, "manyvids", []string{"2"}); err != nil {
+		t.Fatalf("MarkDeleted: %v", err)
+	}
+
+	counts, err := s.SceneCounts()
+	if err != nil {
+		t.Fatalf("SceneCounts: %v", err)
+	}
+	if got := counts[testStudioURL]; got != 1 {
+		t.Errorf("count = %d, want 1 (the soft-deleted scene must not count)", got)
+	}
+}
+
+// The counts are keyed the way Load and Save key, so a studio saved under a
+// non-canonical spelling is not reported as a second studio.
+func TestSQLiteSceneCountsKeysCanonically(t *testing.T) {
+	s := newTestDB(t)
+	now := time.Now().UTC().Truncate(time.Second)
+
+	const variant = "http://WWW.ManyVids.com/Profile/123/test-creator/Store/Videos/"
+	if err := s.Save(variant, []models.Scene{
+		{ID: "1", SiteID: "manyvids", StudioURL: variant, Title: "One", ScrapedAt: now},
+	}); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	counts, err := s.SceneCounts()
+	if err != nil {
+		t.Fatalf("SceneCounts: %v", err)
+	}
+	if len(counts) != 1 {
+		t.Fatalf("got %d keys, want 1: %v", len(counts), counts)
+	}
+	// The canonical spelling of variant is testStudioURL: https scheme,
+	// lowercased host, no trailing slash, path case preserved.
+	if got := counts[testStudioURL]; got != 1 {
+		t.Errorf("count under the canonical key = %d, want 1 (keys: %v)", got, counts)
+	}
+}
+
+func TestSQLiteSceneCountsEmptyDatabase(t *testing.T) {
+	counts, err := newTestDB(t).SceneCounts()
+	if err != nil {
+		t.Fatalf("SceneCounts: %v", err)
+	}
+	if len(counts) != 0 {
+		t.Errorf("got %v, want no studios", counts)
+	}
+}
