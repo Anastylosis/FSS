@@ -186,10 +186,10 @@ type listingScene struct {
 }
 
 var (
-	cardStartRe  = regexp.MustCompile(`class="big-box-video"`)
+	cardStartRe  = regexp.MustCompile(`class="videoCatalogCard"`)
 	epLinkRe     = regexp.MustCompile(`href="(epizod,(\d+),[^"]+\.html)"`)
 	listTitleRe  = regexp.MustCompile(`(?s)<h2><a[^>]*>(.*?)</a></h2>`)
-	listThumbRe  = regexp.MustCompile(`<img src="([^"]+/slider\.jpg)"`)
+	listThumbRe  = regexp.MustCompile(`<img src="([^"]+/slider(?:_org)?\.jpg)"`)
 	paginationRe = regexp.MustCompile(`(?s)<ul class="pagination">(.*?)</ul>`)
 	pageNumRe    = regexp.MustCompile(`>(\d+)</a>`)
 )

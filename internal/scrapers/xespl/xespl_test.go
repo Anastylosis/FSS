@@ -75,12 +75,15 @@ func TestBuildPageURL(t *testing.T) {
 func TestParseListingPage(t *testing.T) {
 	body := []byte(`
 <div class="flex-video-wrap">
-<div class="big-box-video">
+<article class="videoCatalogCard">
 <div>
 <span class="video-4k pill">4K</span>
 <div class="pictureWrap videoPreview">
 <a href="epizod,7299,pelnia-kobiecosci.html" style="width:412px;max-width:100%;">
-<img src="/static/uploaded/video/7/72/7299/slider.jpg" alt="Pełnia kobiecości" width="412" height="165">
+<picture>
+<source srcset="/static/uploaded/video/7/72/7299/slider_org.webp" type="image/webp" />
+<img src="/static/uploaded/video/7/72/7299/slider_org.jpg" alt="Pełnia kobiecości" width="412" height="190" />
+</picture>
 <span class="infoWrap">
 <span class="pill">11 godzin temu</span>
 <span class="pill">Price: <span>9 pts</span></span>
@@ -92,11 +95,11 @@ func TestParseListingPage(t *testing.T) {
 </div>
 </div>
 </div>
-<div class="big-box-video">
+<article class="videoCatalogCard">
 <div>
 <div class="pictureWrap videoPreview">
 <a href="epizod,7287,analne-zabawy-z-shanti.html" style="width:412px;max-width:100%;">
-<img src="/static/uploaded/video/7/72/7287/slider.jpg" alt="Analne zabawy z Shanti" width="412" height="165">
+<img src="/static/uploaded/video/7/72/7287/slider_org.jpg" alt="Analne zabawy z Shanti" width="412" height="165">
 <span class="infoWrap">
 <span class="pill">1 dzień temu</span>
 <span class="pill">Price: <span>15 pts</span></span>
@@ -125,7 +128,7 @@ func TestParseListingPage(t *testing.T) {
 	if s.title != "Pełnia kobiecości" {
 		t.Errorf("title = %q", s.title)
 	}
-	if s.thumb != "https://xes.pl/static/uploaded/video/7/72/7299/slider.jpg" {
+	if s.thumb != "https://xes.pl/static/uploaded/video/7/72/7299/slider_org.jpg" {
 		t.Errorf("thumb = %q", s.thumb)
 	}
 
@@ -250,11 +253,11 @@ const listingTpl = `%s
 <div class="flex-video-wrap">%s</div>
 <ul class="pagination">%s</ul>`
 
-const itemTpl = `<div class="big-box-video">
+const itemTpl = `<article class="videoCatalogCard">
 <div>
 <div class="pictureWrap videoPreview">
 <a href="epizod,%d,scene-%d.html" style="width:412px;max-width:100%%;">
-<img src="/static/uploaded/video/%d/slider.jpg" alt="Scene %d" width="412" height="165">
+<img src="/static/uploaded/video/%d/slider_org.jpg" alt="Scene %d" width="412" height="165">
 </a>
 </div>
 <div class="description">
