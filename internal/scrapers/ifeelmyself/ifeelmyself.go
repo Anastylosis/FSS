@@ -15,10 +15,11 @@ import (
 	"github.com/Anastylosis/FSS/scraper"
 )
 
-const (
-	siteBase = "https://ifeelmyself.com"
-	pageSize = 12
-)
+// siteBase is a var, not a const, so tests can point the page walk at an
+// httptest server.
+var siteBase = "https://ifeelmyself.com"
+
+const pageSize = 12
 
 type Scraper struct {
 	client *http.Client
@@ -89,6 +90,11 @@ func (s *Scraper) runPaginated(ctx context.Context, studioURL string, delay time
 	baseURL := siteBase + "/public/main.php?page=view&mode=all"
 
 	totalSent := false
+	// The listing offsets by film but renders one card per artist, so a film
+	// with several artists pushes the window out of step and the last card of
+	// one page comes back as the first card of the next. Emitting it twice
+	// broke the (ID, SiteID) uniqueness the store keys on.
+	seen := make(map[string]bool)
 	for offset := 0; ; offset += pageSize {
 		if ctx.Err() != nil {
 			return
@@ -128,6 +134,11 @@ func (s *Scraper) runPaginated(ctx context.Context, studioURL string, delay time
 		}
 
 		for _, scene := range scenes {
+			if seen[scene.ID] {
+				continue
+			}
+			seen[scene.ID] = true
+
 			if opts.KnownIDs[scene.ID] {
 				scraper.Debugf(1, "ifeelmyself: hit known ID, stopping early")
 				select {
@@ -255,7 +266,7 @@ var (
 	titleRe     = regexp.MustCompile(`&nbsp;in&nbsp;\s*\n?\s*"([^"]+)"`)
 	durationRe  = regexp.MustCompile(`(?:4K|HD|SD)\s+Video,\s*(\d+):(\d+)\s*min`)
 	dateRe      = regexp.MustCompile(`(\d{2}\s+\w+\s+\d{4})`)
-	thumbRe     = regexp.MustCompile(`src='(https://bcdn\.ifeelmyself\.com/[^']+)'`)
+	thumbRe     = regexp.MustCompile(`(?i:src)='(https://bcdn\.ifeelmyself\.com/[^']+)'`)
 	categoryRe  = regexp.MustCompile(`(?s)<b>Categories:</b>(.*?)</table>`)
 	catItemRe   = regexp.MustCompile(`>\s*([A-Za-z][A-Za-z ]+?)\s*<`)
 	tagsRe      = regexp.MustCompile(`class="tags-list-item-tag">([^<]+)<`)

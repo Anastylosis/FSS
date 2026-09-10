@@ -1,7 +1,10 @@
 package ifeelmyself
 
 import (
+	"context"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/Anastylosis/FSS/internal/scrapers/testutil"
@@ -32,7 +35,7 @@ func buildIFMPage(items []struct {
 		}
 		thumbHTML := ""
 		if it.thumb != "" {
-			thumbHTML = fmt.Sprintf(`<img src='%s'>`, it.thumb)
+			thumbHTML = fmt.Sprintf(`<img SRC='%s' HEIGHT='90' BORDER='0'>`, it.thumb)
 		}
 		durationHTML := ""
 		if it.duration != "" {
@@ -284,4 +287,74 @@ func TestSceneValidation(t *testing.T) {
 		t.Fatal("expected 1 scene")
 	}
 	testutil.ValidateScene(t, scenes[0])
+}
+
+// The listing offsets by film but renders one card per artist, so a film with
+// several artists pushes the window out of step and the last card of one page
+// comes back as the first card of the next. Live, 24205/f16944 arrived twice.
+func TestPaginationOverlapEmitsEachSceneOnce(t *testing.T) {
+	type item = struct {
+		sceneID, price, artistID, performer, title, duration, date, thumb string
+		categories, tags                                                  []string
+	}
+
+	overlap := item{sceneID: "205", price: "0", artistID: "F944", performer: "Overlap"}
+
+	first := make([]item, 0, pageSize)
+	for i := 0; i < pageSize-1; i++ {
+		first = append(first, item{
+			sceneID:   fmt.Sprintf("3%02d", i),
+			price:     "0",
+			artistID:  fmt.Sprintf("A%02d", i),
+			performer: "Performer",
+		})
+	}
+	first = append(first, overlap)
+
+	second := []item{
+		overlap,
+		{sceneID: "204", price: "0", artistID: "B1", performer: "Q"},
+		{sceneID: "203", price: "0", artistID: "B2", performer: "R"},
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Query().Get("offset") {
+		case "0":
+			_, _ = fmt.Fprint(w, buildIFMPage(first))
+		case "12":
+			_, _ = fmt.Fprint(w, buildIFMPage(second))
+		default:
+			_, _ = fmt.Fprint(w, "<html></html>")
+		}
+	}))
+	defer srv.Close()
+
+	restore := siteBase
+	siteBase = srv.URL
+	defer func() { siteBase = restore }()
+
+	s := New()
+	s.client = srv.Client()
+
+	ch, err := s.ListScenes(context.Background(), srv.URL, scraper.ListOpts{})
+	if err != nil {
+		t.Fatalf("ListScenes: %v", err)
+	}
+
+	counts := map[string]int{}
+	total := 0
+	for res := range ch {
+		if res.Kind != scraper.KindScene {
+			continue
+		}
+		total++
+		counts[res.Scene.ID]++
+	}
+
+	if n := counts["205/F944"]; n != 1 {
+		t.Errorf("overlapping scene emitted %d times, want 1", n)
+	}
+	if want := pageSize + 2; total != want {
+		t.Errorf("emitted %d scenes, want %d (the repeated card counted once)", total, want)
+	}
 }
