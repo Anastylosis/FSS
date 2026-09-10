@@ -20,11 +20,11 @@ import (
 const listingFixture = `
 <div class="item item-video">
   <div class="item-image">
-    <a href="https://worshiprene.com/videos/beg-to-see-my-tits/"><img src="https://worshiprene.com/media/video/13359/x-640x360.jpg" /></a>
+    <a href="https://worshiprene.com/videos/beg-to-see-my-tits"><img src="https://worshiprene.com/media/video/13359/x-640x360.jpg" /></a>
   </div>
   <div class="item-content">
     <div class="duration">09:40</div>
-    <h3><a href="https://worshiprene.com/videos/beg-to-see-my-tits/">Beg to See My Tits</a></h3>
+    <h3><a href="https://worshiprene.com/videos/beg-to-see-my-tits">Beg to See My Tits</a></h3>
     <div class="terms">
       <a href="https://worshiprene.com/videos/category/joi" class="term-link">JOI</a>
     </div>
@@ -71,7 +71,7 @@ const detailFixture = `<!DOCTYPE html><html><head>
 <meta property="og:type" content="article" />
 <meta property="og:title" content="Beg to See My Tits - Princess Rene" />
 <meta property="og:description" content="There&#8217;s one part of me that you&#8217;ve always dreamed about seeing: my perky breasts &hellip;" />
-<meta property="og:url" content="https://worshiprene.com/videos/beg-to-see-my-tits/" />
+<meta property="og:url" content="https://worshiprene.com/videos/beg-to-see-my-tits" />
 <meta property="og:site_name" content="Princess Rene" />
 <meta property="og:image" content="https://worshiprene.com/media/video/13359/princess-rene-beg-to-see-my-tits_frame.0000005.jpg" />
 <script type="application/ld+json" class="yoast-schema-graph">{"@context":"https://schema.org","@graph":[{"@type":"WebPage","datePublished":"2026-05-25T20:58:28+00:00","dateModified":"2026-05-25T20:58:28+00:00"}]}</script>

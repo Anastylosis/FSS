@@ -114,7 +114,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 // sceneLinkRe matches detail-page links `/videos/{slug}/` while excluding the
 // `/videos/category/...` and `/videos/page/...` listing variants (those slugs
 // contain no nested path beyond a single segment ending in a trailing slash).
-var sceneLinkRe = regexp.MustCompile(`href="https?://(?:www\.)?worshiprene\.com/videos/([a-z0-9-]+)/"`)
+var sceneLinkRe = regexp.MustCompile(`href="https?://(?:www\.)?worshiprene\.com/videos/([a-z0-9-]+)/?"`)
 
 // parseListing extracts ordered, deduped scene slugs from a listing page.
 func parseListing(body []byte) []string {
