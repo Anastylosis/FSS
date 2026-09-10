@@ -68,8 +68,12 @@ type siteScraper struct {
 
 func newScraper(cfg siteConfig) *siteScraper {
 	return &siteScraper{
-		cfg:    cfg,
-		client: httpx.NewClient(30 * time.Second),
+		cfg: cfg,
+		// The WP REST listing is fetched with ?_embed at per_page=100, which
+		// is ~900 KB a page and slow to assemble. A 30s client timeout raced
+		// the origin and cancelled pages that were about to arrive, failing
+		// the walk mid-catalogue; leave the deadline to the server.
+		client: httpx.NewClient(90 * time.Second),
 	}
 }
 
