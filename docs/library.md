@@ -22,7 +22,7 @@ path declared in `go.mod`, so the old path resolves only for tags up to `v1.28.1
 | `models` | `github.com/Anastylosis/FSS/models` | `Scene`, `PriceSnapshot` — the core data model |
 | `match` | `github.com/Anastylosis/FSS/match` | Filename→title matching, cross-site merging, JSON loading |
 | `output` | `github.com/Anastylosis/FSS/output` | `WriteJSON`, `WriteCSV`, `Slugify` — write FSS output files |
-| `parseutil` | `github.com/Anastylosis/FSS/parseutil` | `ParseDurationColon`, `ParseDurationISO`, `StripOrdinalSuffix`, `OpenGraph`, `TryParseDate`, `ExtractVideoObject`, `ExtractVideoObjects` — shared parsing helpers. `thumbnailUrl` in a VideoObject may be a string or an array; both decode, keeping the first entry |
+| `parseutil` | `github.com/Anastylosis/FSS/parseutil` | `ParseDurationColon`, `ParseDurationISO`, `StripOrdinalSuffix`, `OpenGraph`, `TryParseDate`, `ExtractVideoObject`, `ExtractVideoObjects`, `DecodeXML` — shared parsing helpers. `thumbnailUrl` in a VideoObject may be a string or an array; both decode, keeping the first entry |
 | `nfo` | `github.com/Anastylosis/FSS/nfo` | Kodi-style NFO XML generation |
 | `identify` | `github.com/Anastylosis/FSS/identify` | Video directory scan + match + NFO write |
 
@@ -506,6 +506,16 @@ og := parseutil.OpenGraph(htmlBody)
 title := og["og:title"]
 image := og["og:image"]
 ```
+
+```go
+// Lenient XML — sitemaps and feeds routinely carry an unescaped `&`
+xml := parseutil.DecodeXML(body, &urlset)
+```
+
+`DecodeXML` is `xml.Unmarshal` with strict mode off. Sitemaps in the wild carry
+unescaped `&` in titles, which strict `encoding/xml` rejects outright — one bare
+ampersand costs the whole document rather than the entry containing it. Input
+that parses strictly parses identically here.
 
 The duration parsers return 0 for empty or unparseable input.
 `StripOrdinalSuffix` only touches digit-then-suffix runs, so plain

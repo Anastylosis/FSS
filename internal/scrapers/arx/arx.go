@@ -21,7 +21,6 @@ package arx
 
 import (
 	"context"
-	"encoding/xml"
 	"fmt"
 	"html"
 	"net/http"
@@ -32,6 +31,7 @@ import (
 
 	"github.com/Anastylosis/FSS/internal/httpx"
 	"github.com/Anastylosis/FSS/models"
+	"github.com/Anastylosis/FSS/parseutil"
 	"github.com/Anastylosis/FSS/scraper"
 )
 
@@ -140,7 +140,7 @@ func (s *Scraper) fetchSitemap(ctx context.Context) ([]sceneRef, error) {
 	}
 
 	var us urlset
-	if err := xml.Unmarshal(body, &us); err != nil {
+	if err := parseutil.DecodeXML(body, &us); err != nil {
 		return nil, fmt.Errorf("parsing sitemap: %w", err)
 	}
 
