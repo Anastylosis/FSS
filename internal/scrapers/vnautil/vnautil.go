@@ -3,6 +3,7 @@ package vnautil
 import (
 	"context"
 	"fmt"
+	"html"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -126,6 +127,12 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 				}
 				if detail.Duration > 0 {
 					items[i].Duration = detail.Duration
+				}
+				if len(items[i].Performers) == 0 {
+					items[i].Performers = detail.Performers
+				}
+				if items[i].Description == "" {
+					items[i].Description = detail.Description
 				}
 			}
 		}
@@ -254,7 +261,7 @@ func parseListingWithRe(body []byte, hrefRe *regexp.Regexp) []ListItem {
 			Href: sc.href,
 		}
 
-		item.Title = extractTitle(block)
+		item.Title = unescapeTrim(extractTitle(block))
 		if item.Title == "" {
 			item.Title = titleFromSlug(sc.href)
 		}
@@ -289,7 +296,7 @@ func parseListingWithRe(body []byte, hrefRe *regexp.Regexp) []ListItem {
 			}
 		}
 
-		item.Description = extractDescription(block)
+		item.Description = unescapeTrim(extractDescription(block))
 
 		if mp := priceRe.FindStringSubmatch(block); mp != nil {
 			item.Price, _ = strconv.ParseFloat(mp[1], 64)
@@ -311,6 +318,10 @@ func parseListingWithRe(body []byte, hrefRe *regexp.Regexp) []ListItem {
 		items = append(items, item)
 	}
 	return items
+}
+
+func unescapeTrim(s string) string {
+	return strings.TrimSpace(html.UnescapeString(s))
 }
 
 func extractTitle(block string) string {
@@ -350,13 +361,19 @@ func buildHrefRe(prefix string) *regexp.Regexp {
 // --- detail page ---
 
 var (
-	detailTagsRe     = regexp.MustCompile(`<h4[^>]*class="customhcolor"[^>]*>([^<]+)</h4>`)
-	detailDurationRe = regexp.MustCompile(`video duration <strong>(\d{2}:\d{2}:\d{2})</strong>`)
+	detailTagsRe       = regexp.MustCompile(`<h4[^>]*class="customhcolor"[^>]*>([^<]+)</h4>`)
+	detailPerformersRe = regexp.MustCompile(`<h3[^>]*class="customhcolor"[^>]*>([^<]*)</h3>`)
+	detailDescRe       = regexp.MustCompile(`(?s)class="customhcolor2"[^>]*>(.*?)<h[34][^>]*class="customhcolor"`)
+	detailDescFallRe   = regexp.MustCompile(`(?s)class="customhcolor2"[^>]*>(.*?)</(?:div|h2)>`)
+	detailDurationRe   = regexp.MustCompile(`video duration <strong>(\d{2}:\d{2}:\d{2})</strong>`)
+	tagRe              = regexp.MustCompile(`<[^>]*>`)
 )
 
 type DetailData struct {
-	Tags     []string
-	Duration int
+	Tags        []string
+	Performers  []string
+	Description string
+	Duration    int
 }
 
 func (s *Scraper) fetchDetail(ctx context.Context, path string) (*DetailData, error) {
@@ -381,6 +398,19 @@ func ParseDetail(body []byte) *DetailData {
 				d.Tags = append(d.Tags, t)
 			}
 		}
+	}
+
+	if m := detailPerformersRe.FindSubmatch(body); m != nil {
+		d.Performers = splitPerformers(html.UnescapeString(string(m[1])))
+	}
+
+	m := detailDescRe.FindSubmatch(body)
+	if m == nil {
+		m = detailDescFallRe.FindSubmatch(body)
+	}
+	if m != nil {
+		text := html.UnescapeString(tagRe.ReplaceAllString(string(m[1]), " "))
+		d.Description = strings.Join(strings.Fields(text), " ")
 	}
 
 	if m := detailDurationRe.FindSubmatch(body); m != nil {

@@ -43,3 +43,8 @@ func TestLiveItsCleo(t *testing.T) {
 	s := vnautil.New(vnautil.SiteConfig{SiteID: "itscleo", Domain: "itscleolive.com", Studio: "It's Cleo Live", VideoPrefix: "videos", NeedsWWW: true})
 	testutil.RunLiveScrape(t, s, "https://www.itscleolive.com/videos/", 2)
 }
+
+func TestLiveWomenByJuliaAnn(t *testing.T) {
+	s := vnautil.New(vnautil.SiteConfig{SiteID: "womenbyjuliaann", Domain: "womenbyjuliaann.com", Studio: "Women By Julia Ann", VideoPrefix: "videos"})
+	testutil.RunLiveScrape(t, s, "https://www.womenbyjuliaann.com/sd3.php?show=recent_video_updates", 2)
+}

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -198,6 +199,41 @@ const detailFixture = `<html><body>
 </div>
 <div class="date-and-covers">
     <div class="">video duration <strong>00:04:54</strong></div>
+</div>
+</body></html>`
+
+// Template B without performers or description on the listing — womenbyjuliaann
+const templateBBareFixture = `<html><body>
+<div class="updated_videos clear"><div class="videoarea clear">
+            <h3><a href="videos/27059/julia-vicky-together">Julia Vicky Together!</a></h3>
+                <p class="date">December 20th 2018</p>
+       <div class="videos clear">
+             <div class="video_pic"><a href="videos/27059/julia-vicky-together"><img src="sd3.php?show=file&path=/videos/26860/thumb_1.jpg" width="295" height="164" alt=""></a></div>
+       </div>
+                <div class="video_details clear">
+                <h4><a href="videos/27059/julia-vicky-together">Section: Videos - Erotic Scenes</a></h4>
+                    <p></p>
+<div class="video_download"><a href="join.html"></a></div>
+                </div>
+            </div> </div>
+<div class='pagenav'><span class='current' style='margin:5px;'>1</span></div>
+</body></html>`
+
+// Detail page with a nested-markup description and &nbsp-separated performers — womenbyjuliaann
+const detailNestedFixture = `<html><head><style>
+    .customhcolor2{
+        color: black !important;
+    }
+</style></head><body>
+<div class="customcontent">
+<h1 style="margin-top:1em;font-size: 1.8em;" class="customhcolor">Julia Vicky Together! </h1>
+<div style="margin-top:1em; font-size:1.6em;" class="customhcolor2"><div style="text-align: center;">
+<span style="color: #828282;">Julia and Vicky Together! It&#39;s been a long time</span> hampered only by distance.</div> </div>
+<h3 style="margin-top:1em; font-size:1.4em;" class="customhcolor">Vicky Vette,&nbspJulia Ann </h3>
+<h4 style="margin-top:1em; font-size:1.4em;" class="customhcolor">Big Tits,Blonde,Busty,MILF </h4>
+</div>
+<div class="date-and-covers">
+    <div class="">video duration <strong>00:22:17</strong></div>
 </div>
 </body></html>`
 
@@ -398,6 +434,36 @@ func TestParseDetail(t *testing.T) {
 	}
 }
 
+func TestParseDetailPerformersAndDescription(t *testing.T) {
+	d := ParseDetail([]byte(detailFixture))
+	if len(d.Performers) != 1 || d.Performers[0] != "Sara Jay" {
+		t.Errorf("Performers = %v, want [Sara Jay]", d.Performers)
+	}
+	if d.Description != "Hot solo video description." {
+		t.Errorf("Description = %q", d.Description)
+	}
+
+	d = ParseDetail([]byte(detailNestedFixture))
+	wantPerf := []string{"Vicky Vette", "Julia Ann"}
+	if len(d.Performers) != len(wantPerf) || d.Performers[0] != wantPerf[0] || d.Performers[1] != wantPerf[1] {
+		t.Errorf("Performers = %q, want %q", d.Performers, wantPerf)
+	}
+	wantDesc := "Julia and Vicky Together! It's been a long time hampered only by distance."
+	if d.Description != wantDesc {
+		t.Errorf("Description = %q, want %q", d.Description, wantDesc)
+	}
+	if d.Duration != 1337 {
+		t.Errorf("Duration = %d, want 1337", d.Duration)
+	}
+}
+
+func TestParseDetailEmptyPerformers(t *testing.T) {
+	body := `<h3 style="margin-top:1em;" class="customhcolor"> </h3>`
+	if d := ParseDetail([]byte(body)); len(d.Performers) != 0 {
+		t.Errorf("Performers = %q, want none", d.Performers)
+	}
+}
+
 func TestParseDate(t *testing.T) {
 	cases := []struct {
 		input string
@@ -588,6 +654,75 @@ func TestListScenesWithDetail(t *testing.T) {
 	if scenes[0].Scene.Duration != 294 {
 		t.Errorf("scene[0].Duration = %d, want 294 (from detail)", scenes[0].Scene.Duration)
 	}
+	if p := scenes[0].Scene.Performers; len(p) != 1 || p[0] != "Summer Bella" {
+		t.Errorf("scene[0].Performers = %v, want listing's [Summer Bella] over detail's", p)
+	}
+	if d := scenes[0].Scene.Description; d != "Great foot scene with lots of fun and excitement." {
+		t.Errorf("scene[0].Description = %q, want listing's", d)
+	}
+}
+
+func TestListScenesDetailFillsMissingListingFields(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/videos/page/1":
+			_, _ = fmt.Fprint(w, templateBBareFixture)
+		case "/videos/27059/julia-vicky-together":
+			_, _ = fmt.Fprint(w, detailNestedFixture)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer ts.Close()
+
+	cfg := SiteConfig{SiteID: "womenbyjuliaann", Domain: "womenbyjuliaann.com", Studio: "Women By Julia Ann", VideoPrefix: "videos"}
+	s := NewWithBase(cfg, ts.URL, ts.Client())
+	ch, err := s.ListScenes(context.Background(), ts.URL+"/sd3.php?show=recent_video_updates", scraper.ListOpts{})
+	if err != nil {
+		t.Fatalf("ListScenes error: %v", err)
+	}
+
+	var scenes []scraper.SceneResult
+	for r := range ch {
+		switch r.Kind {
+		case scraper.KindScene:
+			scenes = append(scenes, r)
+		case scraper.KindError:
+			t.Errorf("unexpected error: %v", r.Err)
+		}
+	}
+
+	if len(scenes) != 1 {
+		t.Fatalf("got %d scenes, want 1", len(scenes))
+	}
+	sc := scenes[0].Scene
+	if sc.Title != "Julia Vicky Together!" {
+		t.Errorf("Title = %q", sc.Title)
+	}
+	if want := time.Date(2018, 12, 20, 0, 0, 0, 0, time.UTC); !sc.Date.Equal(want) {
+		t.Errorf("Date = %v, want %v", sc.Date, want)
+	}
+	if len(sc.Performers) != 2 || sc.Performers[0] != "Vicky Vette" || sc.Performers[1] != "Julia Ann" {
+		t.Errorf("Performers = %q", sc.Performers)
+	}
+	if !strings.HasPrefix(sc.Description, "Julia and Vicky Together!") {
+		t.Errorf("Description = %q", sc.Description)
+	}
+	if sc.Duration != 1337 {
+		t.Errorf("Duration = %d, want 1337", sc.Duration)
+	}
+	if len(sc.Tags) != 4 {
+		t.Errorf("Tags = %v, want 4", sc.Tags)
+	}
+	if len(sc.Categories) != 1 || sc.Categories[0] != "Videos - Erotic Scenes" {
+		t.Errorf("Categories = %v", sc.Categories)
+	}
+	if sc.Thumbnail != ts.URL+"/sd3.php?show=file&path=/videos/26860/thumb_1.jpg" {
+		t.Errorf("Thumbnail = %q", sc.Thumbnail)
+	}
+	if sc.URL != ts.URL+"/videos/27059/julia-vicky-together" {
+		t.Errorf("URL = %q", sc.URL)
+	}
 }
 
 func TestListScenesTemplateCNoDetail(t *testing.T) {
@@ -671,6 +806,26 @@ func TestKnownIDsStopsEarly(t *testing.T) {
 	}
 	if !sawStoppedEarly {
 		t.Error("expected StoppedEarly")
+	}
+}
+
+func TestParseListingUnescapesTitleAndDescription(t *testing.T) {
+	body := `<div class="videoarea clear">
+            <h3><a href="videos/100/julia-ann-tanya-tate">Julia Ann &amp; Tanya Tate</a></h3>
+                <p class="date">January 5th 2016</p>
+                <div class="video_details clear">
+                    <p>We show that romantic expression doesn&#39;t have to go beyond a massage. &nbsp;</p>
+                </div>
+            </div>`
+	items := ParseListing([]byte(body), "videos")
+	if len(items) != 1 {
+		t.Fatalf("got %d items, want 1", len(items))
+	}
+	if items[0].Title != "Julia Ann & Tanya Tate" {
+		t.Errorf("Title = %q", items[0].Title)
+	}
+	if want := "We show that romantic expression doesn't have to go beyond a massage."; items[0].Description != want {
+		t.Errorf("Description = %q, want %q", items[0].Description, want)
 	}
 }
 
