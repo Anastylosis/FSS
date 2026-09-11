@@ -3,9 +3,11 @@ package vintageflash
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"slices"
 	"strconv"
@@ -162,6 +164,10 @@ func idServer(t *testing.T, present map[int]bool) (*Scraper, *atomic.Int32) {
 
 	var hits atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" {
+			_, _ = fmt.Fprint(w, `<html><head><title>Vintage Flash!</title></head></html>`)
+			return
+		}
 		hits.Add(1)
 		enc := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/set_"), ".html")
 		raw, err := base64.StdEncoding.DecodeString(enc)
@@ -225,6 +231,106 @@ func TestListScenesEmptyCatalogue(t *testing.T) {
 	}
 	if scenes := testutil.CollectScenes(t, ch); len(scenes) != 0 {
 		t.Errorf("got %d scenes, want 0", len(scenes))
+	}
+}
+
+// homeServer answers the homepage with a redirect to location and counts every
+// other request, so a test can prove the id walk never started.
+func homeServer(t *testing.T, location string) (*Scraper, *atomic.Int32) {
+	t.Helper()
+	var probes atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" {
+			http.Redirect(w, r, location, http.StatusMovedPermanently)
+			return
+		}
+		probes.Add(1)
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	t.Cleanup(srv.Close)
+
+	orig := siteBase
+	siteBase = srv.URL
+	t.Cleanup(func() { siteBase = orig })
+
+	s := New()
+	s.Client = srv.Client()
+	return s, &probes
+}
+
+func collectErrs(t *testing.T, s *Scraper) (int, []error) {
+	t.Helper()
+	ch, err := s.ListScenes(context.Background(), "https://vintageflash.com", scraper.ListOpts{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	scenes := 0
+	var errs []error
+	for r := range ch {
+		switch r.Kind {
+		case scraper.KindScene:
+			scenes++
+		case scraper.KindError:
+			errs = append(errs, r.Err)
+		case scraper.KindTotal, scraper.KindStoppedEarly:
+		}
+	}
+	return scenes, errs
+}
+
+// The live domain 301s to nhlpcentral.com. Following that, every id probe
+// lands on a 404 and reads as a gap, so the scrape must say why it has nothing
+// instead of ending quietly with zero scenes.
+func TestListScenesReportsFoldedIntoNHLP(t *testing.T) {
+	s, probes := homeServer(t, "https://nhlpcentral.com/")
+
+	scenes, errs := collectErrs(t, s)
+	if scenes != 0 {
+		t.Errorf("got %d scenes, want 0", scenes)
+	}
+	if len(errs) != 1 || !errors.Is(errs[0], errFoldedIntoNHLP) {
+		t.Fatalf("errors = %v, want exactly errFoldedIntoNHLP", errs)
+	}
+	if !strings.Contains(errs[0].Error(), "nhlpcentral.com") {
+		t.Errorf("error %q does not name the new home", errs[0])
+	}
+	if n := probes.Load(); n != 0 {
+		t.Errorf("walked %d ids after detecting the redirect, want 0", n)
+	}
+}
+
+// Only the redirect to nhlpcentral.com is the known fold. A redirect anywhere
+// else is still an error, but not that one.
+func TestListScenesOtherRedirectIsAPlainError(t *testing.T) {
+	s, probes := homeServer(t, "https://parked.example/")
+
+	scenes, errs := collectErrs(t, s)
+	if scenes != 0 || len(errs) != 1 {
+		t.Fatalf("scenes=%d errs=%v, want 0 scenes and one error", scenes, errs)
+	}
+	if errors.Is(errs[0], errFoldedIntoNHLP) {
+		t.Errorf("a redirect to parked.example was reported as the NHLP fold: %v", errs[0])
+	}
+	if n := probes.Load(); n != 0 {
+		t.Errorf("walked %d ids after an off-site redirect, want 0", n)
+	}
+}
+
+func TestIsNHLP(t *testing.T) {
+	cases := map[string]bool{
+		"https://nhlpcentral.com/":              true,
+		"https://www.NHLPcentral.com/index.php": true,
+		"https://nhlpcentral.com.evil.test/":    false,
+		"https://vintageflash.com/":             false,
+	}
+	for raw, want := range cases {
+		u, err := url.Parse(raw)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := isNHLP(u); got != want {
+			t.Errorf("isNHLP(%q) = %v, want %v", raw, got, want)
+		}
 	}
 }
 

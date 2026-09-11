@@ -14,14 +14,21 @@
 //
 // Every set carries both stills and a video ("161 images and 12:31 video"), so
 // there is no photo/video split to filter.
+//
+// Defunct since 2026-09: the domain 301s to nhlpcentral.com, which carries the
+// same sets under its own unrelated ids (see the nhlpcentral scraper). A scrape
+// checks the homepage first and reports that as an error instead of walking
+// ids that all miss.
 package vintageflash
 
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"html"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -96,6 +103,14 @@ func sceneURL(id int) string {
 
 func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
 	defer close(out)
+
+	if err := s.checkHome(ctx); err != nil {
+		select {
+		case out <- scraper.Error(err):
+		case <-ctx.Done():
+		}
+		return
+	}
 
 	now := time.Now().UTC()
 
@@ -234,6 +249,48 @@ func (s *Scraper) fetchScene(ctx context.Context, studioURL string, id int, now 
 }
 
 // ---- HTTP ----
+
+var errFoldedIntoNHLP = errors.New("vintageflash.com now redirects to nhlpcentral.com, " +
+	"which carries the Vintage Flash sets under different ids; scrape https://nhlpcentral.com instead " +
+	"(the nhlpcentral scraper) — existing vintageflash scenes are kept but can no longer be refreshed")
+
+// checkHome requests the homepage without following redirects. Missing ids
+// on a redirected domain would all look like catalogue gaps, so without this
+// the walk would end with zero scenes and no error.
+func (s *Scraper) checkHome(ctx context.Context) error {
+	c := *s.Client
+	c.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	resp, err := httpx.DoWithStatus(ctx, &c, httpx.Request{
+		URL:     siteBase + "/",
+		Headers: httpx.BrowserHeaders(httpx.UserAgentFirefox),
+	})
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	return homeStatusErr(resp)
+}
+
+func homeStatusErr(resp *http.Response) error {
+	switch {
+	case resp.StatusCode >= 300 && resp.StatusCode < 400:
+		loc, err := resp.Location()
+		if err != nil {
+			return fmt.Errorf("%s: HTTP %d redirect without a usable Location", siteBase, resp.StatusCode)
+		}
+		if isNHLP(loc) {
+			return errFoldedIntoNHLP
+		}
+		return fmt.Errorf("%s: redirects to %s, not the Vintage Flash tour", siteBase, loc)
+	case resp.StatusCode != http.StatusOK:
+		return &httpx.StatusError{StatusCode: resp.StatusCode}
+	}
+	return nil
+}
+
+func isNHLP(u *url.URL) bool {
+	return strings.TrimPrefix(strings.ToLower(u.Hostname()), "www.") == "nhlpcentral.com"
+}
 
 // fetchPage uses DoWithStatus rather than Do because a missing id is answered
 // with HTTP 500. Do would treat that as retryable and spend ~6s of backoff on

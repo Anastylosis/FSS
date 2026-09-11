@@ -31,7 +31,7 @@ func probeReachable(t *testing.T) (bool, string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	client := httpx.NewClient(10 * time.Second)
-	resp, err := httpx.Do(ctx, client, httpx.Request{
+	resp, err := httpx.DoWithStatus(ctx, client, httpx.Request{
 		URL:     liveURL,
 		Headers: httpx.BrowserHeaders(httpx.UserAgentFirefox),
 	})

@@ -337,6 +337,36 @@ func TestLive<Site>(t *testing.T) {
 
 `testutil.RunLiveScrape` fetches the first 2 scenes, validates each via `testutil.ValidateScene` (non-empty `ID`/`Title`/`URL`/`Date`, plausible `Duration`, etc.), and logs the first scene's full struct so you can eyeball field mappings on `-v`. `SkipIfPlaceholder` skips cleanly when `liveStudioURL` still contains `REPLACE-ME` — use it for new scrapers until you find a stable URL.
 
+#### A dead site skips; a broken scraper fails
+
+A scrape that returns nothing is either a scraper that broke or a site that
+stopped serving, and the suite is only a useful health signal if it tells the
+two apart. When `RunLiveScrape` collects no scenes it decides which it is
+before failing:
+
+- **The scrape's own errors come first.** They name the URL the scraper could
+  not fetch, which is often not the studio URL — HumiliationPOV's front page
+  answers 200 while the WordPress REST API underneath it 500s. Errors that are
+  *all* site-side (HTTP 5xx, a domain that does not resolve, a refused
+  connection) skip the test. A single error that is not — a parse failure, a
+  4xx — keeps the whole run a failure.
+- **With no errors at all**, the scraper walked a page and found nothing in it,
+  which is usually a parser regression. The studio URL is then probed directly,
+  and only an unreachable host, a 5xx, or a redirect onto a *different* domain
+  (a parked or rebranded site) skips.
+
+Two deliberate exclusions. **A 4xx never skips** — it is far more often a URL
+the scraper built wrongly than a site that has gone away. **A timeout never
+skips** either: it is as likely to be a client deadline set below the origin's
+own ceiling, which is our bug to fix, not the site's.
+
+The check runs *only after* a scrape has already failed, never as a gate before
+one. That ordering matters — some CMSes serve real content under a 5xx (SexMex
+does), and pre-checking the status would skip scrapers that work perfectly well.
+
+A skip means the scraper is **untested, not known-good**. Re-run when the site
+is back rather than reading the skip as a pass.
+
 Run all of them:
 
 ```bash

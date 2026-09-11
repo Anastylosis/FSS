@@ -1,0 +1,306 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+        <title>NHLP</title>
+		<meta charset="UTF-8" />
+		<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1"> 
+		<meta name="viewport" content="width=device-width, initial-scale=1.0"> 
+<link href='https://fonts.googleapis.com/css?family=Open+Sans:400,700,600,300' rel='stylesheet' type='text/css'>
+		<link href="style2.css" rel="stylesheet" type="text/css" />
+<script type="text/javascript" src="js/jquery-1.8.2.min.js"></script>
+<script type="text/javascript">
+		$(document).ready(function() {
+				
+		function resizeMe(elem,size) {
+		var preferredHeight = 1920;
+		var displayHeight = $(window).width();
+		var percentage = displayHeight / preferredHeight;
+		var newFontSize = Math.floor(size * percentage) - 1;
+		$(elem).css("font-size", newFontSize + "px");
+	}
+	
+	resizeMe("div#fittext1",48);
+	resizeMe("div#fittext1b",28);		
+	resizeMe("div#fittext2",24);
+	resizeMe("div#fittext3",40);
+	resizeMe("div#fittext4",24);	
+	resizeMe("div#fittext5",16);
+	resizeMe("div#fittext6",20);	
+
+		$("span#1").css('color','#f8cd02');
+		//var w = window.innerWidth;
+		var w =$(window).width();
+		var h = $(window).height();
+
+		var paddingVal = parseInt(w / 127);
+		$("div.descrip").css('padding', paddingVal +'px');
+		
+		var UpdHeight = parseInt(w / 3.96);
+		$("td#updIconTd").css('height', UpdHeight +'px');
+		
+		var OvelayW = parseInt(w / 1.42);
+		var OvelayH = parseInt(w / 2.85);
+		$("div#overlay").css({'top': OvelayH+'px', 'left': OvelayW+'px'});
+		
+		var hh = parseInt(w/2);
+		var h2 = parseInt(w/40);
+		var hhh = hh - h2 - 10;		
+		$('div.headbg2').css({'top':hhh, 'height':h2});
+		$('td#bgcell').css('height',hh);
+		$('div.headbg').css('width',w);
+		$('div.headbg2').css('width',w);
+		$('td#desc').css('height',parseInt(w/16));
+
+		var logoRatio = 425 / 72;
+		$('img#biglogo').each(function(){
+			var logoW = parseInt(w * 0.22);
+			var logoH = parseInt(logoW / logoRatio);
+            $(this).css("width", logoW);
+			$(this).css("height", logoH); 
+		});
+
+        $(window).resize(function() {
+			
+		resizeMe("div#fittext1",48);	
+		resizeMe("div#fittext1b",28);				
+		resizeMe("div#fittext2",24);
+		resizeMe("div#fittext3",40);
+		resizeMe("div#fittext4",24);	
+		resizeMe("div#fittext5",16);
+		resizeMe("div#fittext6",20);			
+				
+			var dynW = document.body.clientWidth;
+			var dynHh = parseInt(dynW/2);
+			var dynH2 = parseInt(dynW/40);
+			var dynHhh = dynHh - dynH2 - 10;			
+			$('div.headbg2').css({'top':dynHhh, 'height':dynH2});
+			$('td#bgcell').css('height',dynHh);
+			$('div.headbg').css('width',dynW);
+			$('div.headbg2').css('width',dynW);
+			$('td#desc').css('height',parseInt(dynW/16));
+
+			UpdHeight = parseInt(dynW / 3.96);
+			$("td#updIconTd").css('height', UpdHeight +'px');
+		
+			var dynLogoW = parseInt(dynW * 0.22);
+			var dynLogoH = parseInt(dynLogoW / logoRatio);
+            $('img#biglogo').css({'width':dynLogoW, 'height':dynLogoH});
+
+			var padVal = parseInt(dynW / 127);
+			$("div.descrip").css('padding', padVal +'px');
+
+			var dynOvelayW = parseInt(dynW / 1.42);
+			var dynOvelayH = parseInt(dynW / 2.85);
+			$("div#overlay").css({'top': dynOvelayH+'px', 'left': dynOvelayW+'px'});
+		
+        }); // end windows resize
+
+				
+			});
+		</script>
+</head>
+    <body>
+<!--logo zone -->
+<div align="center" style="top:0; padding-top:5px; padding-bottom:5px; width:100%;" class="headbg3">
+<script type="text/javascript">
+// Add to Favorites 
+function add_favorite( a ) { 
+  title = document.title; 
+  url = document.location; 
+  try { 
+    // Internet Explorer 
+    window.external.AddFavorite( url, title ); 
+  } 
+  catch (e) { 
+    try { 
+      // Mozilla 
+      window.sidebar.addPanel( title, url, "" ); 
+    } 
+    catch (e) { 
+      // Opera 
+      if( typeof( opera ) == "object" ) { 
+        a.rel = "sidebar"; 
+        a.title = title; 
+        a.url = url; 
+        return true; 
+      } 
+      else { 
+        // Unknown 
+        alert( 'Press Ctrl-D to add page to your bookmarks' ); 
+      } 
+    } 
+  } 
+  return false; 
+}
+</script>
+<!--promo banner at very top<a href="https://nhlpcentral.com/blackfriday.php" style="display: block; height: 40px; background-color: #000; color:#FFF; font-family:Arial, Helvetica, sans-serif; font-size:26px; line-height:40px; text-decoration:none; margin: -5px auto 10px;"><img src="blackfriday/black-friday-sale.png" width="109" height="40" alt="black friday sale" style="float:left;" />BLACK FRIDAY, CHEAPER DEALS, BE QUICK! <span style="color:#F00;">CLICK HERE!</span><img src="blackfriday/black-friday-sale.png" width="109" height="40" alt="black friday sale" style="float:right;" /></a><!--promo banner at very top end-->
+<table width="100%" border="0" cellspacing="0" cellpadding="0">
+  <tr>
+    <td width="33%" align="left" valign="top"><div class="txt1 white" id="fittext2"><a href="//nhlpcentral.com/index.php" class="white" title="NHLP - Nylons Heels Lingerie Pantyhose!">&nbsp;HOME</a> | <a href="//nhlpcentral.com/join.php" style="color:#f8cd02; text-decoration:none;" title="Join NHLP Central!">JOIN</a> | <a href="//nhlpcentral.com/members/index.php" class="white" title="NHLP Members Area">MEMBERS</a> | <a href="all_models.php" class="white" title="All NHLP Models">MODELS</a><!-- | <a href="#" style="color:#f53333; text-decoration:none;">VOD</a></div> --></td>
+    <td align="center" valign="top"><img src="//nhlpcentral.com/images/headlogo.png" width="425" height="72" id="biglogo"/></td>
+    <td width="37%" align="right" valign="top"><div class="txt1 white" id="fittext2"><a href="#" onclick="return add_favorite(this);" class="white">BOOKMARK</a>&nbsp;</div></td>
+  </tr>
+</table>
+<table width="100%" border="0" cellspacing="5" cellpadding="0">
+  <tr>
+    <td width="50%" align="left" valign="middle"><div class="txt1sb white" id="fittext5">
+<a href="imgpage-gt.php" class="headlink"><span class="words" id="8" title="GLAMOUR TEASE">GLAMOUR TEASE &nbsp;&nbsp;</span></a> 
+<a href="imgpage-ph.php" class="headlink"><span class="words" id="1" title="PANTYHOSE">PANTYHOSE&nbsp;&nbsp; </span> </a>
+<a href="imgpage-vf.php" class="headlink"><span class="words" id="2" title="RETRO GLAMOUR">RETRO GLAMOUR&nbsp;&nbsp;</span></a>
+<a href="imgpage-pty.php" class="headlink"><span class="words" id="3" title="PANTIES">PANTIES&nbsp;&nbsp;  </span></a> 
+<a href="imgpage-hh.php" class="headlink"><span class="words" id="4" title="HIGH HEELS">HIGH HEELS&nbsp;&nbsp; </span></a> 
+<a href="imgpage-ff.php" class="headlink"><span class="words" id="5" title="FOOT FETISH">FOOT FETISH&nbsp;&nbsp; </span></a> 
+<a href="imgpage-uni.php" class="headlink"><span class="words" id="6" title="UNIFORM">UNIFORM&nbsp;&nbsp; </span></a> 
+<a href="imgpage-arch.php" class="headlink"><span class="words" id="7" title="50 & 60s ARCHIVES">50 & 60s ARCHIVES</span></a>
+<a href="http://www.nhlpcentral.tv/" class="headlink" target="_blank"><span style="color:#ed8e24;">LIVE CHAT</span></a></div></td>
+    <td width="50%" align="right" valign="middle"><div class="txt1sb white" id="fittext5"><h1>YOUR #1 LOCATION FOR EXCLUSIVE NYLONS HIGH HEELS  LINGERIE SOFT CORE AND TEASE HD VIDEOS AND PHOTOS</h1></div></td>
+  </tr>
+</table></div>
+<!--/logo zone -->  
+<br> 
+<table width="91%" border="0" align="center" cellpadding="5" cellspacing="0">
+  <tr>
+    <td width="56%" align="left" valign="middle" bgcolor="#FFFFFF"><div class="txt1l" id="fittext1"><a href="all_models.php" style="text-decoration:none;"><span class="txt1sb" style="color:#4c4c4c;"> MODEL:</span></a> <span class="txt1ll" style="color:#e70001;">
+      CHLOE TOY 
+    </span></div></td>
+    <td width="12%" align="left" valign="middle" bgcolor="#FFFFFF"></td>
+    <td width="32%" align="center" valign="middle" bgcolor="#616161"><div class="txt1l" id="fittext1"><a href="join.php" class="txt1sb" style="color:#fccb04;">CLICK TO JOIN NHLP!</a></div></td>
+  </tr>
+</table>
+<br>
+<table width="91%" border="0" align="center" cellpadding="0" cellspacing="10">
+  <tr>
+    <td width="27%" align="center" valign="top" bgcolor="#616161"><table width="100%" border="0" cellspacing="10" cellpadding="0">
+      <tr>
+        <td align="left"><div id="fittext3" style="color: #fccb04;" class="txt1sb">BIO AND INFO</div>
+<div align="left" style="padding: 10px; color:#ffffff;" id="fittext2" class="txt2">
+Photo sets: 45<br>
+Video sets: 45<br>
+Rating: 9.84/10.00<br>
+<br>
+Height: 5' 3  <br>
+Bust: 34B <br>
+Waist: 24  <br>
+Hips:  34 <br>
+Hair: Blonde  <br>
+Eyes: Blue	<br>
+Nationality: United Kingdom 
+<img src="images/flags/gb.jpg" width="25" height="14"><br>
+</div>   
+<br>     
+<div id="fittext3" style="color: #fccb04;" class="txt1sb">ISN'T SHE GORGEOUS?</div> 
+<div align="left" style="padding: 10px; color:#ffffff;" id="fittext2" class="txt2">
+Currently 337 models are in this site, all loving every minute 
+showing off to you in a massive range of classy outfits!
+<br>
+You can rate all models, see their ranking and leave a request 
+for maybe next time. This site is tease excitement and fun!
+<br>
+
+</div>       
+<br>
+<div id="fittext3"><a href="join.php" style="color: #fccb04;" class="txt1sb">CLICK HERE TO ENJOY</a></div>
+        </td>
+      </tr>
+    </table></td>
+    <td align="center" valign="top"><table width="100%" border="0" cellspacing="0" cellpadding="0">
+      <tr>
+<!--u --> 
+
+<td width="50%" align="left"><img src="//nhlpcentral.com/awizicon/2740_8.jpg" width="96%" ><div align="left" style="color: #000000; font-size: 18px;" id="fittext1b" class="txt2b">Chloe Toy - A big cummy mess?</div></td><td width="50%" align="left"><img src="//nhlpcentral.com/awizicon/2663_8.jpg" width="96%" ><div align="left" style="color: #000000; font-size: 18px;" id="fittext1b" class="txt2b">Chloe Toy - Randy, bare assed and hot on heels!</div></td></tr><tr><td width="50%" align="left"><img src="//nhlpcentral.com/awizicon/2589_8.jpg" width="96%" ><div align="left" style="color: #000000; font-size: 18px;" id="fittext1b" class="txt2b">Chloe Toy - Easy pleasy, lingerie teasy!</div></td><td width="50%" align="left"><img src="//nhlpcentral.com/awizicon/2549_8.jpg" width="96%" ><div align="left" style="color: #000000; font-size: 18px;" id="fittext1b" class="txt2b">Chloe Toy - I want to read you a story...</div></td><!--/u -->            
+      </tr>      
+    </table></td>
+  </tr>
+</table>
+
+<br>
+<table border="0" align="center" cellpadding="10" cellspacing="0" bgcolor="#616161" >
+  <tr>
+    <td><div class="txt1l" id="fittext1" align="center"><a href="bio.php?name=Chloe Toy&sta=4&num=45" class="txt1sb" style="color:#fccb04;">MORE  <span class="txt1ll" style="color:#fccb04;">CHLOE TOY ></span></a></div></td>
+  </tr>
+</table>
+<br>
+    <script>
+        // Function to show the popup
+        function showPopup() {
+            document.getElementById('popup').style.display = 'block';
+            document.getElementById('overlay').style.display = 'block';
+        }
+
+        // Function to close the popup and set a cookie to prevent it from showing again
+        function closePopup() {
+            document.getElementById('popup').style.display = 'none';
+            document.getElementById('overlay').style.display = 'none';
+            // Set a cookie to remember that the popup was closed (for this session)
+            document.cookie = "popup_closed=true; path=/; max-age=" + 60 * 60 * 24; // expires in 1 day
+        }
+
+        window.onload = function() {
+                            setTimeout(showPopup, 1000); // Show popup after 1 second
+                    }
+    </script>
+</head>
+<body>
+
+<div id="overlay" onClick="closePopup()"></div>
+
+<div id="popup">
+    <h2>Warning</h2>
+    <p>This website is for over 18's only, please verify you are over 18 or not:</p>
+    <button onClick="closePopup()">I am 18 or over</button>
+    <button><a href="https://www.google.com">I am under 18</a></button>
+</div>
+
+</body>
+</html>
+
+<hr style="margin: 20px 0px 20px;">
+
+<table width="100%" border="0" cellspacing="0" cellpadding="0" bgcolor="#FFFFFF">
+  <tr>
+    <td align="center"><table width="90%" border="0" align="center" cellpadding="5" cellspacing="1" bgcolor="#FFFFFF">
+        <tr>
+          <td width="60%" align="left" valign="middle"><div class="txt1" id="fittext6" style="color:#000;"> <a href="custsupport.php" class="txt1" style="color:#000;">Customer Support</a> | <a href="http://nylonscash.com/" class="txt1" style="color:#000;">Webmaster</a> | <a href="contact.php" class="txt1" style="color:#000;">Contact</a> | <a href="tos.php" class="txt1" style="color:#000;">Terms of Service</a></div>
+            <table border="0">
+              <tr>
+                <td><!-- AddThis Button BEGIN -->
+                  
+                  <style>
+        div.addthis_toolbox {
+        width: 330px;
+        margin: 0 auto;
+}
+</style>
+                  <br/>
+                  <div class="addthis_toolbox addthis_default_style addthis_32x32_style"> <a class="addthis_button_preferred_1"></a> <a class="addthis_button_preferred_2"></a> <a class="addthis_button_preferred_3"></a> <a class="addthis_button_preferred_4"></a> <a class="addthis_button_compact"></a> <a class="addthis_counter addthis_bubble_style"></a> </div>
+                  <script type="text/javascript">var addthis_config = {"data_track_addressbar":true};</script> 
+                  <script type="text/javascript" src="//s7.addthis.com/js/300/addthis_widget.js#pubid=foruseu"></script> 
+                  <!-- AddThis Button END --></td>
+              </tr>
+            </table>
+            <span class="txt1l" style="color:#000;font-size:12px;">Copyright NHLPcentral.com 2015 -
+            2026            <br>
+           
+            <a href="2257.php" class="txt1l" style="color:#000;">18 U.S.C. 2257 Record-Keeping Requirements Compliance Statement</a> | 
+            <a href="http://nylonscash.com/" class="txt1l" style="color:#000;">Webmasters</a><br>
+             NHLP Central has a zero-tolerance approach to human trafficking, forced labour, and exploitation in any form.</span></td>
+          <td height="40%" align="right"><div class="txt1l" id="fittext1" style="color:#000;">GET IT ALL <a href="//nhlpcentral.com/join.php" class="txt1" style="color:#43a60d;">CLICK AND JOIN</a></div>
+            <table width="100%" border="0" cellpadding="0" cellspacing="0">
+              <tr>
+                <td width="23%" align="right" valign="top"><div class="txt1l" id="fittext6" style="color:#000;"></div></td>
+                <td width="7%" valign="top">&nbsp;</td>
+                <td width="70%" valign="top"><img src="//nhlpcentral.com/images/footlogo.png" width="100%" /></td>
+              </tr>
+            </table></td>
+        </tr>
+      </table>
+      <br></td>
+  </tr>
+</table>
+   
+    </body>
+</html>
+
+
+

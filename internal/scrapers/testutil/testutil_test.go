@@ -3,14 +3,19 @@ package testutil
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/Anastylosis/FSS/internal/httpx"
 	"github.com/Anastylosis/FSS/models"
 	"github.com/Anastylosis/FSS/scraper"
 )
@@ -464,5 +469,123 @@ func TestSceneNotesFlagsUntrimmedNames(t *testing.T) {
 	}
 	if got := sceneProblems(s); len(got) != 0 {
 		t.Errorf("sceneProblems = %v, want none — untrimmed names must not fail a scraper", got)
+	}
+}
+
+// ---- site outage vs scraper regression ----
+//
+// A scrape that returns nothing is either a scraper that broke or a site that
+// stopped serving. These guard the line between the two: only the second may
+// downgrade a failure to a skip, or a real regression would go unreported.
+
+func TestSiteSideErrorClassifies(t *testing.T) {
+	cases := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{"500 is the site failing", &httpx.StatusError{StatusCode: 500}, true},
+		{"503 is the site failing", &httpx.StatusError{StatusCode: 503}, true},
+		{"404 is usually our URL", &httpx.StatusError{StatusCode: 404}, false},
+		{"403 is not an outage", &httpx.StatusError{StatusCode: 403}, false},
+		{"DNS failure", &net.DNSError{Err: "no such host", Name: "gone.example"}, true},
+		{"connection refused", &net.OpError{Op: "dial", Err: errors.New("connection refused")}, true},
+		{"a parse failure is ours", errors.New("parsing listing: no cards found"), false},
+		{"wrapped 500 still counts", fmt.Errorf("page 3: %w", &httpx.StatusError{StatusCode: 500}), true},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if _, got := siteSideError(c.err); got != c.want {
+				t.Errorf("siteSideError(%v) = %v, want %v", c.err, got, c.want)
+			}
+		})
+	}
+}
+
+// A timeout is as likely to be a client deadline set below the origin's own
+// ceiling — our bug — as it is the site being down, so it must not skip.
+func TestTimeoutIsNotTreatedAsAnOutage(t *testing.T) {
+	err := fmt.Errorf("API page 3: %w", context.DeadlineExceeded)
+	if _, down := siteSideError(err); down {
+		t.Error("a timeout must stay a failure, not become a skip")
+	}
+}
+
+// One error we cannot blame on the site keeps the whole run a failure.
+func TestSiteIsDownRequiresEveryErrorToBeSiteSide(t *testing.T) {
+	mixed := []error{
+		&httpx.StatusError{StatusCode: 500},
+		errors.New("parsing detail page: title not found"),
+	}
+	if _, down := siteIsDown("https://example.com", mixed); down {
+		t.Error("a parse error alongside a 500 must still fail")
+	}
+
+	allSite := []error{
+		&httpx.StatusError{StatusCode: 500},
+		&httpx.StatusError{StatusCode: 502},
+	}
+	if _, down := siteIsDown("https://example.com", allSite); !down {
+		t.Error("errors that are all site-side should report an outage")
+	}
+}
+
+func TestProbeSiteDetectsOutages(t *testing.T) {
+	down := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "boom", http.StatusInternalServerError)
+	}))
+	defer down.Close()
+	if reason, isDown := probeSite(down.URL); !isDown {
+		t.Errorf("a 5xx site should read as down, got %q", reason)
+	}
+
+	up := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = fmt.Fprint(w, "<html>fine</html>")
+	}))
+	defer up.Close()
+	if reason, isDown := probeSite(up.URL); isDown {
+		t.Errorf("a healthy site must not read as down: %q", reason)
+	}
+}
+
+// A site that redirects onto somebody else's domain has been parked or folded
+// into another brand; the catalogue the scraper targets is not there.
+func TestProbeSiteDetectsOffDomainRedirect(t *testing.T) {
+	elsewhere := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = fmt.Fprint(w, "<html>a different site</html>")
+	}))
+	defer elsewhere.Close()
+
+	// 127.0.0.1 and localhost are different hostnames, which is enough to
+	// exercise the comparison without leaving the machine.
+	target := strings.Replace(elsewhere.URL, "127.0.0.1", "localhost", 1)
+	moved := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, target, http.StatusMovedPermanently)
+	}))
+	defer moved.Close()
+
+	if _, isDown := probeSite(moved.URL); !isDown {
+		t.Error("a redirect onto another domain should read as down")
+	}
+}
+
+func TestSameSiteIgnoresWWW(t *testing.T) {
+	cases := []struct {
+		requested, final string
+		want             bool
+	}{
+		{"https://www.example.com/videos", "https://example.com/videos", true},
+		{"https://example.com/a", "https://www.example.com/b", true},
+		{"https://example.com", "https://elsewhere.com", false},
+		{"https://vintageflash.com", "https://nhlpcentral.com/", false},
+	}
+	for _, c := range cases {
+		u, err := url.Parse(c.final)
+		if err != nil {
+			t.Fatalf("parse %q: %v", c.final, err)
+		}
+		if got := sameSite(c.requested, u); got != c.want {
+			t.Errorf("sameSite(%q, %q) = %v, want %v", c.requested, c.final, got, c.want)
+		}
 	}
 }

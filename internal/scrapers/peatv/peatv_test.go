@@ -2,6 +2,7 @@ package peatv
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -325,5 +326,78 @@ func TestCancelledScrapeDoesNotReportStoppedEarly(t *testing.T) {
 	if n := stoppedEarly.Load(); n > 0 {
 		t.Errorf("cancelled scrape emitted %d StoppedEarly result(s); that tells the "+
 			"caller the run finished normally", n)
+	}
+}
+
+// fixtureShutdown is the complete 165-byte body every pea-tv.jp page has
+// served since the service closed on 2026-09-01, byte for byte.
+const fixtureShutdown = "ＰＥＡーＴＶは２０２６年９月１日をもってサービスを終了いたしました。長らくのご愛顧誠にありがとうございました。"
+
+func TestIsShutdownNotice(t *testing.T) {
+	if len(fixtureShutdown) != 165 {
+		t.Fatalf("fixture is %d bytes, want the live notice's 165", len(fixtureShutdown))
+	}
+	if !isShutdownNotice([]byte(fixtureShutdown)) {
+		t.Error("the closure notice was not recognised")
+	}
+	if isShutdownNotice([]byte(fixtureListing)) {
+		t.Error("a real listing was taken for the closure notice")
+	}
+}
+
+// An empty first listing page must surface as a parse error, never as a
+// silent 0-scene success: FailureParse keeps the run incomplete, so an
+// authoritative --full/--refresh Save cannot delete the stored catalogue.
+func TestEmptyFirstPageReportsParseError(t *testing.T) {
+	cases := []struct {
+		name        string
+		body        string
+		wantService bool
+	}{
+		{"shutdown notice", fixtureShutdown, true},
+		{"empty listing", `<html><body>0 件中</body></html>`, false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			var detailHits atomic.Int32
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if strings.HasPrefix(r.URL.Path, "/monthly_detail.php") {
+					detailHits.Add(1)
+				}
+				_, _ = fmt.Fprint(w, c.body)
+			}))
+			defer ts.Close()
+
+			s := New()
+			s.client = ts.Client()
+			s.base = ts.URL
+
+			ch, err := s.ListScenes(context.Background(), ts.URL+"/search.php?b=1", scraper.ListOpts{Workers: 2})
+			if err != nil {
+				t.Fatal(err)
+			}
+			var errs []error
+			scenes := 0
+			for r := range ch {
+				switch r.Kind {
+				case scraper.KindScene:
+					scenes++
+				case scraper.KindError:
+					errs = append(errs, r.Err)
+				}
+			}
+			if scenes != 0 || detailHits.Load() != 0 {
+				t.Errorf("got %d scenes and %d detail fetches, want none", scenes, detailHits.Load())
+			}
+			if len(errs) != 1 {
+				t.Fatalf("got %d errors, want 1: %v", len(errs), errs)
+			}
+			if k := scraper.Classify(errs[0]); k != scraper.FailureParse {
+				t.Errorf("Classify = %v, want FailureParse", k)
+			}
+			if got := errors.Is(errs[0], errServiceEnded); got != c.wantService {
+				t.Errorf("errors.Is(err, errServiceEnded) = %v, want %v (err: %v)", got, c.wantService, errs[0])
+			}
+		})
 	}
 }

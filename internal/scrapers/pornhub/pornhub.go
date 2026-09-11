@@ -24,7 +24,11 @@ type Scraper struct {
 
 func New() *Scraper {
 	return &Scraper{
-		client: httpx.NewClient(30 * time.Second),
+		// Browser fingerprint, not Go's: the edge answers every Go
+		// ClientHello with a 403 "Down for Maintenance" page, over HTTP/2 or
+		// HTTP/1.1 and whatever headers it carries. See
+		// httpx.NewBrowserTLSClient.
+		client: httpx.NewBrowserTLSClient(30 * time.Second),
 	}
 }
 

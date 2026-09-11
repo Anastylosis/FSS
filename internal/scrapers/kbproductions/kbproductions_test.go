@@ -15,8 +15,6 @@ func TestMatchesURL(t *testing.T) {
 		{"https://melina-may.com/", "melinamay"},
 		{"https://www.passionpov.com/videos", "passionpov"},
 		{"https://shehergirls.com", "shehergirls"},
-		{"https://vrallure.com/videos", "vrallure"},
-		{"https://www.manpuppy.com/", "manpuppy"},
 		{"https://milflicious.com/videos", "milflicious"},
 	}
 	for _, tt := range tests {

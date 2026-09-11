@@ -11,10 +11,12 @@ import (
 	"github.com/Anastylosis/FSS/scraper"
 )
 
-func buildIFMPage(items []struct {
+type ifmItem = struct {
 	sceneID, price, artistID, performer, title, duration, date, thumb string
 	categories, tags                                                  []string
-}) string {
+}
+
+func buildIFMPage(items []ifmItem) string {
 	html := ""
 	for _, it := range items {
 		catHTML := ""
@@ -293,10 +295,7 @@ func TestSceneValidation(t *testing.T) {
 // several artists pushes the window out of step and the last card of one page
 // comes back as the first card of the next. Live, 24205/f16944 arrived twice.
 func TestPaginationOverlapEmitsEachSceneOnce(t *testing.T) {
-	type item = struct {
-		sceneID, price, artistID, performer, title, duration, date, thumb string
-		categories, tags                                                  []string
-	}
+	type item = ifmItem
 
 	overlap := item{sceneID: "205", price: "0", artistID: "F944", performer: "Overlap"}
 

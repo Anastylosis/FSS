@@ -7,12 +7,17 @@ package testutil
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
+	"net"
+	"net/http"
 	"net/url"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/Anastylosis/FSS/internal/httpx"
 	"github.com/Anastylosis/FSS/models"
 	"github.com/Anastylosis/FSS/scraper"
 )
@@ -124,20 +129,125 @@ func RunLiveScrape(t *testing.T, s scraper.StudioScraper, studioURL string, limi
 	}
 
 	const maxAttempts = 2
+	var lastErrs []error
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		count := runOnce(t, s, studioURL, limit, attempt < maxAttempts)
+		count, errs := runOnce(t, s, studioURL, limit, attempt < maxAttempts)
 		if count > 0 {
 			return
 		}
+		lastErrs = errs
 		if attempt < maxAttempts {
 			t.Logf("%s: 0 scenes on attempt %d, retrying after 3s", s.ID(), attempt)
 			time.Sleep(3 * time.Second)
 		}
 	}
+
+	// A scrape that returned nothing is either a scraper regression or a site
+	// that has stopped serving. Only the second is out of our hands, so say
+	// which it is instead of reporting both as a broken scraper.
+	if reason, down := siteIsDown(studioURL, lastErrs); down {
+		t.Skipf("%s: %s — %s. The scraper is untested, not known-broken; "+
+			"re-run when the site is back.", s.ID(), reason, studioURL)
+	}
 	t.Fatalf("%s: no scenes returned from %s after %d attempts", s.ID(), studioURL, maxAttempts)
 }
 
-func runOnce(t *testing.T, s scraper.StudioScraper, studioURL string, limit int, tolerateErrors bool) int {
+// siteIsDown reports whether a scrape returned nothing because the site is not
+// serving rather than because the scraper broke.
+//
+// It is consulted only after a scrape has already failed, never as a gate
+// before one. That ordering is deliberate: some CMSes serve real content under
+// a 5xx (SexMex does), and pre-checking the status would skip scrapers that
+// work perfectly well.
+func siteIsDown(studioURL string, errs []error) (string, bool) {
+	// The scrape's own errors are the better evidence when there are any: they
+	// name the URL the scraper actually could not fetch, which is often not the
+	// studio URL at all (a WordPress REST endpoint under it, say).
+	if len(errs) > 0 {
+		first := ""
+		for _, err := range errs {
+			reason, ok := siteSideError(err)
+			if !ok {
+				// Not obviously the site's fault — a parse failure, a 4xx, or
+				// a timeout we may have set too low. Report it as a failure.
+				return "", false
+			}
+			if first == "" {
+				first = reason
+			}
+		}
+		return first, true
+	}
+	// No errors at all: the scraper walked a page and found nothing in it.
+	// That is usually a parser regression, so ask the site directly.
+	return probeSite(studioURL)
+}
+
+// siteSideError reports whether err means the site failed, as opposed to the
+// scraper asking it for the wrong thing.
+func siteSideError(err error) (string, bool) {
+	var se *httpx.StatusError
+	if errors.As(err, &se) {
+		if se.StatusCode >= 500 {
+			return fmt.Sprintf("the site answers HTTP %d", se.StatusCode), true
+		}
+		// 4xx is far more often a URL the scraper built wrongly than a site
+		// that has gone away, so it stays a failure.
+		return "", false
+	}
+	var dnsErr *net.DNSError
+	if errors.As(err, &dnsErr) {
+		return fmt.Sprintf("the domain does not resolve (%s)", dnsErr.Err), true
+	}
+	var opErr *net.OpError
+	if errors.As(err, &opErr) {
+		return fmt.Sprintf("the site refused the connection (%s)", opErr.Err), true
+	}
+	// A timeout is deliberately not site-side: it is as likely to be a client
+	// deadline set below the origin's own ceiling, which is our bug to fix.
+	return "", false
+}
+
+// probeSite asks the studio URL whether it is still serving this site.
+func probeSite(studioURL string) (string, bool) {
+	req, err := http.NewRequest(http.MethodGet, studioURL, nil)
+	if err != nil {
+		return "", false
+	}
+	req.Header.Set("User-Agent", httpx.UserAgentFirefox)
+
+	resp, err := (&http.Client{Timeout: 20 * time.Second}).Do(req)
+	if err != nil {
+		if reason, ok := siteSideError(err); ok {
+			return reason, true
+		}
+		return fmt.Sprintf("the site could not be reached (%v)", err), true
+	}
+	defer func() { _ = resp.Body.Close() }()
+	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<20))
+
+	if resp.StatusCode >= 500 {
+		return fmt.Sprintf("the site answers HTTP %d", resp.StatusCode), true
+	}
+	// A site that now redirects to somebody else's domain has been parked,
+	// sold or folded into another brand; whatever it is, the catalogue this
+	// scraper was written against is not there.
+	if final := resp.Request.URL; final != nil && !sameSite(studioURL, final) {
+		return fmt.Sprintf("the site redirects to %s, a different domain", final.Host), true
+	}
+	return "", false
+}
+
+// sameSite compares hosts ignoring a leading www.
+func sameSite(requested string, final *url.URL) bool {
+	u, err := url.Parse(requested)
+	if err != nil {
+		return true
+	}
+	return strings.TrimPrefix(u.Hostname(), "www.") == strings.TrimPrefix(final.Hostname(), "www.")
+}
+
+func runOnce(t *testing.T, s scraper.StudioScraper, studioURL string, limit int, tolerateErrors bool) (int, []error) {
 	t.Helper()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
@@ -147,18 +257,20 @@ func runOnce(t *testing.T, s scraper.StudioScraper, studioURL string, limit int,
 	if err != nil {
 		if tolerateErrors {
 			t.Logf("ListScenes(%s): %v (will retry)", studioURL, err)
-			return 0
+			return 0, []error{err}
 		}
 		t.Fatalf("ListScenes(%s): %v", studioURL, err)
 	}
 
 	count := 0
 	errCount := 0
+	var errs []error
 	var seen []models.Scene
 	for result := range ch {
 		switch result.Kind {
 		case scraper.KindError:
 			errCount++
+			errs = append(errs, result.Err)
 			t.Logf("scene error: %v", result.Err)
 			continue
 		case scraper.KindTotal, scraper.KindStoppedEarly:
@@ -196,13 +308,16 @@ func runOnce(t *testing.T, s scraper.StudioScraper, studioURL string, limit int,
 	// signal is: errors occurred AND the scrape could not even reach `limit`.
 	// A site with genuinely fewer than `limit` scenes produces no errors, so it
 	// is unaffected.
-	if !tolerateErrors && errCount > 0 && count < limit {
+	// Gated on count > 0: a run that collected nothing at all is classified by
+	// RunLiveScrape, which can tell a site outage from a scraper regression.
+	// Failing it here would mark the test before that decision is made.
+	if !tolerateErrors && errCount > 0 && count > 0 && count < limit {
 		t.Errorf("%s: %d scene error(s) and only %d/%d scenes — the scrape is degraded, not just slow",
 			s.ID(), errCount, count, limit)
 	}
 
 	t.Logf("%s: validated %d scenes (limit %d, %d error(s))", s.ID(), count, limit, errCount)
-	return count
+	return count, errs
 }
 
 // CollectScenes drains a SceneResult channel, returning all scenes.

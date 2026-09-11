@@ -1,12 +1,14 @@
 // Package timtales scrapes Timtales (https://www.timtales.com/), a TYPO3 gay
 // bareback site. The /videos/latest/ listing yields one card per scene with the
-// slug, short title and splash thumbnail; the detail page (/videos/{slug}/) adds
-// the full title, publish date, runtime and description. Pages past the end
-// repeat the last page, so pagination stops once a page yields no new scenes.
+// slug, short title and splash thumbnail; the detail page (/videos/{slug}) adds
+// the full title, publish date, runtime, description, performers and
+// categories. Pages past the end repeat the last page, so pagination stops once
+// a page yields no new scenes.
 package timtales
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"html"
 	"net/http"
@@ -73,13 +75,16 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 	now := time.Now().UTC()
 	seen := make(map[string]bool)
 	scraper.Paginate(ctx, opts, siteID, out, func(ctx context.Context, page int) (scraper.PageResult, error) {
-		pageURL := listBase + "/"
+		pageURL := listBase
 		if page > 1 {
-			pageURL = fmt.Sprintf("%s/page-%d/", listBase, page)
+			pageURL = fmt.Sprintf("%s/page-%d", listBase, page)
 		}
 		items, err := s.fetchListing(ctx, pageURL)
 		if err != nil {
 			return scraper.PageResult{}, err
+		}
+		if len(items) == 0 && page == 1 {
+			return scraper.PageResult{}, scraper.ParseError(pageURL, errors.New("listing loaded but no scene cards matched"))
 		}
 		// Out-of-range pages repeat the last page — stop when nothing is new.
 		fresh := items[:0]
@@ -100,10 +105,11 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 // ---- listing ----
 
 // Scene cards live in <div class="video-item ...">; each has an <h2> title, a
-// player div carrying the splash thumbnail, and a /videos/{slug}/ anchor.
+// player div carrying the splash thumbnail, and a /videos/{slug} anchor (the
+// trailing slash was dropped in 2026 and is accepted either way).
 // Category/sidebar links are plain <a> tags outside any video-item, so a card
 // regex naturally excludes them.
-var cardRe = regexp.MustCompile(`(?s)<div class="video-item[^"]*">\s*<h2>(.*?)</h2>.*?background-image:\s*url\(&#0?39;([^&]+)&#0?39;\).*?<a href="(/videos/[^"]+/)"`)
+var cardRe = regexp.MustCompile(`(?s)<div class="video-item[^"]*">\s*<h2>(.*?)</h2>.*?background-image:\s*url\(&#0?39;([^&]+)&#0?39;\).*?<a href="(/videos/[^"/]+)/?"`)
 
 type listItem struct {
 	id, url, title, thumbnail string
@@ -117,14 +123,13 @@ func (s *Scraper) fetchListing(ctx context.Context, pageURL string) ([]listItem,
 	matches := cardRe.FindAllStringSubmatch(string(body), -1)
 	items := make([]listItem, 0, len(matches))
 	for _, m := range matches {
-		path := m[3]
-		slug := strings.Trim(strings.TrimPrefix(path, "/videos/"), "/")
+		slug := strings.TrimPrefix(m[3], "/videos/")
 		if slug == "" {
 			continue
 		}
 		items = append(items, listItem{
 			id:        slug,
-			url:       baseURL + path,
+			url:       baseURL + m[3],
 			title:     cleanText(m[1]),
 			thumbnail: html.UnescapeString(strings.TrimSpace(m[2])),
 		})
@@ -175,6 +180,9 @@ var (
 	h1Re   = regexp.MustCompile(`(?s)<h1>(.*?)</h1>`)
 	dateRe = regexp.MustCompile(`(?s)<p class="date">\s*(.*?)\s*(?:&#8211;|–|-)\s*Runtime:\s*([0-9:]+)\s*</p>`)
 	descRe = regexp.MustCompile(`(?s)<p class="bodytext">(.*?)</p>`)
+	menRe  = regexp.MustCompile(`(?s)<p class="categories">\s*Men:(.*?)</p>`)
+	catsRe = regexp.MustCompile(`(?s)<p class="categories">\s*Categories:(.*?)</p>`)
+	aRe    = regexp.MustCompile(`(?s)<a[^>]*>(.*?)</a>`)
 )
 
 func (s *Scraper) toScene(ctx context.Context, studioURL string, it listItem, now time.Time) models.Scene {
@@ -209,7 +217,23 @@ func (s *Scraper) toScene(ctx context.Context, studioURL string, it listItem, no
 	if m := descRe.FindStringSubmatch(detail); m != nil {
 		scene.Description = cleanText(m[1])
 	}
+	if m := menRe.FindStringSubmatch(detail); m != nil {
+		scene.Performers = anchorTexts(m[1])
+	}
+	if m := catsRe.FindStringSubmatch(detail); m != nil {
+		scene.Categories = anchorTexts(m[1])
+	}
 	return scene
+}
+
+func anchorTexts(block string) []string {
+	var out []string
+	for _, m := range aRe.FindAllStringSubmatch(block, -1) {
+		if t := cleanText(m[1]); t != "" {
+			out = append(out, t)
+		}
+	}
+	return out
 }
 
 // ---- helpers ----

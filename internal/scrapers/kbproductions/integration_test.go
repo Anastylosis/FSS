@@ -9,22 +9,19 @@ import (
 	"github.com/Anastylosis/FSS/internal/scrapers/testutil"
 )
 
-func TestLiveMelinaMay(t *testing.T) {
-	testutil.RunLiveScrape(t, paysiteutil.New(sites[0]), "https://melina-may.com/videos", 3)
+// live looks a site up by ID rather than slice index — removing a config row
+// must not silently repoint these tests at a different site.
+func live(t *testing.T, id, studioURL string) {
+	t.Helper()
+	for _, c := range sites {
+		if c.SiteID == id {
+			testutil.RunLiveScrape(t, paysiteutil.New(c), studioURL, 3)
+			return
+		}
+	}
+	t.Fatalf("site not found: %s", id)
 }
 
-func TestLivePassionPOV(t *testing.T) {
-	testutil.RunLiveScrape(t, paysiteutil.New(sites[1]), "https://passionpov.com/videos", 3)
-}
-
-func TestLiveVRAllure(t *testing.T) {
-	t.Skip("vrallure.com migrated from Next.js to IndieBucks/YPP HTML — needs standalone scraper")
-}
-
-func TestLiveManPuppy(t *testing.T) {
-	t.Skip("manpuppy.com migrated from Next.js to IndieBucks/YPP HTML — needs standalone scraper")
-}
-
-func TestLiveMilflicious(t *testing.T) {
-	testutil.RunLiveScrape(t, paysiteutil.New(sites[5]), "https://milflicious.com/videos", 3)
-}
+func TestLiveMelinaMay(t *testing.T)   { live(t, "melinamay", "https://melina-may.com/videos") }
+func TestLivePassionPOV(t *testing.T)  { live(t, "passionpov", "https://passionpov.com/videos") }
+func TestLiveMilflicious(t *testing.T) { live(t, "milflicious", "https://milflicious.com/videos") }

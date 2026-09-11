@@ -3,6 +3,7 @@ package peatv
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"html"
 	"net/http"
@@ -130,6 +131,12 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 
 		items, total, lastPage := parseListingPage(body)
 		if len(items) == 0 {
+			if page == 1 {
+				select {
+				case out <- scraper.Error(scraper.ParseError(u, emptyFirstPageErr(body))):
+				case <-ctx.Done():
+				}
+			}
 			break
 		}
 
@@ -226,6 +233,23 @@ func pageURL(base string, page int) string {
 }
 
 // ---- Listing page parsing ----
+
+// shutdownMarker is from the notice every page has served since the service
+// closed: "PEA-TV ended its service on September 1, 2026".
+const shutdownMarker = "サービスを終了いたしました"
+
+var errServiceEnded = errors.New("pea-tv.jp ended its service on 2026-09-01 and now serves only a closure notice")
+
+func isShutdownNotice(body []byte) bool {
+	return bytes.Contains(body, []byte(shutdownMarker))
+}
+
+func emptyFirstPageErr(body []byte) error {
+	if isShutdownNotice(body) {
+		return errServiceEnded
+	}
+	return errors.New("no items in the search listing")
+}
 
 var (
 	codeRe     = regexp.MustCompile(`monthly_detail\.php\?code=([^"&]+)`)

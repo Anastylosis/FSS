@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -69,8 +70,19 @@ func TestStudioPathRe(t *testing.T) {
 
 func TestParseListing(t *testing.T) {
 	items := parseListing(readFixture(t, "listing_page1.html"))
-	if len(items) != 2 {
-		t.Fatalf("got %d cards, want 2", len(items))
+	var ids []string
+	for _, it := range items {
+		ids = append(ids, it.id)
+	}
+	// 32622 and 32124 sit in the "Check out these DVDs as well" strip and are
+	// DVDs, not scenes.
+	if got := strings.Join(ids, ","); got != "32874,32868,32784" {
+		t.Fatalf("card ids = %s, want 32874,32868,32784", got)
+	}
+	for _, it := range items {
+		if strings.Contains(it.thumbnail, "/cover/") {
+			t.Errorf("%s: DVD cover %q leaked into the scene cards", it.id, it.thumbnail)
+		}
 	}
 	first := items[0]
 	if first.id == "" || !strings.Contains(first.url, "/movie/"+first.id+"/") {
@@ -89,8 +101,42 @@ func TestParseListing(t *testing.T) {
 			t.Errorf("performer %q carries template noise", p)
 		}
 	}
-	if first.date == "" {
+	if first.date != "09.09.2026" {
 		t.Errorf("date = %q", first.date)
+	}
+	if first.title != "Lovely Lola Marie gets cum faced again" {
+		t.Errorf("title = %q", first.title)
+	}
+	if first.thumbnail != "/movie/5/6/561eaa108c9074d4c16da3186f2b9be0/thumbs/thumb.jpg" {
+		t.Errorf("thumbnail = %q", first.thumbnail)
+	}
+	if got := strings.Join(items[1].performers, ","); got != "Pascal White,Rebecca Smyth" {
+		t.Errorf("performers = %q", got)
+	}
+}
+
+func TestParsePager(t *testing.T) {
+	p1 := parsePager(readFixture(t, "listing_page1.html"))
+	if !p1.hasPager || !p1.hasNext || p1.sceneCount != 1843 {
+		t.Errorf("page 1 = %+v", p1)
+	}
+	last := parsePager(readFixture(t, "listing_page2.html"))
+	if !last.hasPager || last.hasNext {
+		t.Errorf("last page = %+v, want a pager with no next button", last)
+	}
+	if none := parsePager([]byte(`<html></html>`)); none.hasPager || none.hasNext || none.sceneCount != -1 {
+		t.Errorf("bare page = %+v", none)
+	}
+}
+
+func TestStripDVDStripLeavesOtherGridCellsAlone(t *testing.T) {
+	body := []byte(`<div class="grid"><div class="col-span-4"><div>keep</div></div>` +
+		`<div class="col-span-4"><button wire:click="setType('movie')">DVDs</button><div class="movieItem">x</div></div>` +
+		`<div class="movieItem">y</div></div>`)
+	got := string(stripDVDStrip(body))
+	want := `<div class="grid"><div class="col-span-4"><div>keep</div></div><div class="movieItem">y</div></div>`
+	if got != want {
+		t.Errorf("stripDVDStrip =\n%s\nwant\n%s", got, want)
 	}
 }
 
@@ -148,22 +194,39 @@ func TestToSceneUsesTheReleasingStudio(t *testing.T) {
 	}
 }
 
-func TestListScenes(t *testing.T) {
+// listingServer serves the two listing fixtures as pages 1 and 2 of a
+// two-page catalogue, and detail for every /movie/ path. Anything else is an
+// unexpected request.
+func listingServer(t *testing.T, detail http.HandlerFunc) (*httptest.Server, *atomic.Int32) {
+	t.Helper()
+	var details atomic.Int32
 	var srv *httptest.Server
 	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case strings.HasPrefix(r.URL.Path, "/movie/"):
-			_, _ = w.Write(readFixture(t, "detail.html"))
+			details.Add(1)
+			detail(w, r)
 		case r.URL.Query().Get("page") == "1":
 			_, _ = w.Write(serveFixture(t, "listing_page1.html", srv.URL))
+		case r.URL.Query().Get("page") == "2":
+			_, _ = w.Write(serveFixture(t, "listing_page2.html", srv.URL))
 		default:
-			// The server-rendered listing carries no pager; past the end it
-			// renders no cards.
-			_, _ = w.Write([]byte(`<html><body></body></html>`))
+			t.Errorf("unexpected request %s — page 2 has no next button", r.URL)
+			w.WriteHeader(http.StatusNotFound)
 		}
 	}))
-	defer srv.Close()
+	t.Cleanup(srv.Close)
+	return srv, &details
+}
 
+func serveDetail(t *testing.T) http.HandlerFunc {
+	return func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write(readFixture(t, "detail.html"))
+	}
+}
+
+func TestListScenes(t *testing.T) {
+	srv, _ := listingServer(t, serveDetail(t))
 	s := newFor("splatbukkake")
 	s.base = srv.URL
 
@@ -172,35 +235,36 @@ func TestListScenes(t *testing.T) {
 		t.Fatalf("ListScenes: %v", err)
 	}
 	var scenes []models.Scene
+	total := 0
 	for res := range ch {
 		switch res.Kind {
 		case scraper.KindScene:
 			scenes = append(scenes, res.Scene)
+		case scraper.KindTotal:
+			total = res.Total
 		case scraper.KindError:
 			t.Errorf("error result: %v", res.Err)
 		}
 	}
-	if len(scenes) != 2 {
-		t.Fatalf("got %d scenes, want 2", len(scenes))
+	// Three scene cards on page 1 (the DVD strip excluded) and one on page 2.
+	if len(scenes) != 4 {
+		t.Fatalf("got %d scenes, want 4", len(scenes))
+	}
+	if total != 1843 {
+		t.Errorf("total = %d, want the listing's sceneCount", total)
 	}
 	for _, sc := range scenes {
 		if sc.Description == "" {
 			t.Errorf("detail enrichment missing on %s", sc.ID)
 		}
+		if !strings.HasPrefix(sc.URL, srv.URL) {
+			t.Errorf("scene URL %q left the test server", sc.URL)
+		}
 	}
 }
 
 func TestListScenesStopsAtKnownID(t *testing.T) {
-	var srv *httptest.Server
-	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasPrefix(r.URL.Path, "/movie/") {
-			_, _ = w.Write(readFixture(t, "detail.html"))
-			return
-		}
-		_, _ = w.Write(serveFixture(t, "listing_page1.html", srv.URL))
-	}))
-	defer srv.Close()
-
+	srv, details := listingServer(t, serveDetail(t))
 	known := parseListing(readFixture(t, "listing_page1.html"))[1].id
 	s := newFor("splatbukkake")
 	s.base = srv.URL
@@ -222,22 +286,16 @@ func TestListScenesStopsAtKnownID(t *testing.T) {
 	if scenes != 1 {
 		t.Errorf("scenes = %d, want 1", scenes)
 	}
+	// Nothing from the known card on is emitted, so its detail is not fetched.
+	if n := details.Load(); n != 1 {
+		t.Errorf("detail fetches = %d, want 1", n)
+	}
 }
 
 func TestListScenesReportsDetailFailureButKeepsScene(t *testing.T) {
-	var srv *httptest.Server
-	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case strings.HasPrefix(r.URL.Path, "/movie/"):
-			w.WriteHeader(http.StatusInternalServerError)
-		case r.URL.Query().Get("page") == "1":
-			_, _ = w.Write(serveFixture(t, "listing_page1.html", srv.URL))
-		default:
-			_, _ = w.Write([]byte(`<html><body></body></html>`))
-		}
-	}))
-	defer srv.Close()
-
+	srv, _ := listingServer(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	})
 	s := newFor("splatbukkake")
 	s.base = srv.URL
 
@@ -251,11 +309,66 @@ func TestListScenesReportsDetailFailureButKeepsScene(t *testing.T) {
 			errs++
 		}
 	}
-	if scenes != 2 {
-		t.Errorf("scenes = %d, want 2 — a dead detail page must not drop the card", scenes)
+	if scenes != 4 {
+		t.Errorf("scenes = %d, want 4 — a dead detail page must not drop the card", scenes)
 	}
-	if errs != 2 {
-		t.Errorf("errors = %d, want 2", errs)
+	if errs != 4 {
+		t.Errorf("errors = %d, want 4", errs)
+	}
+}
+
+// A listing the site says holds scenes, but whose cards no longer parse, is a
+// markup change — it must surface as a parse failure, not read as an empty
+// catalogue.
+func TestListScenesReportsVanishedCardsAsParseFailure(t *testing.T) {
+	cases := map[string]string{
+		"scene count":    `<div wire:snapshot="{&quot;data&quot;:{&quot;type&quot;:&quot;scene&quot;,&quot;sceneCount&quot;:1843}}"></div>`,
+		"next button":    `<nav aria-label="Pagination Navigation"><button wire:click="nextPage('page')">Next</button></nav>`,
+		"no pager/count": `<html><body><div class="grid"></div></body></html>`,
+	}
+	for name, page := range cases {
+		t.Run(name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				_, _ = w.Write([]byte(page))
+			}))
+			defer srv.Close()
+			s := newFor("splatbukkake")
+			s.base = srv.URL
+
+			ch, _ := s.ListScenes(context.Background(), "https://splatbukkake.xxx/", scraper.ListOpts{})
+			var errs []error
+			for res := range ch {
+				switch res.Kind {
+				case scraper.KindScene:
+					t.Errorf("unexpected scene %s", res.Scene.ID)
+				case scraper.KindError:
+					errs = append(errs, res.Err)
+				}
+			}
+			if len(errs) != 1 {
+				t.Fatalf("errors = %v, want exactly one", errs)
+			}
+			if kind := scraper.Classify(errs[0]); kind != scraper.FailureParse {
+				t.Errorf("Classify = %v, want FailureParse (%v)", kind, errs[0])
+			}
+		})
+	}
+}
+
+// A studio the site itself counts as empty is not a failure.
+func TestListScenesEmptyStudio(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`<div wire:snapshot="{&quot;data&quot;:{&quot;sceneCount&quot;:0}}"></div>`))
+	}))
+	defer srv.Close()
+	s := newFor("splatbukkake")
+	s.base = srv.URL
+
+	ch, _ := s.ListScenes(context.Background(), "https://splatbukkake.xxx/movies/studio/9/empty", scraper.ListOpts{})
+	for res := range ch {
+		if res.Kind == scraper.KindError || res.Kind == scraper.KindScene {
+			t.Errorf("unexpected result %+v", res)
+		}
 	}
 }
 

@@ -2,11 +2,11 @@
 // ukpornparty.xxx and sexyukpornstars.xxx — which run one Laravel/Livewire app
 // per host.
 //
-// Each host lists its own catalogue at `/movies?page={N}`; splatbukkake.xxx
-// additionally files everything under `/movies/studio/{id}/{slug}`, and such a
-// URL scrapes just that studio. Listing card:
+// Each host lists the catalogue at `/movies?page={N}`; everything is also
+// filed under `/movies/studio/{id}/{slug}`, and such a URL scrapes just that
+// studio. Listing card:
 //
-//	<div class="movieItem">
+//	<div class="movieItem" wire:key="32520">
 //	  <a href="https://splatbukkake.xxx/movie/32520/july-2026-…"><img src="/movie/c/2/…/thumbs/thumb.jpg"></a>
 //	  <div class="title"><a href="…">July 2026 Bukkake Party in Bristol …</a></div>
 //	  <div class="actors"><a href="…/model/10818/penny-charms">Penny Charms</a>, …</div>
@@ -15,18 +15,23 @@
 //
 // The card carries the title, cast, date and thumbnail; `/movie/{id}/{slug}`
 // adds the description and names the studio the scene was released by, which
-// matters on splatbukkake.xxx because that host serves several.
+// matters because every host serves several.
 //
-// The listing has no pager markup at all — Livewire swaps pages in — so the
-// walk ends on a page with no cards.
+// Page 1 of `/movies` interleaves a "Check out these DVDs as well" strip of
+// DVD cards, which are not scenes and are cut out before parsing. The pager is
+// Livewire's (`wire:click="nextPage('page')"`); a page without a next button
+// is the last one.
 package ukxxxpass
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"html"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -95,8 +100,8 @@ func (s *Scraper) Patterns() []string {
 
 func (s *Scraper) MatchesURL(u string) bool { return s.matchRe.MatchString(u) }
 
-// studioPathRe recognises the per-studio listing splatbukkake.xxx files its
-// brands under.
+// studioPathRe recognises the per-studio listing the network files its brands
+// under.
 var studioPathRe = regexp.MustCompile(`(/movies/studio/\d+/[^/?#]+)`)
 
 func (s *Scraper) ListScenes(ctx context.Context, studioURL string, opts scraper.ListOpts) (<-chan scraper.SceneResult, error) {
@@ -129,9 +134,13 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 		}
 
 		parsed := parseListing(body)
-		// Livewire swaps pages in, so the server-rendered page carries no
-		// pager: a page with no cards is the end of the listing.
+		info := parsePager(body)
 		if len(parsed) == 0 {
+			// A page the site says has scenes on it, but that yielded no
+			// cards, is a markup change rather than the end of the listing.
+			if info.hasNext || (page == 1 && info.sceneCount != 0) {
+				return scraper.PageResult{}, scraper.ParseError(pageURL, errNoCards)
+			}
 			return scraper.PageResult{}, nil
 		}
 
@@ -150,7 +159,13 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 		}
 
 		scenes := s.enrichPage(ctx, fresh, studioURL, opts, out, now)
-		return scraper.PageResult{Scenes: scenes}, nil
+		// Without a pager at all (a one-page studio, or a pager redesign) the
+		// walk falls back to ending on the first page with no cards.
+		return scraper.PageResult{
+			Scenes: scenes,
+			Total:  max(info.sceneCount, 0),
+			Done:   info.hasPager && !info.hasNext,
+		}, nil
 	})
 }
 
@@ -161,13 +176,23 @@ func (s *Scraper) enrichPage(ctx context.Context, items []listItem, studioURL st
 	if workers <= 0 {
 		workers = 4
 	}
-	scraper.Debugf(1, "%s: fetching %d details with %d workers", s.cfg.SiteID, len(items), workers)
+
+	// Paginate stops at the first known ID without emitting it or anything
+	// after it, so their detail pages would be fetched for nothing.
+	fetchN := len(items)
+	for i, item := range items {
+		if opts.KnownIDs[item.id] {
+			fetchN = i
+			break
+		}
+	}
 
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, workers)
 	errs := make([]error, len(items))
 
-	for i := range items {
+	scraper.Debugf(1, "%s: fetching %d details with %d workers", s.cfg.SiteID, fetchN, workers)
+	for i := range items[:fetchN] {
 		if ctx.Err() != nil {
 			break
 		}
@@ -240,13 +265,24 @@ type listItem struct {
 // the release line.
 const descWindow = 2000
 
+var errNoCards = errors.New("listing page has no scene cards")
+
 var (
-	cardStartRe = regexp.MustCompile(`<div class="movieItem">`)
-	cardURLRe   = regexp.MustCompile(`href="([^"]*/movie/(\d+)/[^"]*)"`)
-	cardThumbRe = regexp.MustCompile(`<img src="([^"]+)"`)
-	cardTitleRe = regexp.MustCompile(`(?s)<div class="title">.*?<a[^>]*>(.*?)</a>`)
-	cardActorRe = regexp.MustCompile(`(?s)<div class="actors">(.*?)</div>`)
-	cardDateRe  = regexp.MustCompile(`(\d{2}\.\d{2}\.\d{4})`)
+	// Cards carry a wire:key="{id}" attribute since the 2026-09 markup.
+	cardStartRe = regexp.MustCompile(`<div class="movieItem"[^>]*>`)
+	// The DVD strip is a full-width grid cell holding a "View all DVDs"
+	// button that switches the listing type.
+	colSpanRe    = regexp.MustCompile(`<div class="col-span-[^"]*"`)
+	divTagRe     = regexp.MustCompile(`<div\b|</div>`)
+	dvdSwitch    = []byte(`setType('movie')`)
+	pagerNav     = []byte(`aria-label="Pagination Navigation"`)
+	pagerNext    = []byte(`wire:click="nextPage(`)
+	sceneCountRe = regexp.MustCompile(`sceneCount(?:&quot;|")\s*:\s*(\d+)`)
+	cardURLRe    = regexp.MustCompile(`href="([^"]*/movie/(\d+)/[^"]*)"`)
+	cardThumbRe  = regexp.MustCompile(`<img src="([^"]+)"`)
+	cardTitleRe  = regexp.MustCompile(`(?s)<div class="title">.*?<a[^>]*>(.*?)</a>`)
+	cardActorRe  = regexp.MustCompile(`(?s)<div class="actors">(.*?)</div>`)
+	cardDateRe   = regexp.MustCompile(`(\d{2}\.\d{2}\.\d{4})`)
 
 	detailTitleRe = regexp.MustCompile(`(?s)<div class="movieTitle">(.*?)</div>`)
 	// "Released on: 26-08-2026 by: <a …>SplatBukkake</a>"
@@ -264,7 +300,61 @@ var (
 	tagStripRe     = regexp.MustCompile(`<[^>]*>`)
 )
 
+type pagerInfo struct {
+	hasPager bool
+	hasNext  bool
+	// sceneCount is the listing's own scene total, or -1 when absent.
+	sceneCount int
+}
+
+func parsePager(body []byte) pagerInfo {
+	info := pagerInfo{
+		hasPager:   bytes.Contains(body, pagerNav),
+		hasNext:    bytes.Contains(body, pagerNext),
+		sceneCount: -1,
+	}
+	if m := sceneCountRe.FindSubmatch(body); m != nil {
+		if n, err := strconv.Atoi(string(m[1])); err == nil {
+			info.sceneCount = n
+		}
+	}
+	return info
+}
+
+// stripDVDStrip cuts the DVD recommendation cell out of the listing grid.
+func stripDVDStrip(body []byte) []byte {
+	for _, loc := range colSpanRe.FindAllIndex(body, -1) {
+		end := divEnd(body, loc[0])
+		if end < 0 || !bytes.Contains(body[loc[0]:end], dvdSwitch) {
+			continue
+		}
+		cut := make([]byte, 0, len(body)-(end-loc[0]))
+		cut = append(cut, body[:loc[0]]...)
+		cut = append(cut, body[end:]...)
+		return stripDVDStrip(cut)
+	}
+	return body
+}
+
+// divEnd returns the offset just past the </div> closing the <div> at start,
+// or -1 when it is never closed.
+func divEnd(body []byte, start int) int {
+	depth := 0
+	for _, loc := range divTagRe.FindAllIndex(body[start:], -1) {
+		if body[start+loc[0]+1] == '/' {
+			depth--
+		} else {
+			depth++
+		}
+		if depth == 0 {
+			return start + loc[1]
+		}
+	}
+	return -1
+}
+
 func parseListing(body []byte) []listItem {
+	body = stripDVDStrip(body)
 	locs := cardStartRe.FindAllIndex(body, -1)
 	items := make([]listItem, 0, len(locs))
 	for i, loc := range locs {
