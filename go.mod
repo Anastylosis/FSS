@@ -3,7 +3,7 @@ module github.com/Anastylosis/FSS
 go 1.26.5
 
 require (
-	github.com/Anastylosis/stash-go v0.5.0
+	github.com/Anastylosis/stash-go v0.10.0
 	github.com/adrg/xdg v0.5.3
 	github.com/refraction-networking/utls v1.8.2
 	github.com/spf13/cobra v1.10.2
