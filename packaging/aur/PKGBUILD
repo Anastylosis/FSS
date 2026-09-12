@@ -17,7 +17,10 @@ sha256sums=('SKIP')
 build() {
   cd "FSS-${pkgver}"
   export CGO_ENABLED=0
-  go build -ldflags "-s -w -X main.version=${pkgver} -X main.commit=aur -X main.date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" -o fss .
+  # The source tarball carries no .git, so there is no commit to stamp; the
+  # channel says where the build came from instead. It used to be smuggled
+  # through main.commit, which cost the field its actual meaning.
+  go build -ldflags "-s -w -X main.version=${pkgver} -X main.channel=aur -X main.date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" -o fss .
 }
 
 package() {

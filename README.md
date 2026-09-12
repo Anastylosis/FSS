@@ -52,6 +52,8 @@ Scrapes all scenes and metadata from a studio URL. Designed to be easily extende
 
 Pick one — Homebrew or a system package for auto-updates, pre-built binary if you would rather not add a tap, Docker if you prefer containers, source if you want to hack on it.
 
+Already installed? `fss version` reports the build and checks for a newer release; `fss version --update` installs it, or names the package-manager command to run when your copy is managed by one. See [docs/usage.md](docs/usage.md#fss-version).
+
 ### Option 1 — Homebrew (macOS and Linux)
 
 ```bash
