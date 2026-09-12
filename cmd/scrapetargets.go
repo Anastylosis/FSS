@@ -19,9 +19,10 @@ import (
 // about it. A bare command-line argument produces a target with no creator and
 // no delay override.
 type scrapeTarget struct {
-	url     string
-	creator string
-	delay   *time.Duration
+	url      string
+	creator  string
+	delay    *time.Duration
+	language string
 }
 
 // label describes the target for the run header: creator-driven targets say
@@ -96,7 +97,7 @@ func resolveScrapeTargets(cmd *cobra.Command, args []string) ([]scrapeTarget, er
 			continue
 		}
 		for _, s := range stores {
-			t := scrapeTarget{url: normalizeInputURL(s.URL), creator: c.Name}
+			t := scrapeTarget{url: normalizeInputURL(s.URL), creator: c.Name, language: s.Language}
 			if s.Delay != nil {
 				d := time.Duration(*s.Delay) * time.Millisecond
 				t.delay = &d
@@ -214,9 +215,21 @@ func parseStaleDuration(s string) (time.Duration, error) {
 // resolveTargetDelay picks the delay for one target: a per-store value from the
 // creator file is the most specific statement there is and wins outright,
 // otherwise the usual per-site / global resolution applies.
-func resolveTargetDelay(t scrapeTarget, siteID string, defaultDelay time.Duration, siteDelays map[string]int) time.Duration {
+func resolveTargetDelay(t scrapeTarget, siteID string, ss siteSettings) time.Duration {
 	if t.delay != nil {
 		return *t.delay
 	}
-	return resolveSiteDelay(siteID, defaultDelay, siteDelays)
+	return resolveSiteDelay(siteID, ss.defaultDelay, ss.delays)
+}
+
+// resolveTargetLanguage picks the requested content language for one target,
+// most specific first: per-store, then per-site, then the run-wide default.
+func resolveTargetLanguage(t scrapeTarget, siteID string, ss siteSettings) string {
+	if t.language != "" {
+		return t.language
+	}
+	if l, ok := ss.languages[siteID]; ok {
+		return l
+	}
+	return ss.defaultLanguage
 }

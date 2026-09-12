@@ -833,7 +833,7 @@ func TestScrapeOne_normalizesStudioURL(t *testing.T) {
 
 	st := store.NewFlat(t.TempDir(), []string{"json"})
 	if err := scrapeOne(context.Background(), st, scrapeTarget{url: requested}, "", "", "", []string{"json"},
-		false, false, false, true, 1, 0, nil, nil, sceneOverrides{}); err != nil {
+		false, false, false, true, 1, siteSettings{}, sceneOverrides{}); err != nil {
 		t.Fatalf("scrapeOne: %v", err)
 	}
 
@@ -995,7 +995,7 @@ func TestScrapeOne_emptyWipeGuard(t *testing.T) {
 
 	// --full, no --force: must refuse and keep the existing scene.
 	if err := scrapeOne(context.Background(), st, scrapeTarget{url: url}, "", "", "", []string{"json"},
-		true, false, false, true, 1, 0, nil, nil, sceneOverrides{}); err != nil {
+		true, false, false, true, 1, siteSettings{}, sceneOverrides{}); err != nil {
 		t.Fatalf("scrapeOne (guard): %v", err)
 	}
 	got, _ := st.Load(url)
@@ -1005,7 +1005,7 @@ func TestScrapeOne_emptyWipeGuard(t *testing.T) {
 
 	// --force: the wipe is allowed.
 	if err := scrapeOne(context.Background(), st, scrapeTarget{url: url}, "", "", "", []string{"json"},
-		true, false, true, true, 1, 0, nil, nil, sceneOverrides{}); err != nil {
+		true, false, true, true, 1, siteSettings{}, sceneOverrides{}); err != nil {
 		t.Fatalf("scrapeOne (force): %v", err)
 	}
 	got, _ = st.Load(url)
@@ -1223,7 +1223,7 @@ func TestScrapeOneCollapseSkipsDestructiveSave(t *testing.T) {
 	// Declined at the prompt: the store must be untouched.
 	withPrompt(t, true, "n\n")
 	if err := scrapeOne(context.Background(), st, scrapeTarget{url: studioURL}, "", "", dir, []string{"json"},
-		true, false, false, true, 1, 0, nil, nil, sceneOverrides{}); err != nil {
+		true, false, false, true, 1, siteSettings{}, sceneOverrides{}); err != nil {
 		t.Fatalf("scrapeOne: %v", err)
 	}
 	after, err := st.Load(studioURL)
@@ -1237,7 +1237,7 @@ func TestScrapeOneCollapseSkipsDestructiveSave(t *testing.T) {
 	// Confirmed: the authoritative save goes through as it always did.
 	withPrompt(t, true, "y\n")
 	if err := scrapeOne(context.Background(), st, scrapeTarget{url: studioURL}, "", "", dir, []string{"json"},
-		true, false, false, true, 1, 0, nil, nil, sceneOverrides{}); err != nil {
+		true, false, false, true, 1, siteSettings{}, sceneOverrides{}); err != nil {
 		t.Fatalf("scrapeOne (confirmed): %v", err)
 	}
 	after, err = st.Load(studioURL)
@@ -1285,5 +1285,99 @@ func TestMergeSiteCookies_rejectsMalformed(t *testing.T) {
 	// A newline would let a pasted value inject a second header.
 	if _, err := mergeSiteCookies(nil, []string{"mydirtyhobby=KEY=1\r\nX-Evil: 1"}); err == nil {
 		t.Error("expected an error for a value containing a newline")
+	}
+}
+
+func TestMergeSiteLanguages(t *testing.T) {
+	got, err := mergeSiteLanguages(map[string]string{"mydirtyhobby": "DE"}, []string{"acme=fr", "  ", "mydirtyhobby=es"})
+	if err != nil {
+		t.Fatalf("mergeSiteLanguages: %v", err)
+	}
+	want := map[string]string{"mydirtyhobby": "es", "acme": "fr"}
+	if len(got) != len(want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+	for k, v := range want {
+		if got[k] != v {
+			t.Errorf("%s = %q, want %q", k, got[k], v)
+		}
+	}
+}
+
+func TestMergeSiteLanguagesRejectsBadInput(t *testing.T) {
+	for _, pair := range []string{"acme", "acme=", "=de", "acme=not a language"} {
+		if _, err := mergeSiteLanguages(nil, []string{pair}); err == nil {
+			t.Errorf("mergeSiteLanguages(%q): want an error", pair)
+		}
+	}
+	if _, err := mergeSiteLanguages(map[string]string{"acme": "english"}, nil); err == nil {
+		t.Error("a malformed tag in config must be refused")
+	}
+}
+
+type fakeMultiLingual struct {
+	id    string
+	url   string
+	langs []string
+	got   string
+}
+
+func (f *fakeMultiLingual) ID() string               { return f.id }
+func (f *fakeMultiLingual) Patterns() []string       { return nil }
+func (f *fakeMultiLingual) MatchesURL(s string) bool { return s == f.url }
+func (f *fakeMultiLingual) Languages() []string      { return f.langs }
+func (f *fakeMultiLingual) ListScenes(_ context.Context, _ string, opts scraper.ListOpts) (<-chan scraper.SceneResult, error) {
+	f.got = opts.Language
+	ch := make(chan scraper.SceneResult)
+	close(ch)
+	return ch, nil
+}
+
+func TestScrapeOnePassesLanguageToScraper(t *testing.T) {
+	url := "https://example.com/lang-ok"
+	sc := &fakeMultiLingual{id: "langok", url: url, langs: []string{"en", "de"}}
+	scraper.Register(sc)
+
+	st := store.NewFlat(t.TempDir(), []string{"json"})
+	ss := siteSettings{languages: map[string]string{"langok": "de"}}
+	if err := scrapeOne(context.Background(), st, scrapeTarget{url: url}, "", "", "", []string{"json"},
+		false, false, false, true, 1, ss, sceneOverrides{}); err != nil {
+		t.Fatalf("scrapeOne: %v", err)
+	}
+	if sc.got != "de" {
+		t.Errorf("scraper received language %q, want de", sc.got)
+	}
+}
+
+// A language the site cannot serve fails that target before anything is
+// fetched, rather than storing a catalogue in the wrong language.
+func TestScrapeOneRefusesUnsupportedLanguage(t *testing.T) {
+	url := "https://example.com/lang-bad"
+	sc := &fakeMultiLingual{id: "langbad", url: url, langs: []string{"en"}}
+	scraper.Register(sc)
+
+	st := store.NewFlat(t.TempDir(), []string{"json"})
+	ss := siteSettings{defaultLanguage: "ja"}
+	err := scrapeOne(context.Background(), st, scrapeTarget{url: url}, "", "", "", []string{"json"},
+		false, false, false, true, 1, ss, sceneOverrides{})
+	if err == nil {
+		t.Fatal("want an error for a language the site does not serve")
+	}
+	if sc.got != "" {
+		t.Error("the scraper must not be called at all")
+	}
+}
+
+// A site with no language dimension ignores the request instead of failing —
+// an --all-creators run naming a language must still scrape every storefront.
+func TestScrapeOneIgnoresLanguageForMonolingualSite(t *testing.T) {
+	url := "https://example.com/lang-none"
+	scraper.Register(&fakePartial{id: "langnone", url: url})
+
+	st := store.NewFlat(t.TempDir(), []string{"json"})
+	ss := siteSettings{defaultLanguage: "de"}
+	if err := scrapeOne(context.Background(), st, scrapeTarget{url: url}, "", "", "", []string{"json"},
+		false, false, false, true, 1, ss, sceneOverrides{}); err != nil {
+		t.Fatalf("scrapeOne: %v", err)
 	}
 }

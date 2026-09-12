@@ -66,6 +66,12 @@ reached by URL or by `--creator`; `--performer` overrides it. See
 
 **Site cookies.** A few hosts will not answer an anonymous request: an age gate the site sets from a button, a members area, or a bot check that answers an unrecognised client with a JavaScript challenge instead of a status code. `--site-cookie <id>="..."` (or `site_cookies.<id>` in config) supplies a `Cookie` header for that scraper's requests, and CLI overlays config the same way `--site-delay` does. Only the first `=` separates the scraper ID from the value, since a cookie contains one of its own — quote the whole value if it holds several cookies. The operator satisfies the gate themselves, in their own browser, and copies the cookie out of DevTools (Application → Cookies); fss neither obtains, solves nor refreshes one, so a cookie that expires is re-pasted. Treat a config holding these the way you treat one holding `api_key`. Currently read by `mydirtyhobby` (see [scrapers.md](scrapers.md)); scrapers that have no use for it ignore it.
 
+**Content language.** A few sites publish the same catalogue in several languages — same scene IDs, same prices, translated titles and descriptions. `--content-language de` requests one for the whole run, `--site-language <id>=de` (or `site_languages.<id>` in config) for one scraper, and a creator file's `stores[].language` for one storefront. Precedence, most specific first: `stores[].language` > `--site-language`/`site_languages.<id>` > `--content-language`/`content_language` > the scraper's own default. This is unrelated to `--lang`/`language:`, which translates help text and nothing else.
+
+A site with no language dimension ignores the request — that is what makes `--content-language` safe on an `--all-creators` run where most storefronts publish in one language. A site that *has* a choice and cannot serve the tag asked for fails that target instead, naming what it does serve; the rest of the run continues. `fss list-scrapers` prints the accepted set under each multilingual scraper, and today `mydirtyhobby` (en, de, es, fr, it) is the only one.
+
+Nothing records which language a stored scene is in — there is one catalogue per studio URL, not one per language. Re-scraping a store in another language therefore rewrites the titles and descriptions it already holds, and an incremental run only rewrites the scenes it re-collects; use `--refresh` to convert a whole catalogue in one go. The usual field preservation does not intervene: it only restores fields a fresh scrape left empty, and a translated title is not empty.
+
 **Per-site delay precedence:** `--site-delay <id>=N` (CLI) > `site_delays.<id>: N` (config) > `--delay`/`delay` (global). A site explicitly set to `0` disables delay even when the global default is non-zero. `--full` re-fetches every scene (carrying price history forward) and drops scenes no longer on the site. `--refresh` traverses the full scene list but re-uses existing IDs to update metadata in place and detect deletions.
 
 ### Relabelling a scrape: `--performer` / `--studio`
@@ -341,6 +347,13 @@ site_delays:      # map[string]int — per-scraper delay overrides (overrides `d
 
 site_cookies:     # map[string]string — per-scraper Cookie header (see "Site cookies" below)
   # mydirtyhobby: "KEY=1234*5678:90:123:1"
+
+content_language: ""  # str — content language to request where a site publishes in
+                      #       several, e.g. "de". Not `language:`, which is help text.
+                      #       Sites with one language ignore it
+
+site_languages:   # map[string]string — per-scraper content language (overrides content_language)
+  # mydirtyhobby: de
 
 stashbox:         # list — stashbox instances for the stashbox scraper
   # - url: "https://stashdb.org/graphql"       # GraphQL endpoint URL

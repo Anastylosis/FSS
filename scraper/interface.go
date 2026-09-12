@@ -59,6 +59,11 @@ type ListOpts struct {
 	// not obtain, refresh or work around one. A scraper that has no use for it
 	// ignores it, which is all but a few of them.
 	Cookie string
+	// Language is the content language the operator asked for, as a lowercase
+	// tag ("de"). Empty means the scraper's own default. Resolved against
+	// MultiLingual before the run starts, so a scraper receives either one of
+	// its own languages or "".
+	Language string
 }
 
 // ResultKind identifies what a SceneResult carries.

@@ -33,6 +33,9 @@ type Store struct {
 	// Delay overrides the per-request delay in milliseconds for this store
 	// only. Nil inherits the site or global delay.
 	Delay *int `yaml:"delay,omitempty"`
+	// Language requests a content language for this store, for a site that
+	// publishes in several. Empty inherits site_languages / content_language.
+	Language string `yaml:"language,omitempty"`
 	// Enabled set to false skips the store on --all-creators and --creator
 	// runs, for a storefront that is login-walled or otherwise not scrapeable
 	// unattended. Nil means enabled.

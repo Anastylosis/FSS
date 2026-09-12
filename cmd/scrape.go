@@ -53,6 +53,8 @@ func init() {
 	scrapeCmd.Flags().Int("delay", 0, "milliseconds between page requests (default 500 from config; 0 = no delay)")
 	scrapeCmd.Flags().StringSlice("site-delay", nil, "per-scraper delay override, e.g. --site-delay manyvids=0,pornhub=2000 (overrides --delay for matching sites)")
 	scrapeCmd.Flags().StringSlice("site-cookie", nil, "per-scraper Cookie header, e.g. --site-cookie mydirtyhobby=\"KEY=abc; other=1\" (for a gate the operator has passed in a browser)")
+	scrapeCmd.Flags().String("content-language", "", "content language to request where a site publishes in several, e.g. --content-language de (sites with one language ignore it)")
+	scrapeCmd.Flags().StringSlice("site-language", nil, "per-scraper content language, e.g. --site-language mydirtyhobby=de (overrides --content-language)")
 	scrapeCmd.Flags().StringArray("performer", nil, "replace the performers on every scene this run scrapes (repeat, or comma-separate, for several)")
 	scrapeCmd.Flags().String("studio", "", "replace the studio on every scene this run scrapes")
 	scrapeCmd.Flags().StringArray("creator", nil, "scrape every storefront defined for this creator in creators.d (repeatable)")
@@ -128,6 +130,28 @@ func runScrape(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// Content language, not --lang: this one changes what is scraped.
+	defaultLanguage := cfg.ContentLanguage
+	if cmd.Flags().Changed("content-language") {
+		defaultLanguage, _ = cmd.Flags().GetString("content-language")
+	}
+	if defaultLanguage, err = scraper.NormalizeLanguage(defaultLanguage); err != nil {
+		return fmt.Errorf("content language: %w", err)
+	}
+	siteLanguagePairs, _ := cmd.Flags().GetStringSlice("site-language")
+	siteLanguages, err := mergeSiteLanguages(cfg.SiteLanguages, siteLanguagePairs)
+	if err != nil {
+		return err
+	}
+
+	sites := siteSettings{
+		defaultDelay:    defaultDelay,
+		delays:          siteDelays,
+		cookies:         siteCookies,
+		defaultLanguage: defaultLanguage,
+		languages:       siteLanguages,
+	}
+
 	overrides, err := parseOverrides(cmd)
 	if err != nil {
 		return err
@@ -198,7 +222,7 @@ func runScrape(cmd *cobra.Command, args []string) error {
 		if i > 0 {
 			fmt.Println()
 		}
-		if err := scrapeOne(ctx, st, tgt, name, dbPath, outDir, formats, full, refresh, force, !noPreserve, workers, defaultDelay, siteDelays, siteCookies, overrides); err != nil {
+		if err := scrapeOne(ctx, st, tgt, name, dbPath, outDir, formats, full, refresh, force, !noPreserve, workers, sites, overrides); err != nil {
 			fmt.Fprintf(os.Stderr, "error scraping %s: %v\n", tgt.url, err)
 			if firstErr == nil {
 				firstErr = err
@@ -211,7 +235,17 @@ func runScrape(cmd *cobra.Command, args []string) error {
 	return firstErr
 }
 
-func scrapeOne(ctx context.Context, st store.Store, tgt scrapeTarget, name, dbPath, outDir string, formats []string, full, refresh, force, preserve bool, workers int, defaultDelay time.Duration, siteDelays map[string]int, siteCookies map[string]string, ov sceneOverrides) error {
+// siteSettings is the per-site knobs a run resolves once from config and flags:
+// delay, cookie and content language.
+type siteSettings struct {
+	defaultDelay    time.Duration
+	delays          map[string]int
+	cookies         map[string]string
+	defaultLanguage string
+	languages       map[string]string
+}
+
+func scrapeOne(ctx context.Context, st store.Store, tgt scrapeTarget, name, dbPath, outDir string, formats []string, full, refresh, force, preserve bool, workers int, sites siteSettings, ov sceneOverrides) error {
 	start := time.Now()
 	studioURL := tgt.url
 
@@ -226,13 +260,21 @@ func scrapeOne(ctx context.Context, st store.Store, tgt scrapeTarget, name, dbPa
 	}
 	defer func() { _ = unlock.Close() }()
 
-	delay := resolveTargetDelay(tgt, sc.ID(), defaultDelay, siteDelays)
+	delay := resolveTargetDelay(tgt, sc.ID(), sites)
 	scraper.Debugf(1, "scraper: %s, delay: %v, workers: %d", sc.ID(), delay, workers)
 
+	lang, err := scraper.ResolveLanguage(sc, resolveTargetLanguage(tgt, sc.ID(), sites))
+	if err != nil {
+		return err
+	}
+
 	// One base ListOpts per run; the incremental mode adds KnownIDs to its copy.
-	opts := scraper.ListOpts{Workers: workers, Delay: delay, Cookie: siteCookies[sc.ID()]}
+	opts := scraper.ListOpts{Workers: workers, Delay: delay, Cookie: sites.cookies[sc.ID()], Language: lang}
 	if opts.Cookie != "" {
 		scraper.Debugf(1, "scraper: %s, operator-supplied cookie in use", sc.ID())
+	}
+	if lang != "" {
+		fmt.Printf("  language: %s\n", lang)
 	}
 
 	if !ov.empty() {
@@ -822,6 +864,36 @@ func mergeSiteCookies(fromConfig map[string]string, cliPairs []string) (map[stri
 			return nil, fmt.Errorf("--site-cookie %q: value must not contain a newline", name)
 		}
 		out[name] = value
+	}
+	return out, nil
+}
+
+// mergeSiteLanguages overlays CLI --site-language entries on the config map,
+// shape-checking each tag before anything is fetched.
+func mergeSiteLanguages(fromConfig map[string]string, cliPairs []string) (map[string]string, error) {
+	out := make(map[string]string, len(fromConfig)+len(cliPairs))
+	for k, v := range fromConfig {
+		tag, err := scraper.NormalizeLanguage(v)
+		if err != nil {
+			return nil, fmt.Errorf("site_languages.%s: %w", k, err)
+		}
+		out[k] = tag
+	}
+	for _, p := range cliPairs {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		name, value, ok := strings.Cut(p, "=")
+		name, value = strings.TrimSpace(name), strings.TrimSpace(value)
+		if !ok || name == "" || value == "" {
+			return nil, fmt.Errorf("--site-language: %q is not in name=language form", p)
+		}
+		tag, err := scraper.NormalizeLanguage(value)
+		if err != nil {
+			return nil, fmt.Errorf("--site-language %s: %w", name, err)
+		}
+		out[name] = tag
 	}
 	return out, nil
 }

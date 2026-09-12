@@ -227,18 +227,18 @@ func TestResolveTargetDelayPrecedence(t *testing.T) {
 	siteDelays := map[string]int{"acme": 1000}
 	global := 500 * time.Millisecond
 
-	if got := resolveTargetDelay(scrapeTarget{delay: &perStore}, "acme", global, siteDelays); got != perStore {
+	if got := resolveTargetDelay(scrapeTarget{delay: &perStore}, "acme", siteSettings{defaultDelay: global, delays: siteDelays}); got != perStore {
 		t.Errorf("per-store delay lost: %v", got)
 	}
-	if got := resolveTargetDelay(scrapeTarget{}, "acme", global, siteDelays); got != time.Second {
+	if got := resolveTargetDelay(scrapeTarget{}, "acme", siteSettings{defaultDelay: global, delays: siteDelays}); got != time.Second {
 		t.Errorf("site delay = %v, want 1s", got)
 	}
-	if got := resolveTargetDelay(scrapeTarget{}, "other", global, siteDelays); got != global {
+	if got := resolveTargetDelay(scrapeTarget{}, "other", siteSettings{defaultDelay: global, delays: siteDelays}); got != global {
 		t.Errorf("global delay = %v, want 500ms", got)
 	}
 	// A store explicitly set to 0 disables the delay rather than inheriting.
 	zero := time.Duration(0)
-	if got := resolveTargetDelay(scrapeTarget{delay: &zero}, "acme", global, siteDelays); got != 0 {
+	if got := resolveTargetDelay(scrapeTarget{delay: &zero}, "acme", siteSettings{defaultDelay: global, delays: siteDelays}); got != 0 {
 		t.Errorf("explicit zero delay = %v, want 0", got)
 	}
 }
@@ -249,5 +249,22 @@ func TestScrapeTargetLabel(t *testing.T) {
 	}
 	if got := (scrapeTarget{url: "https://a.example.com", creator: "Ann"}).label(); got != "https://a.example.com [Ann]" {
 		t.Errorf("label = %q", got)
+	}
+}
+
+func TestResolveTargetLanguage(t *testing.T) {
+	ss := siteSettings{defaultLanguage: "en", languages: map[string]string{"acme": "de"}}
+
+	if got := resolveTargetLanguage(scrapeTarget{language: "fr"}, "acme", ss); got != "fr" {
+		t.Errorf("per-store language = %q, want fr", got)
+	}
+	if got := resolveTargetLanguage(scrapeTarget{}, "acme", ss); got != "de" {
+		t.Errorf("per-site language = %q, want de", got)
+	}
+	if got := resolveTargetLanguage(scrapeTarget{}, "other", ss); got != "en" {
+		t.Errorf("fallback language = %q, want en", got)
+	}
+	if got := resolveTargetLanguage(scrapeTarget{}, "other", siteSettings{}); got != "" {
+		t.Errorf("unset language = %q, want empty", got)
 	}
 }

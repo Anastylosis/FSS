@@ -39,6 +39,12 @@ type Config struct {
 	// credentials of a sort — a config holding them wants the same care as one
 	// holding an api_key.
 	SiteCookies map[string]string `yaml:"site_cookies"`
+	// SiteLanguages requests a content language per scraper ID, overriding
+	// ContentLanguage. See scraper.ListOpts.Language.
+	SiteLanguages map[string]string `yaml:"site_languages"`
+	// ContentLanguage is the content language to request wherever a site offers
+	// a choice. Unrelated to Language, which is the help-text language.
+	ContentLanguage string `yaml:"content_language"`
 	// CreatorsDir is the directory of one-creator-per-file YAML definitions.
 	// Empty means the conventional location beside this config. Point it at a
 	// clone to use a shared set.

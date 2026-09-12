@@ -29,7 +29,14 @@ const (
 	// stopping mid-walk; at 300 a 1,096-scene profile is four requests. Fewer,
 	// larger requests are also the gentler thing to ask of the site.
 	defaultPageSize = 300
+	// defaultLanguage: see docs/scrapers.md before changing it.
+	defaultLanguage = "en"
 )
+
+var supportedLanguages = []string{defaultLanguage, "de", "es", "fr", "it"}
+
+// Languages implements scraper.MultiLingual.
+func (s *Scraper) Languages() []string { return supportedLanguages }
 
 // Scraper implements scraper.StudioScraper for MyDirtyHobby.
 type Scraper struct {
@@ -48,7 +55,10 @@ func New() *Scraper {
 	}
 }
 
-var _ scraper.StudioScraper = (*Scraper)(nil)
+var (
+	_ scraper.StudioScraper = (*Scraper)(nil)
+	_ scraper.MultiLingual  = (*Scraper)(nil)
+)
 
 func init() {
 	scraper.Register(New())
@@ -99,7 +109,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, uid int, nick strin
 
 	now := time.Now().UTC()
 	scraper.Paginate(ctx, opts, "mydirtyhobby", out, func(ctx context.Context, page int) (scraper.PageResult, error) {
-		items, total, totalPages, err := s.fetchPage(ctx, uid, page, opts.Cookie)
+		items, total, totalPages, err := s.fetchPage(ctx, uid, page, opts.Cookie, opts.Language)
 		if err != nil {
 			return scraper.PageResult{}, err
 		}
@@ -148,12 +158,15 @@ type mdhItem struct {
 	Language            string  `json:"language"`
 }
 
-func (s *Scraper) fetchPage(ctx context.Context, uid, page int, cookie string) ([]mdhItem, int, int, error) {
+func (s *Scraper) fetchPage(ctx context.Context, uid, page int, cookie, language string) ([]mdhItem, int, int, error) {
+	if language == "" {
+		language = defaultLanguage
+	}
 	body, err := json.Marshal(listRequest{
 		Page:         page,
 		PageSize:     s.pageSize,
 		UserID:       uid,
-		UserLanguage: "en",
+		UserLanguage: language,
 	})
 	if err != nil {
 		return nil, 0, 0, err

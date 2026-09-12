@@ -55,6 +55,7 @@ stores:
   - url: https://clipmarket.example/studio/4021/mara-vance
   - url: https://maravance.example
     delay: 2000           # optional: ms between requests, this store only
+    language: de          # optional: content language, if the site offers a choice
   - url: https://fanhub.example/mara-vance
     enabled: false        # optional: skip on --creator / --all-creators runs
     note: needs a session cookie
@@ -67,6 +68,7 @@ stores:
 | `stores` | yes | At least one storefront |
 | `stores[].url` | yes | Full studio URL including the scheme |
 | `stores[].delay` | no | Per-request delay in ms for this store, overriding `site_delays` and `delay` |
+| `stores[].language` | no | Content language for this store, for a site that publishes in several — overrides `site_languages` and `content_language`. See [usage.md](usage.md) |
 | `stores[].enabled` | no | `false` skips the store on creator-driven runs. Default `true` |
 | `stores[].note` | no | Free text, shown by `fss creators` |
 

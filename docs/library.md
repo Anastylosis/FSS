@@ -189,8 +189,28 @@ opts := scraper.ListOpts{
     KnownIDs: map[string]bool{
         "existing-scene-id": true,
     },
+
+    // Content language, for the few sites that publish the same catalogue in
+    // several. Empty means the scraper's default; a site with one language
+    // ignores it.
+    Language: "de",
 }
 ```
+
+Pass a language the site can actually serve — resolve it first rather than
+guessing:
+
+```go
+langs := scraper.LanguagesFor(s)          // nil if the site has one language
+lang, err := scraper.ResolveLanguage(s, "de")  // "" means the scraper's default
+if err != nil {
+    // the site publishes in several languages, but not that one
+}
+```
+
+A scraper advertises its set by implementing `scraper.MultiLingual`
+(`Languages() []string`, default first); `scraper.NormalizeLanguage` lowercases
+and shape-checks a tag.
 
 ## Reading Results
 

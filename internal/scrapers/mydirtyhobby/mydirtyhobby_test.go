@@ -477,3 +477,68 @@ func TestListScenesSendsOperatorCookie(t *testing.T) {
 		t.Errorf("Cookie header = %q, want %q", got, want)
 	}
 }
+
+func languageSentFor(t *testing.T, opts scraper.ListOpts) string {
+	t.Helper()
+	var got string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req listRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "bad request", 400)
+			return
+		}
+		got = req.UserLanguage
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(makeResponse([]mdhItem{
+			{UID: 1, UVID: 1, Nick: "U", Title: "A", Price: "100", Duration: "1:00", LatestPictureChange: "2025-01-01T00:00:00Z"},
+		}, 1, 1, 1))
+	}))
+	defer srv.Close()
+
+	s := &Scraper{client: srv.Client(), siteBase: srv.URL, contentBase: srv.URL, pageSize: 20}
+	ch, err := s.ListScenes(context.Background(), srv.URL+"/profil/1-U/videos", opts)
+	if err != nil {
+		t.Fatalf("ListScenes error: %v", err)
+	}
+	for range ch { //nolint:revive // drain so the goroutine can finish its sends
+	}
+	return got
+}
+
+func TestListScenesSendsRequestedLanguage(t *testing.T) {
+	if got := languageSentFor(t, scraper.ListOpts{Language: "de"}); got != "de" {
+		t.Errorf("user_language = %q, want de", got)
+	}
+}
+
+func TestListScenesDefaultsToEnglish(t *testing.T) {
+	if got := languageSentFor(t, scraper.ListOpts{}); got != defaultLanguage {
+		t.Errorf("user_language = %q, want %q", got, defaultLanguage)
+	}
+}
+
+// The site refuses anything outside this set with HTTP 422, so the advertised
+// list has to stay the accepted one — and English first, or an existing
+// catalogue would be rewritten by a plain re-scrape.
+func TestLanguagesAdvertisesEnglishFirst(t *testing.T) {
+	langs := New().Languages()
+	if len(langs) == 0 || langs[0] != defaultLanguage {
+		t.Fatalf("Languages() = %v, want %q first", langs, defaultLanguage)
+	}
+	for _, want := range []string{"de", "es", "fr", "it"} {
+		found := false
+		for _, l := range langs {
+			if l == want {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("Languages() = %v, missing %q", langs, want)
+		}
+	}
+	for _, l := range langs {
+		if tag, err := scraper.NormalizeLanguage(l); err != nil || tag != l {
+			t.Errorf("Languages() entry %q is not a normalized tag", l)
+		}
+	}
+}

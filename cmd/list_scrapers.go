@@ -45,6 +45,9 @@ func runListScrapers(_ *cobra.Command, _ []string) error {
 		for _, p := range s.Patterns() {
 			fmt.Printf("  %s\n", p)
 		}
+		if langs := scraper.LanguagesFor(s); len(langs) > 0 {
+			fmt.Printf("  languages: %s (default %s)\n", strings.Join(langs, ", "), langs[0])
+		}
 	}
 	return nil
 }

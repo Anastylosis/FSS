@@ -84,3 +84,27 @@ func TestPatternsContainNoMarkdownPipe(t *testing.T) {
 		}
 	}
 }
+
+// A multilingual scraper is only discoverable if the listing says so — the
+// alternative is finding out from the error after guessing a language wrong.
+func TestRunListScrapersShowsLanguages(t *testing.T) {
+	prev := listScrapersMarkdown
+	listScrapersMarkdown = false
+	t.Cleanup(func() { listScrapersMarkdown = prev })
+
+	out := captureStdout(t, func() {
+		if err := runListScrapers(nil, nil); err != nil {
+			t.Errorf("runListScrapers: %v", err)
+		}
+	})
+
+	for _, s := range scraper.All() {
+		langs := scraper.LanguagesFor(s)
+		if len(langs) == 0 {
+			continue
+		}
+		if !strings.Contains(out, "  languages: "+strings.Join(langs, ", ")) {
+			t.Errorf("%s: languages missing from the listing", s.ID())
+		}
+	}
+}

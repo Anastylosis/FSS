@@ -50,6 +50,15 @@ site_delays:
   # clips4sale: 1000
   # brazzers: 500
 
+# Content language to request where a site publishes the same catalogue in
+# several (mydirtyhobby: en, de, es, fr, it). Sites with one language ignore it.
+# This is NOT `language:` above, which only translates help text.
+# content_language: de
+
+# Per-scraper content language. Overrides `content_language`.
+site_languages:
+  # mydirtyhobby: de
+
 # Stashbox instances for the stashbox scraper.
 # Each entry maps a GraphQL endpoint to an API key. The scraper matches
 # incoming URLs against these endpoints to find the right key.
