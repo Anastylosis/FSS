@@ -43,14 +43,17 @@ func init() {
 	rootCmd.PersistentFlags().String("lang", "", "help language code, e.g. ko (see docs/translations.md)")
 }
 
-var buildVersion, buildCommit, buildDate string
+var buildVersion, buildCommit, buildDate, buildChannel string
 
 // SetVersion is called from main with values injected by -ldflags at build time.
-func SetVersion(version, commit, date string) {
+// channel names how the binary was shipped (see versionLine); it is empty for a
+// build that did not say.
+func SetVersion(version, commit, date, channel string) {
 	buildVersion = version
 	buildCommit = commit
 	buildDate = date
-	rootCmd.Version = version + " (" + commit + ", " + date + ")"
+	buildChannel = channel
+	rootCmd.Version = versionLine(version, commit, date, channel)
 }
 
 // Execute runs the root command and exits non-zero on failure.

@@ -50,9 +50,11 @@ var (
 	version = "dev"
 	commit  = "none"
 	date    = "unknown"
+	// channel is stamped by whatever built this binary — see docs/usage.md.
+	channel = ""
 )
 
 func main() {
-	cmd.SetVersion(version, commit, date)
+	cmd.SetVersion(version, commit, date, channel)
 	cmd.Execute()
 }

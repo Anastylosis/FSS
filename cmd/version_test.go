@@ -181,3 +181,41 @@ func TestReleaseNote(t *testing.T) {
 		})
 	}
 }
+
+// A build that stamps no channel must print exactly what it printed before the
+// field existed — every release up to v1.31.0 is such a build.
+func TestVersionLine(t *testing.T) {
+	cases := []struct {
+		name                           string
+		version, commit, date, channel string
+		want                           string
+	}{
+		{"unstamped", "v1.31.0", "abc1234", "2026-09-11", "", "v1.31.0 (abc1234, 2026-09-11)"},
+		{"blank channel", "v1.31.0", "abc1234", "2026-09-11", "  ", "v1.31.0 (abc1234, 2026-09-11)"},
+		{"stamped", "v1.31.0", "abc1234", "2026-09-11", "deb", "v1.31.0 (abc1234, 2026-09-11, deb)"},
+		{"dev", "dev", "none", "unknown", "", "dev (none, unknown)"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := versionLine(c.version, c.commit, c.date, c.channel); got != c.want {
+				t.Errorf("versionLine = %q, want %q", got, c.want)
+			}
+		})
+	}
+}
+
+func TestSetVersionStampsTheChannel(t *testing.T) {
+	prev := []string{buildVersion, buildCommit, buildDate, buildChannel, rootCmd.Version}
+	t.Cleanup(func() {
+		buildVersion, buildCommit, buildDate, buildChannel = prev[0], prev[1], prev[2], prev[3]
+		rootCmd.Version = prev[4]
+	})
+
+	SetVersion("v1.31.0", "abc1234", "2026-09-11", "aur")
+	if buildChannel != "aur" {
+		t.Errorf("buildChannel = %q, want aur", buildChannel)
+	}
+	if rootCmd.Version != "v1.31.0 (abc1234, 2026-09-11, aur)" {
+		t.Errorf("--version prints %q", rootCmd.Version)
+	}
+}

@@ -286,7 +286,23 @@ Prints the config file path for the current platform.
 
 ### `fss version`
 
-Prints the build version, commit hash, and build date. Checks for newer releases on GitHub.
+Prints the build version, commit hash, build date and — when the build stamped one — the
+channel it was shipped through. Checks for newer releases on GitHub.
+
+```
+fss v1.31.0 (abc1234, 2026-09-11, aur)
+```
+
+The channel is set at build time via `-X main.channel=…`: `aur` (built by the PKGBUILD),
+`docker` (built by the Dockerfile), and `deb` / `rpm` / `release` once the release pipeline
+stamps them. A build that names none — every release up to v1.31.0, a local `go build`, or
+`go install` — prints the line exactly as it always did, with no channel.
+
+Homebrew installs the release tarball unchanged, so a brew binary reports that tarball's
+channel rather than `homebrew`; it is identified by its path in the Cellar instead.
+
+Quote this line in a bug report: which channel a binary came from is otherwise unanswerable,
+and it decides whether an update should come from `fss` itself or from a package manager.
 
 When a newer release is available and its tag carried an annotation, that message is shown
 with the notice — it is where a release says what its commit list cannot:

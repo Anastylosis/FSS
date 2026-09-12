@@ -22,8 +22,17 @@ func init() {
 	rootCmd.AddCommand(versionCmd)
 }
 
+// versionLine renders the build identity. The channel is appended only when a
+// build stamped one, so a build that did not prints exactly what it always did.
+func versionLine(version, commit, date, channel string) string {
+	if strings.TrimSpace(channel) == "" {
+		return fmt.Sprintf("%s (%s, %s)", version, commit, date)
+	}
+	return fmt.Sprintf("%s (%s, %s, %s)", version, commit, date, channel)
+}
+
 func runVersion(_ *cobra.Command, _ []string) error {
-	fmt.Printf("fss %s (%s, %s)\n", buildVersion, buildCommit, buildDate)
+	fmt.Printf("fss %s\n", versionLine(buildVersion, buildCommit, buildDate, buildChannel))
 
 	latest, err := fetchLatestRelease()
 	if err != nil {
