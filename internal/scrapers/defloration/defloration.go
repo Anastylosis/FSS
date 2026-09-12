@@ -30,9 +30,19 @@ func New() *Scraper {
 	return &Scraper{Client: httpx.NewClient(30 * time.Second)}
 }
 
-var _ scraper.StudioScraper = (*Scraper)(nil)
+var (
+	_ scraper.StudioScraper = (*Scraper)(nil)
+	_ scraper.MultiLingual  = (*Scraper)(nil)
+)
 
 func init() { scraper.Register(New()) }
+
+// supportedLanguages is the feed's own set, default first; an unrecognised
+// value is served as English rather than refused. See docs/scrapers.md.
+var supportedLanguages = []string{"en", "de", "es", "fr", "jp", "zh"}
+
+// Languages implements scraper.MultiLingual.
+func (s *Scraper) Languages() []string { return supportedLanguages }
 
 func (s *Scraper) ID() string { return siteID }
 func (s *Scraper) Patterns() []string {
@@ -62,10 +72,14 @@ var (
 	wsRe        = regexp.MustCompile(`\s+`)
 )
 
-func (s *Scraper) run(ctx context.Context, studioURL string, _ scraper.ListOpts, out chan<- scraper.SceneResult) {
+func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
 	defer close(out)
 
-	listURL := siteBase + "/freetour.php?language=en"
+	language := opts.Language
+	if language == "" {
+		language = supportedLanguages[0]
+	}
+	listURL := siteBase + "/freetour.php?language=" + language
 	scraper.Debugf(1, "%s: fetching free-tour feed %s", siteID, listURL)
 	cards, err := s.fetchCards(ctx, listURL)
 	if err != nil {

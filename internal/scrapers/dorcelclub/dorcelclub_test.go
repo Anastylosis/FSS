@@ -530,3 +530,86 @@ func TestRunPornstarKnownIDs(t *testing.T) {
 		t.Errorf("scene ID = %q, want %q", scenes[0].ID, "201")
 	}
 }
+
+// French pages carry no locale prefix and every other language carries its own,
+// and the slug after the id is localised too — so the detail URL has to come
+// from the card rather than being rebuilt as /en/.
+func TestParseSceneCardsKeepsCardLocale(t *testing.T) {
+	cases := []struct{ href, wantURL string }{
+		{"/de/scene/4001/heisse-szene", siteBase + "/de/scene/4001/heisse-szene"},
+		{"/scene/4001/scene-chaude", siteBase + "/scene/4001/scene-chaude"},
+	}
+	for _, c := range cases {
+		card := fmt.Sprintf(`<div class="scene thumbnail active">
+<a href="%s" class="thumb">
+<img class="lazy" data-src="https://cdn.example.com/t.jpg" alt="x">
+</a>
+<a href="%s" class="title">
+  Titel
+</a>
+</div>
+</div>`, c.href, c.href)
+		items := parseSceneCards(listingPage([]string{card}, false))
+		if len(items) != 1 {
+			t.Fatalf("%s: got %d items, want 1", c.href, len(items))
+		}
+		if items[0].id != "4001" {
+			t.Errorf("%s: id = %q, want 4001", c.href, items[0].id)
+		}
+		if items[0].url != c.wantURL {
+			t.Errorf("%s: url = %q, want %q", c.href, items[0].url, c.wantURL)
+		}
+		if items[0].title != "Titel" {
+			t.Errorf("%s: title = %q, want Titel", c.href, items[0].title)
+		}
+	}
+}
+
+// The site redirects a locale path whose language the Accept-Language header
+// contradicts, so the header has to state the requested language or the whole
+// run silently comes back in English.
+func TestPageHeadersStateTheLanguage(t *testing.T) {
+	if got := pageHeaders("de")["Accept-Language"]; got != "de,en;q=0.5" {
+		t.Errorf("Accept-Language = %q, want %q", got, "de,en;q=0.5")
+	}
+	if got := pageHeaders("")["Accept-Language"]; got != "en-US,en;q=0.5" {
+		t.Errorf("default Accept-Language = %q, want the browser default", got)
+	}
+	if pageHeaders("fr")["Accept-Language"] != "fr,en;q=0.5" {
+		t.Error("fr must state itself in the header")
+	}
+	if ajaxHeaders("de")["X-Requested-With"] != "XMLHttpRequest" {
+		t.Error("ajaxHeaders must keep the XHR marker")
+	}
+}
+
+func TestSessionBootstrapFollowsLanguage(t *testing.T) {
+	var got []string
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = append(got, r.URL.Path+"|"+r.Header.Get("Accept-Language"))
+		_, _ = fmt.Fprint(w, "<html></html>")
+	}))
+	defer ts.Close()
+
+	s := New()
+	s.client = ts.Client()
+	s.base = ts.URL
+	if err := s.initSession(context.Background(), "de"); err != nil {
+		t.Fatalf("initSession: %v", err)
+	}
+	if len(got) != 1 || got[0] != "/de/|de,en;q=0.5" {
+		t.Errorf("bootstrap = %v, want /de/ with a German Accept-Language", got)
+	}
+}
+
+func TestLanguagesAdvertisesEnglishFirst(t *testing.T) {
+	langs := New().Languages()
+	if len(langs) == 0 || langs[0] != "en" {
+		t.Fatalf("Languages() = %v, want en first", langs)
+	}
+	for _, l := range langs {
+		if tag, err := scraper.NormalizeLanguage(l); err != nil || tag != l {
+			t.Errorf("Languages() entry %q is not a normalized tag", l)
+		}
+	}
+}

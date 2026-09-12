@@ -41,9 +41,19 @@ func New() *Scraper {
 	return &Scraper{client: c, base: siteBase}
 }
 
-var _ scraper.StudioScraper = (*Scraper)(nil)
+var (
+	_ scraper.StudioScraper = (*Scraper)(nil)
+	_ scraper.MultiLingual  = (*Scraper)(nil)
+)
 
 func init() { scraper.Register(New()) }
+
+// supportedLanguages is what the site's own locale switch offers, default
+// first; every other value is served as French. See docs/scrapers.md.
+var supportedLanguages = []string{"en", "fr", "de"}
+
+// Languages implements scraper.MultiLingual.
+func (s *Scraper) Languages() []string { return supportedLanguages }
 
 func (s *Scraper) ID() string { return siteID }
 
@@ -82,7 +92,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 		workers = 4
 	}
 
-	if err := s.initSession(ctx); err != nil {
+	if err := s.initSession(ctx, opts.Language); err != nil {
 		select {
 		case out <- scraper.Error(fmt.Errorf("session init: %w", err)):
 		case <-ctx.Done():
@@ -97,7 +107,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 		go func() {
 			defer wg.Done()
 			for item := range work {
-				scene, err := s.fetchDetail(ctx, item, studioURL, delay)
+				scene, err := s.fetchDetail(ctx, item, studioURL, delay, opts.Language)
 				if err != nil {
 					select {
 					case out <- scraper.Error(err):
@@ -120,10 +130,11 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 	wg.Wait()
 }
 
-func (s *Scraper) initSession(ctx context.Context) error {
+func (s *Scraper) initSession(ctx context.Context, language string) error {
+	scraper.Debugf(1, "dorcelclub: session language %s", langOrDefault(language))
 	resp, err := httpx.Do(ctx, s.client, httpx.Request{
-		URL:     s.base + "/en/",
-		Headers: httpx.BrowserHeaders(httpx.UserAgentFirefox),
+		URL:     s.base + "/" + langOrDefault(language) + "/",
+		Headers: pageHeaders(language),
 	})
 	if err != nil {
 		return err
@@ -132,8 +143,27 @@ func (s *Scraper) initSession(ctx context.Context) error {
 	return nil
 }
 
-func ajaxHeaders() map[string]string {
+func langOrDefault(language string) string {
+	if language == "" {
+		return supportedLanguages[0]
+	}
+	return language
+}
+
+// pageHeaders states the language on every request, not just the session
+// bootstrap: the site redirects a locale path whose language the header
+// contradicts, so `/de/` fetched with an English Accept-Language lands on
+// `/en/` and the whole run comes back in English. See docs/scrapers.md.
+func pageHeaders(language string) map[string]string {
 	h := httpx.BrowserHeaders(httpx.UserAgentFirefox)
+	if l := langOrDefault(language); l != supportedLanguages[0] {
+		h["Accept-Language"] = l + ",en;q=0.5"
+	}
+	return h
+}
+
+func ajaxHeaders(language string) map[string]string {
+	h := pageHeaders(language)
 	h["X-Requested-With"] = "XMLHttpRequest"
 	return h
 }
@@ -162,7 +192,7 @@ func (s *Scraper) produceListing(ctx context.Context, studioURL string, opts scr
 }
 
 func (s *Scraper) scrapeHTMLPage(ctx context.Context, pageURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult, work chan<- workItem) {
-	body, err := s.fetchPage(ctx, pageURL)
+	body, err := s.fetchPage(ctx, pageURL, opts.Language)
 	if err != nil {
 		select {
 		case out <- scraper.Error(err):
@@ -213,8 +243,8 @@ func (s *Scraper) paginateAJAX(ctx context.Context, basePath, sorting string, op
 		}
 		scraper.Debugf(1, "dorcelclub: fetching page %d", page)
 
-		ajaxURL := fmt.Sprintf("%s%s?lang=en&sorting=%s&page=%d", s.base, basePath, sorting, page)
-		body, err := s.fetchAJAX(ctx, ajaxURL)
+		ajaxURL := fmt.Sprintf("%s%s?lang=%s&sorting=%s&page=%d", s.base, basePath, langOrDefault(opts.Language), sorting, page)
+		body, err := s.fetchAJAX(ctx, ajaxURL, opts.Language)
 		if err != nil {
 			select {
 			case out <- scraper.Error(fmt.Errorf("page %d: %w", page, err)):
@@ -261,10 +291,10 @@ func (s *Scraper) paginateAJAX(ctx context.Context, basePath, sorting string, op
 	}
 }
 
-func (s *Scraper) fetchPage(ctx context.Context, pageURL string) (string, error) {
+func (s *Scraper) fetchPage(ctx context.Context, pageURL, language string) (string, error) {
 	resp, err := httpx.Do(ctx, s.client, httpx.Request{
 		URL:     pageURL,
-		Headers: httpx.BrowserHeaders(httpx.UserAgentFirefox),
+		Headers: pageHeaders(language),
 	})
 	if err != nil {
 		return "", err
@@ -277,10 +307,10 @@ func (s *Scraper) fetchPage(ctx context.Context, pageURL string) (string, error)
 	return string(body), nil
 }
 
-func (s *Scraper) fetchAJAX(ctx context.Context, ajaxURL string) (string, error) {
+func (s *Scraper) fetchAJAX(ctx context.Context, ajaxURL, language string) (string, error) {
 	resp, err := httpx.Do(ctx, s.client, httpx.Request{
 		URL:     ajaxURL,
-		Headers: ajaxHeaders(),
+		Headers: ajaxHeaders(language),
 		Method:  "POST",
 	})
 	if err != nil {
@@ -296,12 +326,15 @@ func (s *Scraper) fetchAJAX(ctx context.Context, ajaxURL string) (string, error)
 
 var (
 	sceneCardRe = regexp.MustCompile(`(?s)<div class="scene thumbnail[^"]*">.*?</div>\s*</div>`)
-	sceneURLRe  = regexp.MustCompile(`<a href="/en/scene/(\d+)/([^"]+)" class="thumb">`)
-	titleRe     = regexp.MustCompile(`(?s)<a href="/en/scene/\d+/[^"]+" class="title">\s*(.*?)\s*</a>`)
-	actorsRe    = regexp.MustCompile(`(?s)<div class="actors">(.*?)</div>`)
-	actorRe     = regexp.MustCompile(`>([^<]+)</a>`)
-	thumbRe     = regexp.MustCompile(`<img[^>]+data-src="([^"]+)"[^>]+alt=`)
-	btnMoreRe   = regexp.MustCompile(`class="btn-more"`)
+	// The locale prefix is absent on French pages and present on every other
+	// language, and the slug after the id is localised too, so both are taken
+	// from the card rather than assumed.
+	sceneURLRe = regexp.MustCompile(`<a href="(/(?:[a-z]{2}/)?scene/(\d+)/[^"]+)" class="thumb">`)
+	titleRe    = regexp.MustCompile(`(?s)<a href="/(?:[a-z]{2}/)?scene/\d+/[^"]+" class="title">\s*(.*?)\s*</a>`)
+	actorsRe   = regexp.MustCompile(`(?s)<div class="actors">(.*?)</div>`)
+	actorRe    = regexp.MustCompile(`>([^<]+)</a>`)
+	thumbRe    = regexp.MustCompile(`<img[^>]+data-src="([^"]+)"[^>]+alt=`)
+	btnMoreRe  = regexp.MustCompile(`class="btn-more"`)
 )
 
 func parseSceneCards(page string) []workItem {
@@ -314,7 +347,7 @@ func parseSceneCards(page string) []workItem {
 		if m == nil {
 			continue
 		}
-		id := m[1]
+		id := m[2]
 		if seen[id] {
 			continue
 		}
@@ -322,7 +355,7 @@ func parseSceneCards(page string) []workItem {
 
 		item := workItem{
 			id:  id,
-			url: siteBase + "/en/scene/" + id + "/" + m[2],
+			url: siteBase + m[1],
 		}
 
 		if tm := titleRe.FindStringSubmatch(card); tm != nil {
@@ -353,14 +386,14 @@ var (
 	detailActressRe  = regexp.MustCompile(`(?s)<div class="actress">(.*?)</div>`)
 )
 
-func (s *Scraper) fetchDetail(ctx context.Context, item workItem, studioURL string, delay time.Duration) (models.Scene, error) {
+func (s *Scraper) fetchDetail(ctx context.Context, item workItem, studioURL string, delay time.Duration, language string) (models.Scene, error) {
 	select {
 	case <-time.After(delay):
 	case <-ctx.Done():
 		return models.Scene{}, ctx.Err()
 	}
 
-	body, err := s.fetchPage(ctx, item.url)
+	body, err := s.fetchPage(ctx, item.url, language)
 	if err != nil {
 		return models.Scene{}, fmt.Errorf("detail %s: %w", item.url, err)
 	}

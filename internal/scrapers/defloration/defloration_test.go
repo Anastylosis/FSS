@@ -168,3 +168,46 @@ func TestListScenes(t *testing.T) {
 		t.Errorf("scenes = %v", got)
 	}
 }
+
+// The feed serves an unknown language as English rather than refusing it, so
+// the advertised set is what keeps a typo from silently storing English.
+func TestListScenesRequestsLanguage(t *testing.T) {
+	orig := siteBase
+	defer func() { siteBase = orig }()
+
+	var got string
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = r.URL.Query().Get("language")
+		_, _ = fmt.Fprint(w, feedHTML())
+	}))
+	defer ts.Close()
+	siteBase = ts.URL
+
+	for _, tc := range []struct{ requested, want string }{
+		{"de", "de"},
+		{"", "en"},
+	} {
+		s := &Scraper{Client: ts.Client()}
+		ch, err := s.ListScenes(context.Background(), "studioURL", scraper.ListOpts{Language: tc.requested})
+		if err != nil {
+			t.Fatalf("ListScenes: %v", err)
+		}
+		for range ch { //nolint:revive // drain so the goroutine can finish its sends
+		}
+		if got != tc.want {
+			t.Errorf("language=%q for requested %q, want %q", got, tc.requested, tc.want)
+		}
+	}
+}
+
+func TestLanguagesAreNormalizedTags(t *testing.T) {
+	langs := New().Languages()
+	if len(langs) == 0 || langs[0] != "en" {
+		t.Fatalf("Languages() = %v, want en first", langs)
+	}
+	for _, l := range langs {
+		if tag, err := scraper.NormalizeLanguage(l); err != nil || tag != l {
+			t.Errorf("Languages() entry %q is not a normalized tag", l)
+		}
+	}
+}
