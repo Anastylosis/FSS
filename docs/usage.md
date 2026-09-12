@@ -319,6 +319,54 @@ https://github.com/Anastylosis/FSS/releases/latest
 ```
 
 Releases cut from a lightweight tag simply have no such message and print the notice alone.
+
+#### Updating: `fss version --update`
+
+Downloads the latest release for this platform, checks it against the release's `SHA256SUMS`,
+and replaces the running binary. The flag is the consent — there is no prompt, and nothing
+checks or downloads anything unless you pass it.
+
+```
+$ fss version --update
+fss v1.31.0 (abc1234, 2026-09-11, release)
+Update available: v1.31.0 → v1.32.0
+https://github.com/Anastylosis/FSS/releases/latest
+
+Updating /usr/local/bin/fss (release)
+  downloading fss-v1.32.0-linux-amd64.tar.gz
+  verified SHA-256 ed9be2ded6420d35
+  installed v1.32.0
+```
+
+The new binary is written beside the old one and renamed over it, so the swap is atomic and a
+failure anywhere before it leaves the installed fss untouched. Three things have to hold before
+the replacement happens: the download matches `SHA256SUMS` (a release without that asset is
+refused rather than trusted), the extracted binary actually runs, and the directory is writable —
+if it is not, fss says so instead of half-updating.
+
+**It refuses when something else owns the binary.** A package manager records the file it
+installed; replacing it underneath leaves that record wrong, and the next `brew upgrade` or
+`apt install` puts the old version back. So a managed copy gets the right command instead:
+
+| Install | `--update` does |
+|---|---|
+| Release archive, or a binary you placed yourself | Updates in place |
+| Homebrew | `brew upgrade fss` |
+| `.deb` | `sudo apt update && sudo apt install --only-upgrade fss` |
+| `.rpm` | `sudo dnf upgrade fss` |
+| AUR | `yay -Syu fss` |
+| Docker | `docker pull ghcr.io/anastylosis/fss:latest` |
+| `go install` / dev build | `go install github.com/Anastylosis/FSS@latest` |
+
+Ownership is decided from two signals, because neither is enough alone: the build stamp says how
+the binary was *shipped*, and the path says whether this copy is still the one that package owns.
+Homebrew ships the release archive unchanged, so no stamp can name it — it is identified by its
+Cellar path. A `.deb` binary you copied into `~/bin` is no longer apt's business, so it updates
+in place. `/usr/local/bin` is never treated as package-owned: that is where a hand-extracted
+tarball goes.
+
+On Windows a running `.exe` cannot be overwritten, so the old binary is moved to `fss.exe.old`
+and deleted on the next run.
 The annotation is not repeated once you are running that release.
 
 The update check is best-effort and never fails the command: a network error prints

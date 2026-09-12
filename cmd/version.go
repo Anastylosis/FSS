@@ -8,6 +8,7 @@ import (
 	"unicode"
 
 	"github.com/Anastylosis/FSS/internal/httpx"
+	"github.com/Anastylosis/FSS/internal/selfupdate"
 	"github.com/spf13/cobra"
 )
 
@@ -16,9 +17,13 @@ var versionCmd = &cobra.Command{
 	Short: "Print version and check for updates",
 	Args:  cobra.NoArgs,
 	RunE:  runVersion,
+	// A refusal here is an explanation, not a misuse of the command; the usage
+	// block would bury it.
+	SilenceUsage: true,
 }
 
 func init() {
+	versionCmd.Flags().Bool("update", false, "download the latest release and replace this binary")
 	rootCmd.AddCommand(versionCmd)
 }
 
@@ -31,11 +36,16 @@ func versionLine(version, commit, date, channel string) string {
 	return fmt.Sprintf("%s (%s, %s, %s)", version, commit, date, channel)
 }
 
-func runVersion(_ *cobra.Command, _ []string) error {
+func runVersion(cmd *cobra.Command, _ []string) error {
 	fmt.Printf("fss %s\n", versionLine(buildVersion, buildCommit, buildDate, buildChannel))
+
+	update, _ := cmd.Flags().GetBool("update")
 
 	latest, err := fetchLatestRelease()
 	if err != nil {
+		if update {
+			return fmt.Errorf("checking for updates: %w", err)
+		}
 		fmt.Printf("Could not check for updates: %v\n", err)
 		return nil
 	}
@@ -43,7 +53,10 @@ func runVersion(_ *cobra.Command, _ []string) error {
 	for _, line := range updateLines(buildVersion, latest.TagName, releaseNote(latest.Body)) {
 		fmt.Println(line)
 	}
-	return nil
+	if !update {
+		return nil
+	}
+	return runSelfUpdate(cmd.Context(), latest)
 }
 
 // updateLines renders the update notice comparing the built-in version against
@@ -156,8 +169,9 @@ func sanitizeTerminal(s string) string {
 // reads. Body carries the rendered release notes, whose leading blockquote is
 // the tag annotation — see releaseNote.
 type latestRelease struct {
-	TagName string `json:"tag_name"`
-	Body    string `json:"body"`
+	TagName string             `json:"tag_name"`
+	Body    string             `json:"body"`
+	Assets  []selfupdate.Asset `json:"assets"`
 }
 
 func fetchLatestRelease() (latestRelease, error) {

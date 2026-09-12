@@ -62,6 +62,7 @@
   "directory of creator YAML files (default: config creators_dir, else ~/.config/fss/creators.d)": "directory of creator YAML files (default: config creators_dir, else ~/.config/fss/creators.d)",
   "do not write fss-report.txt": "do not write fss-report.txt",
   "download each scene's thumbnail to a -poster file beside the video and reference it from the .nfo (off by default: one network fetch per scene)": "download each scene's thumbnail to a -poster file beside the video and reference it from the .nfo (off by default: one network fetch per scene)",
+  "download the latest release and replace this binary": "download the latest release and replace this binary",
   "enable SQLite store (no value = the configured db, or ~/.local/share/fss/fss.db; or pass a path)": "enable SQLite store (no value = the configured db, or ~/.local/share/fss/fss.db; or pass a path)",
   "export formats: json, csv, or json,csv (default from config)": "export formats: json, csv, or json,csv (default from config)",
   "filter Stash scenes by performer name": "filter Stash scenes by performer name",
