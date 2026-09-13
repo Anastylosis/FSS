@@ -218,3 +218,58 @@ func TestModelPatternOverride(t *testing.T) {
 		t.Errorf("Patterns()[2] = %q", got)
 	}
 }
+
+func TestAliasesWidenMatchesURL(t *testing.T) {
+	s := New(SiteConfig{
+		SiteID: "povperv", Domain: "tour.povperv.com", StudioName: "POV Perv",
+		ListPath: "scenes", Aliases: []string{"povperv.com"},
+	})
+	for _, u := range []string{
+		"https://tour.povperv.com/scenes",
+		"https://povperv.com",
+		"https://www.povperv.com/",
+		"http://povperv.com/models/monica-minx",
+	} {
+		if !s.MatchesURL(u) {
+			t.Errorf("MatchesURL(%q) = false", u)
+		}
+	}
+	for _, u := range []string{"https://povperv.com.example/", "https://notpovperv.com/", "https://example.com/povperv.com"} {
+		if s.MatchesURL(u) {
+			t.Errorf("MatchesURL(%q) = true", u)
+		}
+	}
+}
+
+// An alias only redirects to the real host; nothing is served under the listing
+// path there, so the scrape has to go to the configured domain. POV Perv's apex
+// answers 404 for /scenes and 301 for /.
+func TestAliasURLFetchesTheConfiguredDomain(t *testing.T) {
+	s := New(SiteConfig{
+		SiteID: "povperv", Domain: "tour.povperv.com",
+		ListPath: "scenes", Aliases: []string{"povperv.com"},
+	})
+	cases := []struct{ in, want string }{
+		{"https://povperv.com", "https://tour.povperv.com"},
+		{"https://www.povperv.com/scenes", "https://tour.povperv.com"},
+		{"https://tour.povperv.com/scenes", "https://tour.povperv.com"},
+		{"http://tour.povperv.com/scenes", "http://tour.povperv.com"},
+		{"https://www.tour.povperv.com/", "https://www.tour.povperv.com"},
+		{"not a url at all", "https://tour.povperv.com"},
+		// Anything not named as an alias is kept as given — that is what points
+		// the offline tests at their httptest server.
+		{"http://127.0.0.1:8080/scenes", "http://127.0.0.1:8080"},
+	}
+	for _, c := range cases {
+		if got := s.baseFor(c.in); got != c.want {
+			t.Errorf("baseFor(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}
+
+func TestNoAliasesKeepsTheOperatorsHost(t *testing.T) {
+	s := New(SiteConfig{SiteID: "bjraw", Domain: "bjraw.com"})
+	if got := s.baseFor("http://www.bjraw.com/videos"); got != "http://www.bjraw.com" {
+		t.Errorf("baseFor = %q, want the operator's own host", got)
+	}
+}

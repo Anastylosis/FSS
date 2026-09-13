@@ -21,6 +21,7 @@ import (
 	"net/url"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/Anastylosis/FSS/internal/httpx"
@@ -36,6 +37,10 @@ type SiteConfig struct {
 	// ListPath is the listing path segment, without slashes. Empty means
 	// "videos"; a few sites (Yes Girlz) serve the same template at "scenes".
 	ListPath string
+	// Aliases are extra domains that serve the same site — an apex that
+	// redirects to a tour subdomain, say. They widen MatchesURL only: Domain
+	// stays what gets fetched and what `fss list-scrapers` shows.
+	Aliases []string
 	// ModelPattern overrides the model-page pattern shown by `fss
 	// list-scrapers`. Empty means "{domain}/models/{slug}"; some sites number
 	// their model URLs "{domain}/models/{id}-{slug}". Display only — MatchesURL
@@ -56,8 +61,37 @@ func New(cfg SiteConfig) *Scraper {
 	return &Scraper{
 		cfg:     cfg,
 		client:  httpx.NewClient(30 * time.Second),
-		matchRe: regexp.MustCompile(`^https?://(?:www\.)?` + regexp.QuoteMeta(cfg.Domain) + `(?:/|$)`),
+		matchRe: domainRe(cfg),
 	}
+}
+
+// baseFor picks the origin to fetch from: the operator's own host, which may
+// carry http:// or www. and is what points offline tests at an httptest server.
+// A host named in Aliases is the exception — it only redirects to the real one
+// and serves nothing under the listing path itself.
+func (s *Scraper) baseFor(studioURL string) string {
+	u, err := url.Parse(studioURL)
+	if err != nil || u.Host == "" {
+		return "https://" + s.cfg.Domain
+	}
+	host := strings.TrimPrefix(strings.ToLower(u.Host), "www.")
+	for _, alias := range s.cfg.Aliases {
+		if host == strings.ToLower(alias) {
+			return "https://" + s.cfg.Domain
+		}
+	}
+	return u.Scheme + "://" + u.Host
+}
+
+// domainRe matches the site's own domain and any alias it answers to.
+func domainRe(cfg SiteConfig) *regexp.Regexp {
+	quoted := make([]string, 0, len(cfg.Aliases)+1)
+	for _, d := range append([]string{cfg.Domain}, cfg.Aliases...) {
+		if d != "" {
+			quoted = append(quoted, regexp.QuoteMeta(d))
+		}
+	}
+	return regexp.MustCompile(`^https?://(?:www\.)?(?:` + strings.Join(quoted, "|") + `)(?:/|$)`)
 }
 
 // Scraper implements scraper.StudioScraper for one Paysite.com Next.js site.
@@ -142,10 +176,7 @@ var (
 func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
 	defer close(out)
 	now := time.Now().UTC()
-	base := "https://" + s.cfg.Domain
-	if u, err := url.Parse(studioURL); err == nil && u.Host != "" {
-		base = u.Scheme + "://" + u.Host
-	}
+	base := s.baseFor(studioURL)
 
 	if modelRe.MatchString(studioURL) {
 		scraper.Debugf(1, "%s: scraping model page", s.cfg.SiteID)
