@@ -27,6 +27,12 @@ jobs:
       binary-name: fss
       main-package: '.'
       nfpm: true
+      # Stamps how each artifact was shipped, so `fss version` can say whether
+      # this binary is apt's, brew's or its own — and `fss version --update`
+      # can refuse to fight a package manager. Needs go-release >= v1.11.0;
+      # an input the pinned workflow does not know is a hard error, not a
+      # no-op. See docs/usage.md and issue #11.
+      channel-var: main.channel
       # Re-enabled 2026-08-20 after a manual push of v1.30.0 succeeded. The
       # June incident notice warning that pushes may fail has never been
       # withdrawn, so if a release fails here, check the Arch news feed before
