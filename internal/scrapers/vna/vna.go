@@ -27,6 +27,7 @@ var sites = []vnautil.SiteConfig{
 	{SiteID: "pennypax", Domain: "pennypaxlive.com", Studio: "Penny Pax Live", VideoPrefix: "videos"},
 	{SiteID: "povmania", Domain: "povmania.com", Studio: "POV Mania", VideoPrefix: "videos"},
 	{SiteID: "romemajor", Domain: "romemajor.com", Studio: "Rome Major", VideoPrefix: "videos"},
+	{SiteID: "rubberdoll", Domain: "rubberdoll.net", Studio: "RubberDoll", VideoPrefix: "videos", NeedsWWW: true},
 	{SiteID: "sarajay", Domain: "sarajay.com", Studio: "Sara Jay", VideoPrefix: "videos"},
 	{SiteID: "shandafay", Domain: "shandafay.com", Studio: "Shanda Fay", VideoPrefix: "videos"},
 	{SiteID: "siripornstar", Domain: "siripornstar.com", Studio: "Siri Pornstar", VideoPrefix: "videos"},
