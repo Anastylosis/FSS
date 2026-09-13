@@ -456,7 +456,7 @@ func (s *Scraper) fetchDetail(ctx context.Context, item listItem, studioURL stri
 
 	var date time.Time
 	if item.date != "" {
-		if t, err := time.Parse("02 Jan 2006", item.date); err == nil {
+		if t, err := time.Parse("2 Jan 2006", item.date); err == nil {
 			date = t.UTC()
 		}
 	}

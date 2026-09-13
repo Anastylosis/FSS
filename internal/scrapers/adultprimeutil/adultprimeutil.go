@@ -333,12 +333,12 @@ func (s *Scraper) fetchDetail(ctx context.Context, item listingItem, delay time.
 	}
 
 	if m := detailDateRe.FindSubmatch(body); m != nil {
-		if t, err := time.Parse("02-01-2006", string(m[1])); err == nil {
+		if t, err := time.Parse("2-1-2006", string(m[1])); err == nil {
 			scene.Date = t.UTC()
 		}
 	}
 	if scene.Date.IsZero() && item.date != "" {
-		if t, err := time.Parse("Jan 02, 2006", item.date); err == nil {
+		if t, err := time.Parse("Jan 2, 2006", item.date); err == nil {
 			scene.Date = t.UTC()
 		}
 	}

@@ -306,7 +306,7 @@ func parseListingWithRe(body []byte, hrefRe *regexp.Regexp) []ListItem {
 			for _, t := range strings.Split(mt[1], ",") {
 				t = strings.TrimSpace(t)
 				if t != "" {
-					item.Tags = append(item.Tags, t)
+					item.Tags = append(item.Tags, html.UnescapeString(t))
 				}
 			}
 		}
@@ -395,7 +395,7 @@ func ParseDetail(body []byte) *DetailData {
 		for _, t := range strings.Split(raw, ",") {
 			t = strings.TrimSpace(t)
 			if t != "" {
-				d.Tags = append(d.Tags, t)
+				d.Tags = append(d.Tags, html.UnescapeString(t))
 			}
 		}
 	}

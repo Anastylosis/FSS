@@ -6,6 +6,7 @@ package britishbratz
 import (
 	"context"
 	"fmt"
+	"html"
 	"net/http"
 	"net/http/cookiejar"
 	"regexp"
@@ -103,7 +104,7 @@ func parseListingPage(body []byte, studioURL string) []models.Scene {
 		var title, thumbnail, id string
 
 		if m := imgAltRe.FindSubmatch(content); m != nil {
-			title = strings.TrimSpace(string(m[1]))
+			title = html.UnescapeString(strings.TrimSpace(string(m[1])))
 		}
 		if title == "" {
 			continue
@@ -144,7 +145,7 @@ func parseListingPage(body []byte, studioURL string) []models.Scene {
 
 		var tags []string
 		for _, m := range categoryRe.FindAllSubmatch(content, -1) {
-			tag := strings.TrimSpace(string(m[1]))
+			tag := html.UnescapeString(strings.TrimSpace(string(m[1])))
 			if tag != "" {
 				tags = append(tags, tag)
 			}

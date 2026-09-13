@@ -258,3 +258,32 @@ func TestMatchesURL(t *testing.T) {
 		}
 	}
 }
+
+// The listing carries title and description in HTML attributes, where an
+// ampersand is necessarily written `&amp;` — stored raw, every such title kept
+// the entity.
+func TestListingTextIsUnescaped(t *testing.T) {
+	page := `<html><body>
+<div class="video_1 col-lg-3">
+    <div class="thumbnail rounded"
+        data-video-id="42"
+        data-title="Tom &amp; Jerry&#39;s Day"
+        data-description="A &quot;quoted&quot; tale &amp; more"
+        data-thumb="https://cdn.example.com/t.png">
+        <div class="gif-container"><div class="aspect-ratio-box"><img src="p.png" /></div></div>
+        <div class="p-2 video-info"><div><small>$ 9.99</small></div></div>
+    </div>
+</div>
+</div>
+</body></html>`
+	entries := parseListing(page)
+	if len(entries) == 0 {
+		t.Fatal("no entries parsed")
+	}
+	if entries[0].title != "Tom & Jerry's Day" {
+		t.Errorf("title = %q", entries[0].title)
+	}
+	if entries[0].description != `A "quoted" tale & more` {
+		t.Errorf("description = %q", entries[0].description)
+	}
+}

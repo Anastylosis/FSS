@@ -3,6 +3,7 @@ package newsensationsutil
 import (
 	"context"
 	"fmt"
+	"html"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -328,7 +329,7 @@ func (s *Scraper) parseVideoBlock(block string) workItem {
 
 	if m := titleRe.FindStringSubmatch(block); m != nil {
 		item.url = s.absoluteURL(m[1])
-		item.title = m[2]
+		item.title = html.UnescapeString(m[2])
 	}
 
 	if m := performersRe.FindStringSubmatch(block); m != nil {
@@ -343,7 +344,7 @@ func (s *Scraper) parseVideoBlock(block string) workItem {
 	}
 
 	if m := previewRe.FindStringSubmatch(block); m != nil {
-		item.preview = strings.TrimSpace(m[1])
+		item.preview = html.UnescapeString(strings.TrimSpace(m[1]))
 	}
 
 	return item
@@ -388,7 +389,7 @@ func (s *Scraper) fetchDetail(ctx context.Context, item workItem, studioURL stri
 
 	var description string
 	if m := detailDescRe.FindStringSubmatch(page); m != nil && m[1] != "" {
-		description = strings.TrimSpace(m[1])
+		description = html.UnescapeString(strings.TrimSpace(m[1]))
 	}
 
 	tags, series := s.extractTagsAndSeries(page)

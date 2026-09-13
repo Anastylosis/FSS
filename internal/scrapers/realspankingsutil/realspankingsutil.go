@@ -250,7 +250,7 @@ func parseRSI(body []byte, base string) []listingItem {
 		dateStr := strings.TrimSpace(string(m[3]))
 
 		var date time.Time
-		if t, err := time.Parse("Mon. Jan 02, 2006", dateStr); err == nil {
+		if t, err := time.Parse("Mon. Jan 2, 2006", dateStr); err == nil {
 			date = t.UTC()
 		}
 
@@ -311,7 +311,7 @@ func parseSpankedCoeds(body []byte, base string) []listingItem {
 		}
 		if m := scDateRe.FindSubmatch(block); m != nil {
 			dateStr := strings.TrimSpace(string(m[1]))
-			if t, err := time.Parse("Mon. Jan. 02, 2006", dateStr); err == nil {
+			if t, err := time.Parse("Mon. Jan. 2, 2006", dateStr); err == nil {
 				item.date = t.UTC()
 			}
 		}
@@ -343,7 +343,7 @@ func parseSTB(body []byte, base string) []listingItem {
 		dateStr := strings.TrimSpace(string(m[3]))
 
 		var date time.Time
-		if t, err := time.Parse("Jan. 02, 2006", dateStr); err == nil {
+		if t, err := time.Parse("Jan. 2, 2006", dateStr); err == nil {
 			date = t.UTC()
 		}
 
@@ -419,7 +419,7 @@ func parseBailey(body []byte, base string) []listingItem {
 		dateStr := strings.TrimSpace(string(m[3]))
 
 		var date time.Time
-		if t, err := time.Parse("Mon. Jan. 02, 2006", dateStr); err == nil {
+		if t, err := time.Parse("Mon. Jan. 2, 2006", dateStr); err == nil {
 			date = t.UTC()
 		}
 

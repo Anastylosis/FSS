@@ -3,6 +3,7 @@ package utgutil
 import (
 	"context"
 	"fmt"
+	"html"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -415,32 +416,32 @@ func parseArticles(body []byte, videosOnly bool) []article {
 	matches := articleRe.FindAllSubmatch(body, -1)
 	var out []article
 	for _, m := range matches {
-		html := m[1]
+		block := m[1]
 		a := article{}
 
-		if im := imgRe.FindSubmatch(html); im != nil {
+		if im := imgRe.FindSubmatch(block); im != nil {
 			a.thumbnail = string(im[1])
-			a.title = string(im[2])
+			a.title = html.UnescapeString(string(im[2]))
 		}
 		if a.title == "" {
 			continue
 		}
 
-		if mm := modelRe.FindSubmatch(html); mm != nil {
+		if mm := modelRe.FindSubmatch(block); mm != nil {
 			a.modelSlug = string(mm[1])
 			a.model = strings.TrimSpace(string(mm[2]))
 		}
 
-		if dm := dateRe.FindSubmatch(html); dm != nil {
+		if dm := dateRe.FindSubmatch(block); dm != nil {
 			a.date = string(dm[1])
 		}
 
-		if dur := durationRe.FindSubmatch(html); dur != nil {
+		if dur := durationRe.FindSubmatch(block); dur != nil {
 			a.duration = parseutil.ParseDurationColon(string(dur[1]))
 			a.isVideo = true
 		}
 
-		if videoBanner.Match(html) {
+		if videoBanner.Match(block) {
 			a.isVideo = true
 		}
 

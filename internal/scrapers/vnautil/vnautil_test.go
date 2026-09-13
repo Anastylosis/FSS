@@ -845,3 +845,23 @@ func TestDedup(t *testing.T) {
 		t.Errorf("got %d items after dedup, want 1", len(items))
 	}
 }
+
+// Tags arrive as HTML text, so an ampersand reaches the parser as `&amp;` and
+// was stored that way — the one field on this platform that was never
+// unescaped, while titles, performers and descriptions already were.
+func TestTagsAreUnescaped(t *testing.T) {
+	detail := []byte(`<h4 class="customhcolor">Bound &amp; Gagged, Latex &#38; Rubber</h4>`)
+	d := ParseDetail(detail)
+	if d == nil {
+		t.Fatal("ParseDetail returned nil")
+	}
+	want := []string{"Bound & Gagged", "Latex & Rubber"}
+	if len(d.Tags) != len(want) {
+		t.Fatalf("tags = %v, want %v", d.Tags, want)
+	}
+	for i := range want {
+		if d.Tags[i] != want[i] {
+			t.Errorf("tag[%d] = %q, want %q", i, d.Tags[i], want[i])
+		}
+	}
+}

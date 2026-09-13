@@ -167,7 +167,7 @@ func parseListingPage(body []byte, studioURL string) []models.Scene {
 
 		var date time.Time
 		if dm := dateRe.FindSubmatch(block); dm != nil {
-			date, _ = time.Parse("02 Jan 06", strings.TrimSpace(string(dm[1])))
+			date, _ = time.Parse("2 Jan 06", strings.TrimSpace(string(dm[1])))
 		}
 
 		var thumbnail string

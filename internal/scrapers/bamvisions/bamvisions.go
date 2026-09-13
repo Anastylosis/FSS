@@ -3,6 +3,7 @@ package bamvisions
 import (
 	"context"
 	"fmt"
+	"html"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -91,7 +92,7 @@ func parseListingPage(body []byte, base string) []sceneItem {
 		}
 
 		if sm := titleRe.FindStringSubmatch(block); sm != nil {
-			item.title = strings.TrimSpace(sm[1])
+			item.title = html.UnescapeString(strings.TrimSpace(sm[1]))
 		}
 
 		if sm := sceneURLRe.FindStringSubmatch(block); sm != nil {

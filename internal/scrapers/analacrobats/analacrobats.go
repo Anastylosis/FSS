@@ -3,6 +3,7 @@ package analacrobats
 import (
 	"context"
 	"fmt"
+	"html"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -96,7 +97,7 @@ func parseListingPage(body []byte) []sceneItem {
 		}
 
 		if sm := titleRe.FindStringSubmatch(block); sm != nil {
-			item.title = strings.TrimSpace(sm[1])
+			item.title = html.UnescapeString(strings.TrimSpace(sm[1]))
 		}
 
 		if sm := thumbRe.FindStringSubmatch(block); sm != nil {

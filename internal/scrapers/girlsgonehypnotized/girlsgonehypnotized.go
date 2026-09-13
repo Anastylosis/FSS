@@ -3,6 +3,7 @@ package girlsgonehypnotized
 import (
 	"context"
 	"fmt"
+	"html"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -215,7 +216,7 @@ func parseDetailPage(body []byte) detailData {
 	var d detailData
 
 	if m := titleRe.FindSubmatch(body); m != nil {
-		d.title = strings.TrimSpace(string(m[1]))
+		d.title = html.UnescapeString(strings.TrimSpace(string(m[1])))
 	}
 
 	if m := durationRe.FindSubmatch(body); m != nil {

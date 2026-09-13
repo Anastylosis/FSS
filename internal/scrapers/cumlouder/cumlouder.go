@@ -3,6 +3,7 @@ package cumlouder
 import (
 	"context"
 	"fmt"
+	"html"
 	"math"
 	"net/http"
 	"regexp"
@@ -270,15 +271,15 @@ func (s *Scraper) fetchDetail(ctx context.Context, item listItem, studioURL stri
 	}
 
 	for _, m := range detailTagRe.FindAllSubmatch(body, -1) {
-		scene.Tags = append(scene.Tags, strings.TrimSpace(string(m[1])))
+		scene.Tags = append(scene.Tags, html.UnescapeString(strings.TrimSpace(string(m[1]))))
 	}
 
 	for _, m := range detailPerfRe.FindAllSubmatch(body, -1) {
-		scene.Performers = append(scene.Performers, strings.TrimSpace(string(m[1])))
+		scene.Performers = append(scene.Performers, html.UnescapeString(strings.TrimSpace(string(m[1]))))
 	}
 
 	if m := detailDescRe.FindSubmatch(body); m != nil {
-		scene.Description = strings.TrimSpace(string(m[1]))
+		scene.Description = html.UnescapeString(strings.TrimSpace(string(m[1])))
 	}
 
 	if m := detailDurRe.FindSubmatch(body); m != nil {

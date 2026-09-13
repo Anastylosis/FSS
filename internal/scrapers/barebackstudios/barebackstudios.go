@@ -3,6 +3,7 @@ package barebackstudios
 import (
 	"context"
 	"fmt"
+	"html"
 	"net/http"
 	"net/http/cookiejar"
 	"regexp"
@@ -93,10 +94,10 @@ func parseListing(body string) []entry {
 			e.id = v[1]
 		}
 		if v := titleRe.FindStringSubmatch(card); v != nil {
-			e.title = strings.TrimSpace(v[1])
+			e.title = html.UnescapeString(strings.TrimSpace(v[1]))
 		}
 		if v := descRe.FindStringSubmatch(card); v != nil {
-			e.description = strings.TrimSpace(v[1])
+			e.description = html.UnescapeString(strings.TrimSpace(v[1]))
 		}
 		if v := thumbRe.FindStringSubmatch(card); v != nil {
 			e.thumb = v[1]

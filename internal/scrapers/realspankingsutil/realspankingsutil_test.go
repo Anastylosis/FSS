@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/Anastylosis/FSS/scraper"
 )
@@ -304,5 +305,24 @@ func TestEncodeBase64(t *testing.T) {
 	want := "cGFnZT0w"
 	if got != want {
 		t.Errorf("encodeBase64(%q) = %q, want %q", "page=0", got, want)
+	}
+}
+
+// Go's `02` verb rejects an unpadded day outright, so a site that renders
+// "Jan. 5, 2026" alongside "Jan. 15, 2026" silently lost a third of its dates.
+// The unpadded verb accepts both spellings.
+func TestDateLayoutsAcceptUnpaddedDays(t *testing.T) {
+	cases := []struct{ layout, in string }{
+		{"Mon. Jan 2, 2006", "Fri. Jan 2, 2026"},
+		{"Mon. Jan 2, 2006", "Fri. Jan 02, 2026"},
+		{"Mon. Jan. 2, 2006", "Fri. Jan. 2, 2026"},
+		{"Mon. Jan. 2, 2006", "Fri. Jan. 02, 2026"},
+		{"Jan. 2, 2006", "Jan. 2, 2026"},
+		{"Jan. 2, 2006", "Jan. 02, 2026"},
+	}
+	for _, c := range cases {
+		if _, err := time.Parse(c.layout, c.in); err != nil {
+			t.Errorf("time.Parse(%q, %q): %v", c.layout, c.in, err)
+		}
 	}
 }

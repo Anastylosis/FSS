@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"html"
 	"net/http"
 	"regexp"
 	"strings"
@@ -199,7 +200,7 @@ func parseListingPage(body []byte) ([]listingCard, bool) {
 		}
 
 		if m := cardTitleRe.FindSubmatch(block); m != nil {
-			c.title = strings.TrimSpace(string(m[1]))
+			c.title = html.UnescapeString(strings.TrimSpace(string(m[1])))
 		}
 		if m := cardThumbRe.FindSubmatch(block); m != nil {
 			c.thumbnail = string(m[1])

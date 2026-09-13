@@ -400,7 +400,7 @@ func (s *Scraper) fetchDetail(ctx context.Context, item workItem, studioURL stri
 
 	var date time.Time
 	if m := detailDateRe.FindStringSubmatch(body); m != nil {
-		date, _ = time.Parse("January 02, 2006", strings.TrimSpace(m[1]))
+		date, _ = time.Parse("January 2, 2006", strings.TrimSpace(m[1]))
 	}
 
 	var duration int
