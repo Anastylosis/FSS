@@ -20,7 +20,11 @@ type VideoObject struct {
 	Actors        []string `json:"-"`
 	Director      string   `json:"-"`
 	Keywords      string   `json:"keywords"`
-	PartOfSeries  string   `json:"-"`
+	// Genres is the schema.org genre field, which publishers use for the tag
+	// taxonomy. Kept as a list because that is how it is published; Keywords
+	// stays a string for compatibility and joins a published list with ", ".
+	Genres       []string `json:"-"`
+	PartOfSeries string   `json:"-"`
 }
 
 type rawVideoObject struct {
@@ -35,7 +39,8 @@ type rawVideoObject struct {
 	DatePublished string          `json:"datePublished"`
 	Actor         json.RawMessage `json:"actor"`
 	Director      json.RawMessage `json:"director"`
-	Keywords      string          `json:"keywords"`
+	Keywords      flexStrings     `json:"keywords"`
+	Genre         flexStrings     `json:"genre"`
 	PartOfSeries  *struct {
 		Name string `json:"name"`
 	} `json:"partOfSeries"`
@@ -46,6 +51,65 @@ type rawVideoObject struct {
 // split on it: most emit a bare string, some (bananafever) an array. Declaring
 // it as a plain string made json.Unmarshal fail on the whole block, so the
 // VideoObject was silently skipped and the page read as having none at all.
+// flexStrings accepts a JSON string, an array of strings, or an array of
+// objects carrying a "name". schema.org allows keywords and genre to be either
+// a comma-separated string or a list, and publishers split on it — EnjoyX emits
+// arrays. Declared as a plain string, one array made json.Unmarshal fail on the
+// whole block, so the VideoObject was dropped and the page read as having none:
+// the same failure flexString exists to prevent, one field over.
+type flexStrings []string
+
+func (f *flexStrings) UnmarshalJSON(b []byte) error {
+	var one string
+	if err := json.Unmarshal(b, &one); err == nil {
+		*f = splitList(one)
+		return nil
+	}
+	var many []string
+	if err := json.Unmarshal(b, &many); err == nil {
+		*f = trimAll(many)
+		return nil
+	}
+	var objects []struct {
+		Name string `json:"name"`
+	}
+	if err := json.Unmarshal(b, &objects); err == nil {
+		out := make([]string, 0, len(objects))
+		for _, o := range objects {
+			if name := strings.TrimSpace(o.Name); name != "" {
+				out = append(out, name)
+			}
+		}
+		*f = out
+		return nil
+	}
+	// Anything else is ignored rather than failing the decode: one odd field
+	// must not cost the caller the whole VideoObject.
+	*f = nil
+	return nil
+}
+
+// splitList turns a comma-separated keyword string into its parts.
+func splitList(s string) []string {
+	var out []string
+	for _, part := range strings.Split(s, ",") {
+		if part = strings.TrimSpace(part); part != "" {
+			out = append(out, part)
+		}
+	}
+	return out
+}
+
+func trimAll(in []string) []string {
+	out := make([]string, 0, len(in))
+	for _, v := range in {
+		if v = strings.TrimSpace(v); v != "" {
+			out = append(out, v)
+		}
+	}
+	return out
+}
+
 type flexString string
 
 func (f *flexString) UnmarshalJSON(b []byte) error {
@@ -146,7 +210,8 @@ func convertRaw(rvo rawVideoObject) VideoObject {
 		Duration:      rvo.Duration,
 		UploadDate:    rvo.UploadDate,
 		DatePublished: rvo.DatePublished,
-		Keywords:      rvo.Keywords,
+		Keywords:      strings.Join(rvo.Keywords, ", "),
+		Genres:        rvo.Genre,
 	}
 	if rvo.PartOfSeries != nil {
 		vo.PartOfSeries = rvo.PartOfSeries.Name

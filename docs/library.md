@@ -22,7 +22,7 @@ path declared in `go.mod`, so the old path resolves only for tags up to `v1.28.1
 | `models` | `github.com/Anastylosis/FSS/models` | `Scene`, `PriceSnapshot` — the core data model |
 | `match` | `github.com/Anastylosis/FSS/match` | Filename→title matching, cross-site merging, JSON loading |
 | `output` | `github.com/Anastylosis/FSS/output` | `WriteJSON`, `WriteCSV`, `Slugify` — write FSS output files |
-| `parseutil` | `github.com/Anastylosis/FSS/parseutil` | `ParseDurationColon`, `ParseDurationISO`, `StripOrdinalSuffix`, `OpenGraph`, `TryParseDate`, `ExtractVideoObject`, `ExtractVideoObjects`, `DecodeXML` — shared parsing helpers. `thumbnailUrl` in a VideoObject may be a string or an array; both decode, keeping the first entry |
+| `parseutil` | `github.com/Anastylosis/FSS/parseutil` | `ParseDurationColon`, `ParseDurationISO`, `StripOrdinalSuffix`, `OpenGraph`, `TryParseDate`, `ExtractVideoObject`, `ExtractVideoObjects`, `DecodeXML` — shared parsing helpers. `thumbnailUrl` in a VideoObject may be a string or an array; both decode, keeping the first entry. `keywords` and `genre` likewise accept a comma-separated string, a list, or a list of `{name}` objects — a list used to fail the decode and drop the whole VideoObject. `Keywords` stays a joined string; `Genres` is the parsed list |
 | `nfo` | `github.com/Anastylosis/FSS/nfo` | Kodi-style NFO XML generation |
 | `identify` | `github.com/Anastylosis/FSS/identify` | Video directory scan + match + NFO write |
 

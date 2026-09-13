@@ -1,6 +1,7 @@
 package parseutil
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -286,5 +287,62 @@ func TestExtractVideoObjectSurvivesAnObjectThumbnail(t *testing.T) {
 	}
 	if vo.ThumbnailURL != "" {
 		t.Errorf("ThumbnailURL = %q, want empty", vo.ThumbnailURL)
+	}
+}
+
+// schema.org allows keywords to be a list, and a publisher that emits one used
+// to cost the caller the entire VideoObject: the field was declared a string,
+// json.Unmarshal failed on the whole block, and the page read as having no
+// VideoObject at all. Live-observed on enjoyx.com.
+func TestExtractVideoObjectAcceptsListKeywords(t *testing.T) {
+	page := []byte(`<script type="application/ld+json">
+	{"@type":"VideoObject","name":"Listed","keywords":["Alpha","Beta"],"duration":"PT5M"}
+	</script>`)
+	vo := ExtractVideoObject(page)
+	if vo == nil {
+		t.Fatal("list keywords dropped the whole VideoObject")
+	}
+	if vo.Name != "Listed" {
+		t.Errorf("Name = %q", vo.Name)
+	}
+	if vo.Keywords != "Alpha, Beta" {
+		t.Errorf("Keywords = %q, want the list joined", vo.Keywords)
+	}
+}
+
+func TestExtractVideoObjectGenres(t *testing.T) {
+	cases := []struct {
+		name string
+		json string
+		want string
+	}{
+		{"list", `{"@type":"VideoObject","name":"X","genre":["Solo","Toys"]}`, "Solo|Toys"},
+		{"comma string", `{"@type":"VideoObject","name":"X","genre":"Solo, Toys"}`, "Solo|Toys"},
+		{"objects", `{"@type":"VideoObject","name":"X","genre":[{"name":"Solo"},{"name":"Toys"}]}`, "Solo|Toys"},
+		{"absent", `{"@type":"VideoObject","name":"X"}`, ""},
+		// An unexpected shape must not fail the decode and cost the caller the
+		// whole object — it simply contributes no genres.
+		{"unusable", `{"@type":"VideoObject","name":"X","genre":{"weird":1}}`, ""},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			vo := ExtractVideoObject([]byte(`<script type="application/ld+json">` + c.json + `</script>`))
+			if vo == nil {
+				t.Fatal("VideoObject dropped")
+			}
+			if got := strings.Join(vo.Genres, "|"); got != c.want {
+				t.Errorf("Genres = %q, want %q", got, c.want)
+			}
+		})
+	}
+}
+
+func TestKeywordsStringStillSplitsAndTrims(t *testing.T) {
+	vo := ExtractVideoObject([]byte(`<script type="application/ld+json">{"@type":"VideoObject","name":"X","keywords":" a , b ,, c "}</script>`))
+	if vo == nil {
+		t.Fatal("VideoObject dropped")
+	}
+	if vo.Keywords != "a, b, c" {
+		t.Errorf("Keywords = %q", vo.Keywords)
 	}
 }
