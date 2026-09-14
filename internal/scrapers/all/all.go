@@ -318,6 +318,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/railway"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/randyblue"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/rawalphamales"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/rawcitytwinks"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/rawerotic"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/rawfuckclub"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/rawhole"
