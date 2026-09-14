@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html"
+	"io"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -57,9 +58,10 @@ func (s *Scraper) Patterns() []string {
 	}
 }
 
-// studioRe matches studio URLs but not individual clip URLs.
-// Studio slugs start with a letter; clip IDs are purely numeric.
-var studioRe = regexp.MustCompile(`^https?://(?:www\.)?clips4sale\.com/studio/(\d+)/([a-zA-Z][^/?]*)`)
+// studioRe matches studio URLs but not individual clip URLs. Studio slugs
+// start with a letter; clip IDs are purely numeric. The slug is optional: the
+// site publishes bare /studio/{id} links and redirects them to the slugged form.
+var studioRe = regexp.MustCompile(`^https?://(?:www\.)?clips4sale\.com/studio/(\d+)(?:/([a-zA-Z][^/?]*)|/?(?:$|\?))`)
 
 func (s *Scraper) MatchesURL(u string) bool {
 	return studioRe.MatchString(u)
@@ -69,6 +71,11 @@ func (s *Scraper) ListScenes(ctx context.Context, studioURL string, opts scraper
 	sid, slug, err := studioParams(studioURL)
 	if err != nil {
 		return nil, err
+	}
+	if slug == "" {
+		if slug, err = s.resolveSlug(ctx, sid); err != nil {
+			return nil, err
+		}
 	}
 	out := make(chan scraper.SceneResult)
 	go s.run(ctx, studioURL, sid, slug, opts, out)
@@ -243,6 +250,25 @@ func toScene(studioURL, siteBase string, clip c4sClip, now time.Time) (models.Sc
 }
 
 // ---- helpers ----
+
+// resolveSlug follows the bare /studio/{id} redirect to learn the slug, which
+// the paginated listing URL needs.
+func (s *Scraper) resolveSlug(ctx context.Context, sid string) (string, error) {
+	resp, err := httpx.Do(ctx, s.client, httpx.Request{
+		URL:     fmt.Sprintf("%s/studio/%s", s.siteBase, sid),
+		Headers: httpx.BrowserHeaders(httpx.UserAgentChrome),
+	})
+	if err != nil {
+		return "", fmt.Errorf("resolving studio %s: %w", sid, err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<20))
+
+	if m := studioRe.FindStringSubmatch(resp.Request.URL.String()); m != nil && m[2] != "" {
+		return m[2], nil
+	}
+	return "", fmt.Errorf("studio %s: no slug in %s", sid, resp.Request.URL)
+}
 
 func studioParams(u string) (id, slug string, err error) {
 	m := studioRe.FindStringSubmatch(u)

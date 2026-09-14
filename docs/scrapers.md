@@ -959,6 +959,18 @@ Scrapers that share a platform use common utility packages to avoid duplication:
 | `wputil` | WordPress (sitemap + HTML meta parsing) | _(standalone packages)_ | 5 sites (each has custom parsing) |
 | `xxcelutil` | XX-Cel network CMS (`/movies/page-{N}/` listing + `/movies/{slug}` detail) | `xxcel` | 2 sites |
 
+## Studios deliberately not covered
+
+Checked and ruled out, so they are not re-investigated. Removed from the StashDB
+backlog files for the same reason.
+
+| Studio | Why | Checked |
+|---|---|---|
+| Cock Ninja Studios | No public tour at all: `cockninjastudios.com` 302s straight into an OAuth members-area login, and `/tour`, `/videos` and a `tour.` subdomain all 404 or fail to resolve | 2026-09-16 |
+| Miss Grace (missannabellegrace.com) | Domain no longer resolves | 2026-09-16 |
+| PinkVelvetVault tree — Nikki Sims, BellaXOXO, Meet Madden, Tiffany Alexis | The hub is an affiliate portal with no catalogue; `nikkisims.com` answers HTTP 500 and the other three serve 3–11 KB splash pages with no updates listing | 2026-09-16 |
+| misswhip, Vikki Lynn | No catalogue of their own — both sell exclusively through storefronts FSS already scrapes. Use `clips4sale.com/studio/159363/miss-whip`, `clips4sale.com/studio/75307` and `iwantclips.com/store/2616/MistressVictoria` | 2026-09-16 |
+
 ## Adding a new scraper
 
 See the [contributing guide](../CONTRIBUTING.md) for step-by-step instructions and reference implementations.

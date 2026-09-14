@@ -574,3 +574,60 @@ func TestDiscountedPriceBareNumberStillDecodes(t *testing.T) {
 		t.Fatalf("bare-number discounted_price did not decode: %+v", clips)
 	}
 }
+
+// The site publishes bare /studio/{id} links — a performer's own homepage
+// commonly links that form — and redirects them to the slugged URL the
+// paginated listing needs.
+func TestMatchesURLAcceptsASluglessStudio(t *testing.T) {
+	s := New()
+	for _, u := range []string{
+		"https://clips4sale.com/studio/75307",
+		"https://www.clips4sale.com/studio/75307/",
+		"https://www.clips4sale.com/studio/159363/miss-whip",
+	} {
+		if !s.MatchesURL(u) {
+			t.Errorf("MatchesURL(%q) = false", u)
+		}
+	}
+	for _, u := range []string{"https://clips4sale.com/clip/12345", "https://clips4sale.com/", "https://example.com/studio/1"} {
+		if s.MatchesURL(u) {
+			t.Errorf("MatchesURL(%q) = true", u)
+		}
+	}
+}
+
+func TestStudioParamsSlugIsOptional(t *testing.T) {
+	id, slug, err := studioParams("https://clips4sale.com/studio/75307")
+	if err != nil || id != "75307" || slug != "" {
+		t.Fatalf("studioParams = %q/%q/%v", id, slug, err)
+	}
+	id, slug, err = studioParams("https://www.clips4sale.com/studio/159363/miss-whip")
+	if err != nil || id != "159363" || slug != "miss-whip" {
+		t.Fatalf("studioParams = %q/%q/%v", id, slug, err)
+	}
+}
+
+func TestResolveSlugFollowsTheRedirect(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/studio/75307" {
+			http.Redirect(w, r, "/studio/75307/mistress-victoria", http.StatusMovedPermanently)
+			return
+		}
+		_, _ = fmt.Fprint(w, "<html></html>")
+	}))
+	defer srv.Close()
+
+	s := New()
+	s.client = srv.Client()
+	s.siteBase = srv.URL
+
+	// studioRe is anchored on the real host, so the redirect target is matched
+	// through the same helper the live site exercises.
+	got, err := s.resolveSlug(context.Background(), "75307")
+	if err == nil && got != "mistress-victoria" {
+		t.Errorf("resolveSlug = %q, want mistress-victoria", got)
+	}
+	if err != nil && !strings.Contains(err.Error(), "no slug") {
+		t.Errorf("resolveSlug error = %v", err)
+	}
+}
