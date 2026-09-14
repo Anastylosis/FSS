@@ -180,6 +180,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/indiebucks"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/indiesav"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/indigowhite"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/inkasex"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/innofsin"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/insexarchives"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/interracialpass"
