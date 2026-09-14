@@ -113,7 +113,11 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 		if len(fresh) == 0 {
 			return scraper.PageResult{Done: true}, nil
 		}
-		return scraper.PageResult{Scenes: s.enrich(ctx, studioURL, fresh, now, opts.Delay)}, nil
+		scenes := s.enrich(ctx, studioURL, fresh, now, opts.Delay, out)
+		// The id lives only on the detail page, so a page whose details all
+		// failed yields no scenes — Continue keeps that from reading as the end
+		// of the catalogue, which --full would then act on by deleting the tail.
+		return scraper.PageResult{Scenes: scenes, Continue: len(scenes) == 0}, nil
 	})
 }
 
@@ -143,7 +147,7 @@ func (s *Scraper) runSinglePage(ctx context.Context, studioURL string, out chan<
 	case <-ctx.Done():
 		return
 	}
-	for _, scene := range s.enrich(ctx, studioURL, items, now, delay) {
+	for _, scene := range s.enrich(ctx, studioURL, items, now, delay, out) {
 		select {
 		case out <- scraper.Scene(scene):
 		case <-ctx.Done():
@@ -224,7 +228,9 @@ func parseListing(body []byte) []listItem {
 
 // ---- detail enrichment ----
 
-func (s *Scraper) enrich(ctx context.Context, studioURL string, items []listItem, now time.Time, delay time.Duration) []models.Scene {
+// enrich fetches each scene's detail page; failures are reported and the scene
+// is skipped, since without the detail page it has no id.
+func (s *Scraper) enrich(ctx context.Context, studioURL string, items []listItem, now time.Time, delay time.Duration, out chan<- scraper.SceneResult) []models.Scene {
 	scenes := make([]models.Scene, len(items))
 	scraper.Debugf(1, "%s: fetching %d details with %d workers", siteID, len(items), detailWorkers)
 	var wg sync.WaitGroup
@@ -246,7 +252,16 @@ func (s *Scraper) enrich(ctx context.Context, studioURL string, items []listItem
 					return
 				}
 			}
-			scenes[i] = s.toScene(ctx, studioURL, it, now)
+			scene, err := s.toScene(ctx, studioURL, it, now)
+			if err != nil {
+				select {
+				case out <- scraper.Error(err):
+				case <-ctx.Done():
+					return
+				}
+				return
+			}
+			scenes[i] = scene
 		}(i, it)
 	}
 	wg.Wait()
@@ -273,20 +288,20 @@ var (
 	tagStripRe   = regexp.MustCompile(`<[^>]+>`)
 )
 
-func (s *Scraper) toScene(ctx context.Context, studioURL string, it listItem, now time.Time) models.Scene {
+// toScene fetches the detail page, which is where the scene id lives — without
+// it there is no scene to emit, so a failure is reported rather than swallowed.
+func (s *Scraper) toScene(ctx context.Context, studioURL string, it listItem, now time.Time) (models.Scene, error) {
 	sceneURL := siteBase + "/video/" + it.slug
 
 	body, err := s.fetchPage(ctx, sceneURL)
 	if err != nil {
-		// The id lives only on the detail page, so without it there is no
-		// scene to emit.
-		return models.Scene{}
+		return models.Scene{}, err
 	}
 	detail := string(body)
 
 	m := sceneIDRe.FindStringSubmatch(detail)
 	if m == nil {
-		return models.Scene{}
+		return models.Scene{}, scraper.ParseError(sceneURL, fmt.Errorf("no scene id on the page"))
 	}
 
 	scene := models.Scene{
@@ -346,7 +361,7 @@ func (s *Scraper) toScene(ctx context.Context, studioURL string, it listItem, no
 		}
 	}
 
-	return scene
+	return scene, nil
 }
 
 func contains(list []string, v string) bool {

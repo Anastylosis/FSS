@@ -319,3 +319,59 @@ func TestListingErrorIsReported(t *testing.T) {
 		t.Error("a listing failure produced no error result")
 	}
 }
+
+// A detail fetch that fails used to discard the scene silently: `--full` then
+// deleted a scene the site still lists. The card alone is a usable scene, so it
+// is kept and the failure is reported.
+func TestDetailFailureKeepsTheListingScene(t *testing.T) {
+	listing := readFixture(t, "listing.html")
+	var listPages atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if c, err := r.Cookie("agreedToDisclaimer"); err != nil || c.Value != "true" {
+			_, _ = w.Write([]byte("<html><body>age gate</body></html>"))
+			return
+		}
+		if strings.HasPrefix(r.URL.Path, "/vd/") {
+			w.WriteHeader(http.StatusTooManyRequests)
+			return
+		}
+		if listPages.Add(1) == 1 {
+			_, _ = w.Write(listing)
+			return
+		}
+		_, _ = w.Write([]byte("<html><body>no scenes</body></html>"))
+	}))
+	defer srv.Close()
+
+	s := newTestScraper(t, srv)
+	ch, err := s.ListScenes(context.Background(), srv.URL, scraper.ListOpts{})
+	if err != nil {
+		t.Fatalf("ListScenes: %v", err)
+	}
+
+	var scenes int
+	var errs int
+	for r := range ch {
+		switch r.Kind {
+		case scraper.KindScene:
+			scenes++
+			if r.Scene.ID == "" || r.Scene.Title == "" || r.Scene.URL == "" {
+				t.Errorf("listing-derived scene is incomplete: %+v", r.Scene)
+			}
+		case scraper.KindError:
+			errs++
+		}
+	}
+	if scenes == 0 {
+		t.Error("every scene was discarded; the listing card is still a scene")
+	}
+	if errs == 0 {
+		t.Error("the failed enrichment must be reported")
+	}
+}
+
+func TestTitleFromSlug(t *testing.T) {
+	if got := titleFromSlug("a-hot-summer-night"); got != "a hot summer night" {
+		t.Errorf("titleFromSlug = %q", got)
+	}
+}

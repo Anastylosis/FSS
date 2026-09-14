@@ -208,6 +208,27 @@ func collect(t *testing.T, s *Scraper, studioURL string) []models.Scene {
 	return testutil.CollectScenes(t, ch)
 }
 
+// collectWithErrors returns the scenes and the reported failures, for the cases
+// where a dropped scene must still be announced.
+func collectWithErrors(t *testing.T, s *Scraper, studioURL string) ([]models.Scene, []error) {
+	t.Helper()
+	ch, err := s.ListScenes(context.Background(), studioURL, scraper.ListOpts{})
+	if err != nil {
+		t.Fatalf("ListScenes: %v", err)
+	}
+	var scenes []models.Scene
+	var errs []error
+	for r := range ch {
+		switch r.Kind {
+		case scraper.KindScene:
+			scenes = append(scenes, r.Scene)
+		case scraper.KindError:
+			errs = append(errs, r.Err)
+		}
+	}
+	return scenes, errs
+}
+
 func TestListScenes(t *testing.T) {
 	s, srv, detailHits := newTestSite(t)
 
@@ -269,8 +290,9 @@ func TestListScenes(t *testing.T) {
 }
 
 // The scene id exists only on the detail page, so a failed detail fetch means
-// there is no usable scene — it must be dropped, not emitted with an empty ID.
-func TestDetailFailureDropsScene(t *testing.T) {
+// there is no usable scene — it must be dropped, but reported: swallowed, it
+// looks like a site with nothing on it, and --full then deletes the catalogue.
+func TestDetailFailureDropsSceneAndReportsIt(t *testing.T) {
 	listing := readFixture(t, "listing.html")
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
@@ -291,14 +313,18 @@ func TestDetailFailureDropsScene(t *testing.T) {
 	s := New()
 	s.Client = srv.Client()
 
-	scenes := collect(t, s, srv.URL+"/videos")
+	scenes, errs := collectWithErrors(t, s, srv.URL+"/videos")
 	if len(scenes) != 0 {
 		t.Fatalf("got %d scenes, want 0 — no id means no scene", len(scenes))
 	}
+	if len(errs) == 0 {
+		t.Error("a detail failure must be reported, not swallowed")
+	}
 }
 
-// A detail page without a data-scene attribute is not a scene.
-func TestMissingSceneIDDropsScene(t *testing.T) {
+// A detail page without a data-scene attribute is not a scene, and the parse
+// failure is reported so it cannot be mistaken for an empty catalogue.
+func TestMissingSceneIDDropsSceneAndReportsIt(t *testing.T) {
 	listing := readFixture(t, "listing.html")
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/videos" {
@@ -316,8 +342,17 @@ func TestMissingSceneIDDropsScene(t *testing.T) {
 	s := New()
 	s.Client = srv.Client()
 
-	if scenes := collect(t, s, srv.URL+"/videos"); len(scenes) != 0 {
+	scenes, errs := collectWithErrors(t, s, srv.URL+"/videos")
+	if len(scenes) != 0 {
 		t.Errorf("got %d scenes, want 0", len(scenes))
+	}
+	if len(errs) == 0 {
+		t.Fatal("a missing scene id must be reported as a parse failure")
+	}
+	for _, err := range errs {
+		if kind := scraper.Classify(err); kind != scraper.FailureParse {
+			t.Errorf("failure kind = %v, want FailureParse", kind)
+		}
 	}
 }
 
@@ -350,5 +385,47 @@ func TestContextCancellation(t *testing.T) {
 	case <-done:
 	case <-time.After(10 * time.Second):
 		t.Fatal("channel did not close after context cancellation")
+	}
+}
+
+// A page whose details all fail yields no scenes, and Paginate reads an empty
+// page as the end of the catalogue — so the callback must set Continue, or a
+// mid-crawl block truncates the walk and --full deletes the rest.
+func TestAllDetailsFailingDoesNotEndTheWalk(t *testing.T) {
+	listing := readFixture(t, "listing.html")
+	var listPages int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/video/"):
+			w.WriteHeader(http.StatusTooManyRequests)
+		case strings.HasPrefix(r.URL.Path, "/videos"):
+			listPages++
+			if listPages == 1 {
+				_, _ = w.Write(listing)
+				return
+			}
+			_, _ = fmt.Fprint(w, `<html><body>no videos</body></html>`)
+		default:
+			_, _ = fmt.Fprint(w, `<html></html>`)
+		}
+	}))
+	defer srv.Close()
+
+	orig := siteBase
+	siteBase = srv.URL
+	defer func() { siteBase = orig }()
+
+	s := New()
+	s.Client = srv.Client()
+
+	scenes, errs := collectWithErrors(t, s, srv.URL+"/videos")
+	if len(scenes) != 0 {
+		t.Errorf("got %d scenes, want 0", len(scenes))
+	}
+	if len(errs) == 0 {
+		t.Error("the failures must be reported")
+	}
+	if listPages < 2 {
+		t.Errorf("fetched %d listing pages — an all-failed page must not stop the walk", listPages)
 	}
 }

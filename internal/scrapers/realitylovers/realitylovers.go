@@ -124,7 +124,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 		if len(fresh) == 0 {
 			return scraper.PageResult{Done: true}, nil
 		}
-		return scraper.PageResult{Scenes: s.enrich(ctx, studioURL, fresh, now, opts.Delay)}, nil
+		return scraper.PageResult{Scenes: s.enrich(ctx, studioURL, fresh, now, opts.Delay, out)}, nil
 	})
 }
 
@@ -162,7 +162,11 @@ func parseListing(body []byte) []listItem {
 
 // ---- detail enrichment ----
 
-func (s *Scraper) enrich(ctx context.Context, studioURL string, items []listItem, now time.Time, delay time.Duration) []models.Scene {
+// enrich fetches each scene's detail page. A failure keeps the listing-derived
+// scene and reports the error, so a transient block costs metadata rather than
+// the scene itself — and an all-failed page still returns scenes, which is what
+// keeps Paginate from reading it as the end of the catalogue.
+func (s *Scraper) enrich(ctx context.Context, studioURL string, items []listItem, now time.Time, delay time.Duration, out chan<- scraper.SceneResult) []models.Scene {
 	scenes := make([]models.Scene, len(items))
 	scraper.Debugf(1, "%s: fetching %d details with %d workers", s.cfg.SiteID, len(items), detailWorkers)
 	var wg sync.WaitGroup
@@ -184,7 +188,15 @@ func (s *Scraper) enrich(ctx context.Context, studioURL string, items []listItem
 					return
 				}
 			}
-			scenes[i] = s.toScene(ctx, studioURL, it, now)
+			scene, err := s.toScene(ctx, studioURL, it, now)
+			if err != nil {
+				select {
+				case out <- scraper.Error(err):
+				case <-ctx.Done():
+					return
+				}
+			}
+			scenes[i] = scene
 		}(i, it)
 	}
 	wg.Wait()
@@ -218,16 +230,27 @@ type videoDetails struct {
 	} `json:"mainImages"`
 }
 
-func (s *Scraper) toScene(ctx context.Context, studioURL string, it listItem, now time.Time) models.Scene {
+// toScene builds a scene from the listing item, enriched from its detail page.
+// On a detail failure the listing-derived scene is returned alongside the error.
+func (s *Scraper) toScene(ctx context.Context, studioURL string, it listItem, now time.Time) (models.Scene, error) {
 	sceneURL := fmt.Sprintf("%s/vd/%s/%s/", s.base, it.id, it.slug)
+	base := models.Scene{
+		ID:        it.id,
+		SiteID:    s.cfg.SiteID,
+		StudioURL: studioURL,
+		Title:     titleFromSlug(it.slug),
+		URL:       sceneURL,
+		Studio:    s.cfg.StudioName,
+		ScrapedAt: now,
+	}
 
 	body, err := s.fetchPage(ctx, sceneURL)
 	if err != nil {
-		return models.Scene{}
+		return base, err
 	}
 	vd := parseVideoDetails(string(body))
 	if vd == nil {
-		return models.Scene{}
+		return base, scraper.ParseError(sceneURL, fmt.Errorf("no video details on the page"))
 	}
 
 	scene := models.Scene{
@@ -247,7 +270,12 @@ func (s *Scraper) toScene(ctx context.Context, studioURL string, it listItem, no
 	scene.Performers = names(vd.Starring)
 	scene.Categories = names(vd.Categories)
 
-	return scene
+	return scene, nil
+}
+
+// titleFromSlug is the fallback title when the detail page cannot be read.
+func titleFromSlug(slug string) string {
+	return strings.Join(strings.Fields(strings.ReplaceAll(slug, "-", " ")), " ")
 }
 
 func parseVideoDetails(detail string) *videoDetails {
