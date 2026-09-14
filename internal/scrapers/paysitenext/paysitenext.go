@@ -11,6 +11,7 @@ import (
 
 var sites = []paysiteutil.SiteConfig{
 	{SiteID: "bjraw", Domain: "bjraw.com", StudioName: "BJ Raw"},
+	{SiteID: "dickhddaily", Domain: "dickhddaily.com", StudioName: "DickHDDaily"},
 	{SiteID: "gotfilled", Domain: "gotfilled.com", StudioName: "Got Filled"},
 	{SiteID: "nickmarxx", Domain: "nickmarxx.com", StudioName: "Nick Marxx"},
 	{SiteID: "queercrush", Domain: "queercrush.com", StudioName: "QueerCrush"},

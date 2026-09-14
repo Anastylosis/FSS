@@ -44,3 +44,18 @@ func TestYesGirlzListsScenesNotVideos(t *testing.T) {
 		t.Errorf("Patterns()[1] = %q", got)
 	}
 }
+
+func TestDickHDDailyRegistered(t *testing.T) {
+	var found bool
+	for _, cfg := range sites {
+		if cfg.SiteID == "dickhddaily" {
+			found = true
+			if cfg.Domain != "dickhddaily.com" || cfg.ListPath != "" {
+				t.Errorf("config = %+v, want the default /videos listing", cfg)
+			}
+		}
+	}
+	if !found {
+		t.Error("dickhddaily is not in the site table")
+	}
+}
