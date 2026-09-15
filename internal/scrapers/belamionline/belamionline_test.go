@@ -113,10 +113,13 @@ func TestParseMaxPage(t *testing.T) {
 	}
 }
 
+// No pager means "unknown", not "one page": reading it as 1 stopped the walk
+// after 32 scenes the moment the markup changed, and --full then deleted the
+// rest of the catalogue. The short-page fallback terminates instead.
 func TestParseMaxPage_NoPagination(t *testing.T) {
 	maxPage := parseMaxPage([]byte(`<html><body>no pager here</body></html>`))
-	if maxPage != 1 {
-		t.Errorf("max page = %d, want 1", maxPage)
+	if maxPage != 0 {
+		t.Errorf("max page = %d, want 0 (unknown)", maxPage)
 	}
 }
 
@@ -379,5 +382,21 @@ func TestRunModelKnownIDsSkipsAndContinues(t *testing.T) {
 	}
 	if len(scenes) != 1 || scenes[0].ID != "17496" {
 		t.Fatalf("got %+v, want only the scene behind the stored one", scenes)
+	}
+}
+
+// The pager is windowed — page 1 links 2, 3 … 38 — so a walk that only read
+// the first page's window would stop short on a site whose window is narrower.
+// Re-reading each page lets a later one raise the bound.
+func TestListingWalkUsesTheHighestPagerNumberSeen(t *testing.T) {
+	pages := map[string]string{
+		"1": `<div class="pag_b"><a href="x.aspx?page=2">2</a></div>`,
+		"2": `<div class="pag_b"><a href="x.aspx?page=3">3</a><a href="x.aspx?page=9">9</a></div>`,
+	}
+	if got := parseMaxPage([]byte(pages["1"])); got != 2 {
+		t.Errorf("page 1 max = %d, want 2", got)
+	}
+	if got := parseMaxPage([]byte(pages["2"])); got != 9 {
+		t.Errorf("page 2 max = %d, want 9", got)
 	}
 }

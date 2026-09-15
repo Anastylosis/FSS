@@ -134,8 +134,12 @@ func (s *Scraper) runSection(ctx context.Context, studioURL string, opts scraper
 		}
 		items := parseListingPage(body)
 		total := 0
+		// Re-read on every page: the pager is windowed, so a later page can
+		// link further than the first one did.
+		if seen := parseMaxPage(body); seen > maxPage {
+			maxPage = seen
+		}
 		if page == 1 {
-			maxPage = parseMaxPage(body)
 			total = maxPage * perPage
 		}
 		scenes := make([]models.Scene, len(items))
@@ -302,12 +306,15 @@ func parseBlock(block string) (listItem, bool) {
 	return item, true
 }
 
+// parseMaxPage reads the highest page the pager links to, or 0 when there is
+// no pager to read. Zero means "unknown" — returning 1 instead made a markup
+// change stop the walk after the first page. See docs/scrapers.md.
 func parseMaxPage(body []byte) int {
 	m := maxPageRe.FindSubmatch(body)
 	if m == nil {
-		return 1
+		return 0
 	}
-	maxPage := 1
+	maxPage := 0
 	for _, pm := range pageNumRe.FindAllSubmatch(m[1], -1) {
 		n, _ := strconv.Atoi(string(pm[1]))
 		if n > maxPage {

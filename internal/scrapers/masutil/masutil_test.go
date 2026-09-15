@@ -280,38 +280,52 @@ func TestExtractMaxPageOptionForms(t *testing.T) {
 	}{
 		{
 			name: "bare values",
-			body: `<select><option value=1>1</option><option value=12>12</option></select>`,
+			body: `<select name="MAS_pages"><option value=1>1</option><option value=12>12</option></select>`,
 			want: 12,
 		},
 		{
 			name: "double-quoted values",
-			body: `<select><option value="1">1</option><option value="12">12</option></select>`,
+			body: `<select name="MAS_pages"><option value="1">1</option><option value="12">12</option></select>`,
 			want: 12,
 		},
 		{
 			name: "single-quoted values",
-			body: `<select><option value='7'>7</option></select>`,
+			body: `<select name="MAS_pages"><option value='7'>7</option></select>`,
 			want: 7,
 		},
 		{
 			name: "selected attribute before the bracket",
-			body: `<select><option value=3 selected>3</option><option value=9>9</option></select>`,
+			body: `<SELECT name="MAS_pages"><option value=3 selected>3</option><option value=9>9</option></SELECT>`,
 			want: 9,
 		},
 		{
 			name: "quoted plus selected",
-			body: `<select><option value="4" selected="selected">4</option><option value="21">21</option></select>`,
+			body: `<select name=MAS_pages><option value="4" selected="selected">4</option><option value="21">21</option></select>`,
 			want: 21,
 		},
 		{
 			name: "pagenumbers wins over the select",
-			body: `<a class="pagenumbers">30</a><select><option value=9>9</option></select>`,
+			body: `<a class="pagenumbers">30</a><select name="MAS_pages"><option value=9>9</option></select>`,
 			want: 30,
 		},
 		{
 			name: "neither present",
 			body: `<div>no pager here</div>`,
 			want: 0,
+		},
+		{
+			// A signup or plan chooser is not a pager: scanning every option in
+			// the document made its highest value the page count, stopping the
+			// walk at page 5 of ~40.
+			name: "an unrelated select is ignored",
+			body: `<select name="plan"><option value=1>1</option><option value=5>5</option></select>`,
+			want: 0,
+		},
+		{
+			name: "the pager wins over an unrelated select",
+			body: `<select name="plan"><option value=99>99</option></select>` +
+				`<SELECT name="MAS_pages"><option value=1 selected>1</option><option value=73>73</option></SELECT>`,
+			want: 73,
 		},
 	}
 	for _, c := range cases {

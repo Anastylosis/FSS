@@ -143,12 +143,12 @@ var (
 	thumbRe = regexp.MustCompile(`<img[^>]+src="([^"]*faceimages/[^"]*)"`)
 
 	maxPageRe = regexp.MustCompile(`class="pagenumbers">(\d+)</a>`)
-	// The page <select> renders its options inconsistently: some are bare
-	// (`value=12`), some quoted (`value="12"`), and the current page carries a
-	// `selected` attribute before the closing bracket. Requiring an unquoted
-	// value followed immediately by `>` missed all but the plainest form, which
-	// left maxPage at 0 and the walk with no page-count termination.
-	maxPageSelectRe = regexp.MustCompile(`<option[^>]*\bvalue=["']?(\d+)["']?`)
+	// The pager is `<SELECT name="MAS_pages">` — tag case varies, options come
+	// bare (`value=12`) or quoted, and the current page carries `selected`.
+	// Anchoring on the name matters: an unrelated select's options would
+	// otherwise set the page count. See docs/scrapers.md.
+	pagerSelectRe = regexp.MustCompile(`(?is)<select[^>]*\bname=["']?MAS_pages["']?[^>]*>(.*?)</select>`)
+	optionValueRe = regexp.MustCompile(`(?i)<option[^>]*\bvalue=["']?(\d+)["']?`)
 )
 
 func ParseCards(body string) []CardData {
@@ -240,9 +240,11 @@ func ExtractMaxPage(body string) int {
 		return maxPage
 	}
 
-	for _, m := range maxPageSelectRe.FindAllStringSubmatch(body, -1) {
-		if n, err := strconv.Atoi(m[1]); err == nil && n > maxPage {
-			maxPage = n
+	for _, sel := range pagerSelectRe.FindAllStringSubmatch(body, -1) {
+		for _, m := range optionValueRe.FindAllStringSubmatch(sel[1], -1) {
+			if n, err := strconv.Atoi(m[1]); err == nil && n > maxPage {
+				maxPage = n
+			}
 		}
 	}
 	return maxPage
