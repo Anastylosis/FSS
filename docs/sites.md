@@ -1,6 +1,6 @@
 # Covered Sites — All Domains
 
-1812 scrapers covering 1893 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
+1815 scrapers covering 1896 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
 
 Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scraper ID(s)** column lists every scraper that claims URLs on that domain — most domains have one entry, but table-driven networks (`adultprime`, `tmw`, `nextdoorstudios`, etc.) host many sub-studios on a single root domain. See [`scrapers.md`](scrapers.md) for what each ID covers.
 
@@ -201,6 +201,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | bigtitvenera.com | `bigtitvenera` |
 | biguysfuck.com | `biguysfuck` |
 | biphoria.com | `biphoria` |
+| bitchstop.com | `bitchstop` |
 | bjraw.com | `bjraw` |
 | black-jelly.com | `blackjelly` |
 | black-tgirls.com | `blacktgirls` |
@@ -398,6 +399,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | currycreampie.com | `currycreampie` |
 | cutebutts.com | `cutebutts` |
 | cutlersden.com | `cutlersden` |
+| czasting.com | `czasting` |
 | czechamateurs.com | `czechamateurs` |
 | czechar.com | `czechar` |
 | czechbangbus.com | `czechbangbus` |
@@ -413,6 +415,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | czechfirstvideo.com | `czechfirstvideo` |
 | czechgangbang.com | `czechgangbang` |
 | czechgardenparty.com | `czechgardenparty` |
+| czechgfs.com | `czechgfs` |
 | czechharem.com | `czechharem` |
 | czechhomeorgy.com | `czechhomeorgy` |
 | czechhotties.puba.com | `pubaczechhotties` |

@@ -238,6 +238,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/meanawolf"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/meanworld"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/meninosonline"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/mentalpass"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/mercury"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/metart"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/mfcshare"
