@@ -1,6 +1,6 @@
 # Covered Sites — All Domains
 
-1811 scrapers covering 1888 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
+1812 scrapers covering 1893 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
 
 Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scraper ID(s)** column lists every scraper that claims URLs on that domain — most domains have one entry, but table-driven networks (`adultprime`, `tmw`, `nextdoorstudios`, etc.) host many sub-studios on a single root domain. See [`scrapers.md`](scrapers.md) for what each ID covers.
 
@@ -305,6 +305,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | caribbeancom.com | `caribbeancom` |
 | carmenvalentina.com | `carmenvalentina` |
 | carnalplus.com | `baptistboys`, `carnaloriginals`, `carnalplus` |
+| carnedelmercado.com | `mamacitaz` |
 | cashforsextape.com | `cashforsextape` |
 | castingcouch-hd.com | `castingcouchhd` |
 | castingcouch-x.com | `castingcouchx` |
@@ -325,6 +326,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | cherrymavrik.com | `cherrymavrik` |
 | cherrypimps.com | `cherrypimps` |
 | chica-boom.com | `chicaboom` |
+| chicasloca.com | `mamacitaz` |
 | chickpass.com | `chickpass` |
 | chickpasslesbians.com | `chickpasslesbians` |
 | chickpassmilfs.com | `chickpassmilfs` |
@@ -752,6 +754,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | hentaied.pro | `twinz` |
 | hentaipros.com | `hentaipros` |
 | hentaisexschool.com | `hentaisexschool` |
+| herbigass.com | `mamacitaz` |
 | herfirstporn.com | `herfirstporn` |
 | hersexdebut.com | `hersexdebut` |
 | herzogvideo.de | `gasm` |
@@ -965,6 +968,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | majorhotwife.com | `majorhotwife` |
 | makehimcuckold.com | `makehimcuckold` |
 | malefeet4u.com | `malefeet4u` |
+| mamacitaz.com | `mamacitaz` |
 | manojob.com | `manojob` |
 | manpuppy.com | `manpuppy` |
 | manroyale.com | `manroyale` |
@@ -1180,6 +1184,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | oopsie.com | `oopsie` |
 | oopsieanimated.com | `oopsieanimated` |
 | openlife.com | `openlife` |
+| operacionlimpieza.com | `mamacitaz` |
 | oppai-av.com | `oppai` |
 | organicshemales.com | `organicshemales` |
 | orgytrain.com | `orgytrain` |

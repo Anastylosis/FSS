@@ -227,6 +227,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/lustery"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/lustreality"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/malibumedia"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/mamacitaz"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/manipulativemedia"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/manyvids"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/marsmedia"
