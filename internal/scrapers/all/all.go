@@ -375,6 +375,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/timtales"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/titanmedia"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/titanmen"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/tma"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/tmw"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/tokyohot"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/trans500"
