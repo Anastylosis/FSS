@@ -284,6 +284,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/pervypass"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/peterfever"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/pinko"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/pinkyxxx"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/pinupfiles"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/pissinghd"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/pissplay"
