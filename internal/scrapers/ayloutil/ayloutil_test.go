@@ -961,7 +961,10 @@ func TestRunContextCancelled(t *testing.T) {
 	}
 }
 
-func TestRunSeriesKnownIDs(t *testing.T) {
+// A series is ordered by episode, not by date, so a known id says nothing
+// about what comes after it: stopping there hid every later episode. The walk
+// now runs to the end and the caller de-duplicates.
+func TestRunSeriesIgnoresKnownIDs(t *testing.T) {
 	ts := newTestServer(nil)
 	ts.series = []Release{makeSeries(100, []int{1, 2, 3})}
 	defer ts.close()
@@ -973,11 +976,11 @@ func TestRunSeriesKnownIDs(t *testing.T) {
 	}, out)
 
 	results, stoppedEarly := testutil.CollectScenesWithStop(t, out)
-	if !stoppedEarly {
-		t.Error("expected StoppedEarly in series mode")
+	if stoppedEarly {
+		t.Error("series mode must not stop early")
 	}
-	if len(results) != 1 {
-		t.Errorf("got %d scenes, want 1 before known ID", len(results))
+	if len(results) != 3 {
+		t.Errorf("got %d scenes, want all 3 episodes", len(results))
 	}
 }
 
@@ -1107,5 +1110,29 @@ func TestGoldenReleasesCarriesNoToken(t *testing.T) {
 	// so its presence is evidence the file is still a capture.
 	if !bytes.Contains(body, []byte(`\u0027`)) {
 		t.Error(`fixture lost the \u0027 escapes — it looks re-encoded rather than captured`)
+	}
+}
+
+// The API ignores a misspelled sort key and returns releases in arbitrary
+// order, which makes the KnownIDs early-stop meaningless across ~40 sites.
+func TestFetchPageAsksForNewestFirst(t *testing.T) {
+	var query string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		query = r.URL.RawQuery
+		_, _ = fmt.Fprint(w, `{"result":[],"meta":{"total":0}}`)
+	}))
+	defer srv.Close()
+
+	s := New(SiteConfig{SiteID: "x", StudioName: "X", APIHost: srv.URL})
+	s.Client = srv.Client()
+
+	if _, _, err := s.FetchPage(context.Background(), "token", Filter{}, 0); err != nil {
+		t.Fatalf("FetchPage: %v", err)
+	}
+	if !strings.Contains(query, "orderBy=-dateReleased") {
+		t.Errorf("query = %q, want orderBy=-dateReleased", query)
+	}
+	if strings.Contains(query, "orderby=") {
+		t.Errorf("query = %q still carries the lowercase key the API ignores", query)
 	}
 }

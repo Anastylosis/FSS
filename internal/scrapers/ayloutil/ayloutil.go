@@ -182,7 +182,10 @@ func (s *Scraper) FetchPage(ctx context.Context, token string, filter Filter, pa
 	params.Set("type", "scene")
 	params.Set("limit", strconv.Itoa(HitsPerPage))
 	params.Set("offset", strconv.Itoa(page*HitsPerPage))
-	params.Set("orderby", "dateReleased")
+	// The API reads `orderBy`, not `orderby`, and takes a leading "-" for
+	// descending. Spelled wrongly it is ignored and the order is arbitrary,
+	// which makes the KnownIDs early-stop meaningless. Live-verified.
+	params.Set("orderBy", "-dateReleased")
 
 	switch filter.Type {
 	case FilterActor:
@@ -388,7 +391,7 @@ func (s *Scraper) Run(ctx context.Context, studioURL string, opts scraper.ListOp
 	}
 }
 
-func (s *Scraper) runSeries(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult, token string, seriesID int) {
+func (s *Scraper) runSeries(ctx context.Context, studioURL string, _ scraper.ListOpts, out chan<- scraper.SceneResult, token string, seriesID int) {
 	releases, total, err := s.fetchSeries(ctx, token, seriesID)
 	if err != nil {
 		select {
@@ -407,18 +410,10 @@ func (s *Scraper) runSeries(ctx context.Context, studioURL string, opts scraper.
 		}
 	}
 
+	// No early stop here: a series is episode-ordered, not date-ordered, so a
+	// known id says nothing about what follows it.
 	now := time.Now().UTC()
 	for _, rel := range releases {
-		id := strconv.Itoa(rel.ID)
-		if opts.KnownIDs[id] {
-			scraper.Debugf(1, "%s: hit known ID, stopping early", s.cfg.SiteID)
-			select {
-			case out <- scraper.StoppedEarly():
-			case <-ctx.Done():
-			}
-			return
-		}
-
 		scene := ToScene(s.cfg, studioURL, rel, now)
 		select {
 		case out <- scraper.Scene(scene):
