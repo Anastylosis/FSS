@@ -140,6 +140,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/ftvgirls"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/ftvmilfs"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/fuckermate"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/futilestruggles"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/fyc"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/gamma"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/gangbangmedia"
