@@ -251,6 +251,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/monstersofjizz"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/mousouzoku"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/mplstudios"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/muku"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/mundomais"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/mydirtyhobby"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/nadinejansen"
