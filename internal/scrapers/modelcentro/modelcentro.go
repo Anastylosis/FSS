@@ -38,6 +38,7 @@ var sites = []siteConfig{
 	{"mugurporn", "mugurporn.com", "Mugur Porn", nil, nil},
 	{"naughtycolombia", "naughtycolombia.com", "Naughty Colombia", nil, nil},
 	{"nerdsofporn", "nerdsofporn.com", "Nerds of Porn", nil, nil},
+	{"niksindian", "niksindian.com", "Niks Indian", nil, nil},
 	{"peccatriciproduzioni", "peccatriciproduzioni.com", "Peccatrici Produzioni", nil, nil},
 	{"pennybarber", "pennybarber.com", "Penny Barber", []string{"Penny Barber"}, nil},
 	{"pervsmilfsnteens", "pervsmilfsnteens.com", "Pervs MILFs n Teens", nil, nil},
