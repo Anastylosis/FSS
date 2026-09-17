@@ -445,7 +445,10 @@ func parseDetail(body []byte, id, studioURL, slug string) (models.Scene, error) 
 	scene.Description = strings.TrimSpace(data.Body)
 
 	if data.PublishDate != nil && data.PublishDate.Date != "" {
-		if t, err := time.Parse("2006-01-02 15:04:05.000000", data.PublishDate.Date); err == nil {
+		// The fractional part varies in width, so the layouts are tried in
+		// order rather than pinned to six digits.
+		if t, err := parseutil.TryParseDate(data.PublishDate.Date,
+			"2006-01-02 15:04:05.000000", "2006-01-02 15:04:05", "2006-01-02"); err == nil {
 			scene.Date = t.UTC()
 		}
 	}

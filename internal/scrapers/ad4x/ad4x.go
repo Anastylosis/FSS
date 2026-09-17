@@ -11,6 +11,7 @@ import (
 
 	"github.com/Anastylosis/FSS/internal/httpx"
 	"github.com/Anastylosis/FSS/models"
+	"github.com/Anastylosis/FSS/parseutil"
 	"github.com/Anastylosis/FSS/scraper"
 )
 
@@ -217,7 +218,9 @@ func parseNextData(body []byte) (nextData, error) {
 func toScene(item contentItem, studioURL string, now time.Time) models.Scene {
 	var date time.Time
 	if item.PublishDate != "" {
-		date, _ = time.Parse("2006/01/02 15:04:05", item.PublishDate)
+		// A date-only value and a T-separated one both occur.
+		date, _ = parseutil.TryParseDate(item.PublishDate,
+			"2006/01/02 15:04:05", "2006-01-02 15:04:05", "2006/01/02", time.RFC3339)
 		date = date.UTC()
 	}
 

@@ -387,3 +387,17 @@ func TestGoldenTypesenseSearch(t *testing.T) {
 		t.Error("scene Tags is empty (keywords/categories)")
 	}
 }
+
+// A document with no publish_time decodes to 0, which stored the scene as
+// 1970-01-01 — a date that looks real and sorts first.
+func TestPublishedAtGuardsTheEpoch(t *testing.T) {
+	if got := publishedAt(0); !got.IsZero() {
+		t.Errorf("publishedAt(0) = %v, want the zero time", got)
+	}
+	if got := publishedAt(-5); !got.IsZero() {
+		t.Errorf("publishedAt(-5) = %v, want the zero time", got)
+	}
+	if got := publishedAt(1757944800); got.Year() != 2025 && got.Year() != 2026 {
+		t.Errorf("publishedAt(valid) = %v", got)
+	}
+}

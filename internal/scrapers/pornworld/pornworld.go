@@ -201,6 +201,17 @@ func (s *Scraper) fetchListing(ctx context.Context, pageURL string) ([]listEntry
 	return parseListing(body), nil
 }
 
+// parseCardDate reads the listing's release date. The site renders the full
+// month name ("2026 September, 15"); the short form is kept as a fallback, and
+// the unpadded day verb accepts both spellings. See docs/scrapers.md.
+func parseCardDate(raw string) time.Time {
+	t, err := parseutil.TryParseDate(strings.TrimSpace(raw), "2006 January, 2", "2006 Jan, 2")
+	if err != nil {
+		return time.Time{}
+	}
+	return t.UTC()
+}
+
 func parseListing(body []byte) []listEntry {
 	cards := cardRe.FindAll(body, -1)
 	entries := make([]listEntry, 0, len(cards))
@@ -221,10 +232,7 @@ func parseListing(body []byte) []listEntry {
 		}
 
 		if m := cardDateRe.FindSubmatch(card); m != nil {
-			raw := strings.TrimSpace(string(m[1]))
-			if t, err := time.Parse("2006 Jan, 02", raw); err == nil {
-				e.date = t.UTC()
-			}
+			e.date = parseCardDate(string(m[1]))
 		}
 
 		if m := cardDurRe.FindSubmatch(card); m != nil {

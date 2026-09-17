@@ -233,6 +233,15 @@ func iwcDefaultHeaders() map[string]string {
 
 // ---- mapping ----
 
+// publishedAt guards the epoch: a document with no publish_time decoded to 0,
+// which stored every such scene as 1970-01-01 rather than leaving it undated.
+func publishedAt(unix int64) time.Time {
+	if unix <= 0 {
+		return time.Time{}
+	}
+	return time.Unix(unix, 0).UTC()
+}
+
 func toScene(studioURL string, doc iwcDoc, now time.Time) models.Scene {
 	scene := models.Scene{
 		ID:        doc.ContentID,
@@ -240,7 +249,7 @@ func toScene(studioURL string, doc iwcDoc, now time.Time) models.Scene {
 		StudioURL: studioURL,
 		Title:     html.UnescapeString(doc.Title),
 		URL:       doc.ContentURL,
-		Date:      time.Unix(doc.PublishTime, 0).UTC(),
+		Date:      publishedAt(doc.PublishTime),
 		// IWantClips ships descriptions double-encoded (e.g. `&amp;quot;` for `"`),
 		// so two passes are intentional.
 		Description: html.UnescapeString(html.UnescapeString(doc.Description)),

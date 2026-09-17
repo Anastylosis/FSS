@@ -249,3 +249,29 @@ func TestMatchesURL(t *testing.T) {
 		}
 	}
 }
+
+// The listing renders the full month name. Parsed as the three-letter
+// abbreviation, every date outside May, June and July came back zero — eleven
+// months a year of undated scenes. Live format: "2026 September, 15".
+func TestParseCardDate(t *testing.T) {
+	cases := map[string]string{
+		"2026 September, 15":   "2026-09-15",
+		" 2026 September, 08 ": "2026-09-08",
+		"2026 September, 8":    "2026-09-08",
+		"2026 Sep, 15":         "2026-09-15",
+		"2026 May, 01":         "2026-05-01",
+	}
+	for raw, want := range cases {
+		got := parseCardDate(raw)
+		if got.IsZero() {
+			t.Errorf("parseCardDate(%q) = zero, want %s", raw, want)
+			continue
+		}
+		if got.Format("2006-01-02") != want {
+			t.Errorf("parseCardDate(%q) = %s, want %s", raw, got.Format("2006-01-02"), want)
+		}
+	}
+	if !parseCardDate("not a date").IsZero() {
+		t.Error("an unparseable date must stay zero")
+	}
+}
