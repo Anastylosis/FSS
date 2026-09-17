@@ -132,6 +132,29 @@ Add each supported URL pattern to `Patterns()` so `fss list-scrapers` shows them
 
 **Pitfall**: model pages often mix videos and galleries — only return video entries.
 
+### 4c. Slicing repeated blocks
+
+Go's regexp is RE2: **no lookahead**. Closing a repeated block with an alternation
+that names the next block's opening marker *consumes* that marker, so the scan
+resumes past it and every second block is silently dropped — a listing parses at
+exactly half its real length and looks fine. Slice between the opening markers
+instead:
+
+```go
+starts := cardRe.FindAllStringSubmatchIndex(body, -1) // cardRe matches the opener only
+for i, m := range starts {
+    end := len(body)
+    if i+1 < len(starts) {
+        end = starts[i+1][0]
+    }
+    card := body[m[1]:end]
+    …
+}
+```
+
+This only bites when iterating *blocks*. A field extractor whose terminator is a
+closing tag or a sibling label is fine, because it runs once per block.
+
 ### 5. Build the Scene
 
 Populate `models.Scene` with as many fields as the site provides. Required fields:
