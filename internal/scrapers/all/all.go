@@ -63,6 +63,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/brokenlatinawhores"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/bronetwork"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/brutalmaster"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/cademaddox"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/camsoda"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/caribbeancom"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/carnalplus"
