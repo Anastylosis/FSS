@@ -154,6 +154,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/girlsrimming"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/glamose"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/glamosetour"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/globetwatters"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/gloryquest"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/glosstightsglamour"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/goddessfootdomination"

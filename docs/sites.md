@@ -1,6 +1,6 @@
 # Covered Sites — All Domains
 
-1820 scrapers covering 1901 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
+1825 scrapers covering 1906 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
 
 Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scraper ID(s)** column lists every scraper that claims URLs on that domain — most domains have one entry, but table-driven networks (`adultprime`, `tmw`, `nextdoorstudios`, etc.) host many sub-studios on a single root domain. See [`scrapers.md`](scrapers.md) for what each ID covers.
 
@@ -115,6 +115,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | ashleysageellison.com | `ashleysageellison` |
 | asianamericantgirls.com | `asianamericantgirls` |
 | asiancoochies.com | `asiancoochies` |
+| asiansexdiary.com | `asiansexdiary` |
 | asiansuckdolls.com | `asiansuckdolls` |
 | asiansybian.com | `asiansybian` |
 | asiantgirl.com | `asiantgirl` |
@@ -753,6 +754,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | hegre.com | `hegre` |
 | helixstudios.com | `8teenboy`, `spankthis` |
 | helixstudios.net | `helixstudios` |
+| helloladyboy.com | `helloladyboy` |
 | hentai.movie | `hentaimovie` |
 | hentaied.com | `hentaied` |
 | hentaied.pro | `twinz` |
@@ -1028,6 +1030,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | milfsodomy.com | `porngutter` |
 | milfthing.com | `milfthing` |
 | milfthreesomes.com | `milfthreesomes` |
+| milftrip.com | `milftrip` |
 | milftugs.com | `milftugs` |
 | milfvr.com | `milfvr` |
 | milfy.com | `milfy` |
@@ -1700,6 +1703,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | trickyoldteacher.com | `1passforallsites` |
 | trickyourgf.com | `trickyourgf` |
 | trickyspa.com | `trickyspa` |
+| trikepatrol.com | `trikepatrol` |
 | tripforfuck.com | `tripforfuck` |
 | trueamateurs.com | `trueamateurs` |
 | truelesbian.com | `truelesbian` |
@@ -1709,6 +1713,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | tspov.com | `tspov` |
 | tsvirtuallovers.com | `tsvirtuallovers` |
 | tugcasting.com | `tugcasting` |
+| tuktukpatrol.com | `tuktukpatrol` |
 | tushy.com | `tushy` |
 | tushyraw.com | `tushyraw` |
 | tussinee.com | `tussinee` |
