@@ -262,6 +262,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/nakedsword"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/nastymedia"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/naughtyamerica"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/nerdpervert"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/newsensations"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/next11"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/nextcontents"
