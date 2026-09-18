@@ -34,6 +34,7 @@ var sites = []siteConfig{
 	// brands as Diane Andrews throughout, which is also its StashDB name.
 	{"goddessdiane", "goddessdiane.com", "Diane Andrews", []string{"Diane Andrews"}, nil},
 	{"lisariveraxo", "lisariveraxo.com", "Lisa Rivera XO", []string{"Lisa Rivera"}, nil},
+	{"krisskiss", "krisskiss.com", "KrissKiss", nil, nil},
 	{"monstermalesprod", "monstermalesprod.com", "Monster Males", nil, nil},
 	{"mugurporn", "mugurporn.com", "Mugur Porn", nil, nil},
 	{"naughtycolombia", "naughtycolombia.com", "Naughty Colombia", nil, nil},
