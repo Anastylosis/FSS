@@ -983,6 +983,10 @@ backlog files for the same reason.
 | Miss Grace (missannabellegrace.com) | Domain no longer resolves | 2026-09-16 |
 | PinkVelvetVault tree — Nikki Sims, BellaXOXO, Meet Madden, Tiffany Alexis | The hub is an affiliate portal with no catalogue; `nikkisims.com` answers HTTP 500 and the other three serve 3–11 KB splash pages with no updates listing | 2026-09-16 |
 | misswhip, Vikki Lynn | No catalogue of their own — both sell exclusively through storefronts FSS already scrapes. Use `clips4sale.com/studio/159363/miss-whip`, `clips4sale.com/studio/75307` and `iwantclips.com/store/2616/MistressVictoria` | 2026-09-16 |
+| Naughty Midwest Girls | No catalogue of its own — the site is hand-built prose whose scene links all point at ManyVids. Scrape `manyvids.com/Profile/518153/NaughtyMidwestGirls/Store/Videos/` (609 scenes) and `…/1006712291/utrgirls/…` instead | 2026-09-16 |
+| Crystal Lust | `crystallust.com` 301s every path, API included, to a `hubzter.com` profile page that renders its catalogue in JavaScript with no listing in the HTML | 2026-09-16 |
+| XR University | The domain now serves the Extreme Restraints Shopify store — product collections only, no video catalogue | 2026-09-16 |
+| PoRo | `poro.cc` returns 404 for every path including its own published entry point | 2026-09-16 |
 | Brutal Bucks tree — Brutal Dildos, Brutal Fisting, Huge Strapon Lesbians, Moms Teaching Teens, Prolapse Party | Paywalled: the tour publishes ten teaser cards whose every link is the signup form, with no per-scene page, no pagination and no date; `/tour`, `/movies`, `/updates`, `/videos` and a sitemap all 403 or 404. The sibling sites render no cards at all | 2026-09-16 |
 | Smash Pictures | Domain does not resolve | 2026-09-16 |
 | Japornxxx | Answers HTTP 401 to every request | 2026-09-16 |
