@@ -112,6 +112,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/empirestore"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/englishmansion"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/enjoyx"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/ericvideos"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/erikalust"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/erosarts"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/evolvedfights"
