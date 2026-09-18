@@ -983,6 +983,10 @@ backlog files for the same reason.
 | Miss Grace (missannabellegrace.com) | Domain no longer resolves | 2026-09-16 |
 | PinkVelvetVault tree — Nikki Sims, BellaXOXO, Meet Madden, Tiffany Alexis | The hub is an affiliate portal with no catalogue; `nikkisims.com` answers HTTP 500 and the other three serve 3–11 KB splash pages with no updates listing | 2026-09-16 |
 | misswhip, Vikki Lynn | No catalogue of their own — both sell exclusively through storefronts FSS already scrapes. Use `clips4sale.com/studio/159363/miss-whip`, `clips4sale.com/studio/75307` and `iwantclips.com/store/2616/MistressVictoria` | 2026-09-16 |
+| Goddess Valora | Squarespace site with no catalogue of its own; everything is sold through LoyalFans. Scrape `loyalfans.com/Goddess-Valora` (520 scenes) instead | 2026-09-16 |
+| Model Media US tree — Jerkaoke, Delphine Films, POV Adventure | All three are paywalled single-page apps: `/videos` renders no scene links at all (every link is `/plans`), there is no JSON island and no public API. POV Adventure's domain now serves a tube aggregator's feed | 2026-09-16 |
+| Bondage Life | The tour publishes four demo clips behind `video.aspx?file=…` and nothing else; the catalogue is a members area | 2026-09-16 |
+| Futanaria | A frameset-era shell: `main.htm` is a styled index with no scene listing and `join.htm` is 392 bytes | 2026-09-16 |
 | Naughty Midwest Girls | No catalogue of its own — the site is hand-built prose whose scene links all point at ManyVids. Scrape `manyvids.com/Profile/518153/NaughtyMidwestGirls/Store/Videos/` (609 scenes) and `…/1006712291/utrgirls/…` instead | 2026-09-16 |
 | Crystal Lust | `crystallust.com` 301s every path, API included, to a `hubzter.com` profile page that renders its catalogue in JavaScript with no listing in the HTML | 2026-09-16 |
 | XR University | The domain now serves the Extreme Restraints Shopify store — product collections only, no video catalogue | 2026-09-16 |
