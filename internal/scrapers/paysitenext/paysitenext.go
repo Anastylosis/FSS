@@ -16,6 +16,7 @@ var sites = []paysiteutil.SiteConfig{
 	{SiteID: "inserted", Domain: "inserted.com", StudioName: "Inserted"},
 	{SiteID: "nickmarxx", Domain: "nickmarxx.com", StudioName: "Nick Marxx"},
 	{SiteID: "queercrush", Domain: "queercrush.com", StudioName: "QueerCrush"},
+	{SiteID: "pervect", Domain: "pervect.com", StudioName: "Pervect", ListPath: "scenes"},
 	{SiteID: "rickysroom", Domain: "rickysroom.com", StudioName: "Ricky's Room"},
 	{SiteID: "s3xus", Domain: "s3xus.com", StudioName: "S3XUS", ListPath: "scenes"},
 	// Yes Girlz serves the same template one path over: /videos 404s, /scenes
