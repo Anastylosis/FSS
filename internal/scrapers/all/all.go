@@ -32,6 +32,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/assylum"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/auntjudys"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/avidolz"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/avjiali"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/aylo"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/aziani"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/badoink"
