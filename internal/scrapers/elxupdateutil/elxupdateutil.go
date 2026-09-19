@@ -58,6 +58,10 @@ type SiteConfig struct {
 	ListSlug string
 	// BareHost serves the site from the apex rather than www.
 	BareHost bool
+	// UpdatesPaging selects the other pagination shape this template ships
+	// with: `/updates/page_{N}.html` instead of
+	// `/categories/{slug}_{N}_d.html`. The cards are identical.
+	UpdatesPaging bool
 }
 
 func (c SiteConfig) listSlug() string {
@@ -144,6 +148,9 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 }
 
 func (s *Scraper) listingURL(cat string, page int) string {
+	if s.cfg.UpdatesPaging {
+		return fmt.Sprintf("%s%s/updates/page_%d.html", s.base, s.cfg.TourPrefix, page)
+	}
 	return fmt.Sprintf("%s%s/categories/%s_%d_d.html", s.base, s.cfg.TourPrefix, cat, page)
 }
 

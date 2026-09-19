@@ -111,6 +111,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/dungeoncorp"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/eastboys"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/eighteenvideoz"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/emilybloom"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/empirestore"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/englishmansion"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/enjoyx"

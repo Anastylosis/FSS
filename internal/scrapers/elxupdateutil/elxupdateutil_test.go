@@ -386,3 +386,16 @@ func TestSetIDHandlesNestedContentDirs(t *testing.T) {
 		}
 	}
 }
+
+// The template ships two pagination shapes with identical cards: by category,
+// and /updates/page_{N}.html. Emily Bloom uses the latter.
+func TestListingURLPagingShapes(t *testing.T) {
+	byCategory := New(SiteConfig{SiteID: "pawged", Domain: "pawged.com", TourPrefix: "/tour"})
+	if got := byCategory.listingURL("movies", 2); got != "https://www.pawged.com/tour/categories/movies_2_d.html" {
+		t.Errorf("listingURL = %q", got)
+	}
+	byUpdates := New(SiteConfig{SiteID: "emilybloom", Domain: "emilybloom.com", BareHost: true, UpdatesPaging: true})
+	if got := byUpdates.listingURL("movies", 2); got != "https://emilybloom.com/updates/page_2.html" {
+		t.Errorf("listingURL = %q", got)
+	}
+}
