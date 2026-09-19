@@ -123,6 +123,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/extrememoviepass"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/fakings"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/faleno"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/famegirls"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/familytherapy"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/fancentro"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/faphouse"
