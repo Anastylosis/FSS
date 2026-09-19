@@ -150,6 +150,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/gangbangmedia"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/gasm"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/gayroom"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/germanscout"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/ghostpro"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/ghostproclassic"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/girlsgonegyno"
