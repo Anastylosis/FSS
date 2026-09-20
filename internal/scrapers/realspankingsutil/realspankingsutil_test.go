@@ -326,3 +326,29 @@ func TestDateLayoutsAcceptUnpaddedDays(t *testing.T) {
 		}
 	}
 }
+
+// These sites publish no per-scene page, so every scene used to be stored with
+// the site root as its URL — one URL for a whole catalogue.
+func TestSceneURLAnchorsTheListingPage(t *testing.T) {
+	cases := []struct{ pageURL, base, id, want string }{
+		{"https://spankingbailey.com/updates.php", "https://spankingbailey.com", "1234", "https://spankingbailey.com/updates.php#1234"},
+		{"", "https://spankingbailey.com", "1234", "https://spankingbailey.com#1234"},
+		{"https://spankingbailey.com/updates.php", "https://spankingbailey.com", "", "https://spankingbailey.com/updates.php"},
+	}
+	for _, c := range cases {
+		if got := sceneURL(c.pageURL, c.base, c.id); got != c.want {
+			t.Errorf("sceneURL(%q, %q, %q) = %q, want %q", c.pageURL, c.base, c.id, got, c.want)
+		}
+	}
+}
+
+func TestBuildSceneUsesTheListingPage(t *testing.T) {
+	s := New(SiteConfig{SiteID: "spankingbailey", Domain: "spankingbailey.com", StudioName: "Spanking Bailey", Type: TypeBailey})
+	scene := s.buildScene(listingItem{id: "42", title: "A Scene"}, "https://spankingbailey.com/updates.php")
+	if scene.URL != "https://spankingbailey.com/updates.php#42" {
+		t.Errorf("URL = %q", scene.URL)
+	}
+	if scene.ID != "42" || scene.Title != "A Scene" {
+		t.Errorf("ID/Title = %q/%q", scene.ID, scene.Title)
+	}
+}

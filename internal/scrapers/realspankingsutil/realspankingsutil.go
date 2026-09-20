@@ -99,7 +99,8 @@ func (s *Scraper) runPaged(ctx context.Context, opts scraper.ListOpts, out chan<
 		}
 
 		scraper.Debugf(1, "%s: fetching page %d", s.cfg.SiteID, page)
-		body, err := s.fetchPage(ctx, buildURL(page))
+		pageURL := buildURL(page)
+		body, err := s.fetchPage(ctx, pageURL)
 		if err != nil {
 			select {
 			case out <- scraper.Error(fmt.Errorf("page %d: %w", page, err)):
@@ -113,7 +114,7 @@ func (s *Scraper) runPaged(ctx context.Context, opts scraper.ListOpts, out chan<
 			return
 		}
 
-		if !s.sendItems(ctx, opts, out, items) {
+		if !s.sendItems(ctx, opts, out, items, pageURL) {
 			return
 		}
 
@@ -149,7 +150,7 @@ func (s *Scraper) runYears(ctx context.Context, opts scraper.ListOpts, out chan<
 			continue
 		}
 
-		if !s.sendItems(ctx, opts, out, items) {
+		if !s.sendItems(ctx, opts, out, items, url) {
 			return
 		}
 
@@ -172,10 +173,14 @@ func (s *Scraper) runSingle(ctx context.Context, opts scraper.ListOpts, out chan
 	}
 
 	items := parseBailey(body, s.base)
-	s.sendItems(ctx, opts, out, items)
+	s.sendItems(ctx, opts, out, items, s.base+"/updates.php")
 }
 
-func (s *Scraper) sendItems(ctx context.Context, opts scraper.ListOpts, out chan<- scraper.SceneResult, items []listingItem) bool {
+// sendItems emits the scenes from one listing page. pageURL is where they were
+// found: these sites publish no per-scene page, so it becomes the scene URL
+// with the scene's own id as the anchor — the same shape the other
+// listing-only scrapers here use. See docs/scrapers.md.
+func (s *Scraper) sendItems(ctx context.Context, opts scraper.ListOpts, out chan<- scraper.SceneResult, items []listingItem, pageURL string) bool {
 	for _, item := range items {
 		if opts.KnownIDs[item.id] {
 			scraper.Debugf(1, "%s: hit known ID, stopping early", s.cfg.SiteID)
@@ -185,7 +190,7 @@ func (s *Scraper) sendItems(ctx context.Context, opts scraper.ListOpts, out chan
 			}
 			return false
 		}
-		scene := s.buildScene(item)
+		scene := s.buildScene(item, pageURL)
 		select {
 		case out <- scraper.Scene(scene):
 		case <-ctx.Done():
@@ -195,19 +200,32 @@ func (s *Scraper) sendItems(ctx context.Context, opts scraper.ListOpts, out chan
 	return true
 }
 
-func (s *Scraper) buildScene(item listingItem) models.Scene {
+func (s *Scraper) buildScene(item listingItem, pageURL string) models.Scene {
 	return models.Scene{
 		ID:          item.id,
 		SiteID:      s.cfg.SiteID,
 		StudioURL:   s.base,
 		Title:       item.title,
-		URL:         s.base,
+		URL:         sceneURL(pageURL, s.base, item.id),
 		Thumbnail:   item.thumb,
 		Studio:      s.cfg.StudioName,
 		Date:        item.date,
 		Description: item.description,
 		ScrapedAt:   time.Now().UTC(),
 	}
+}
+
+// sceneURL anchors the listing page on the scene's id. Without the anchor every
+// scene on a site shared one URL, which is no use to a reader and collapses in
+// any tool that keys on it.
+func sceneURL(pageURL, base, id string) string {
+	if pageURL == "" {
+		pageURL = base
+	}
+	if id == "" {
+		return pageURL
+	}
+	return pageURL + "#" + id
 }
 
 func encodeBase64(s string) string {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/Anastylosis/FSS/internal/scrapers/testutil"
@@ -355,5 +356,30 @@ func TestPaginationOverlapEmitsEachSceneOnce(t *testing.T) {
 	}
 	if want := pageSize + 2; total != want {
 		t.Errorf("emitted %d scenes, want %d (the repeated card counted once)", total, want)
+	}
+}
+
+// The site publishes no per-scene page: a card links its artist's bio, so
+// without an anchor every scene by one artist shared a single URL.
+func TestSceneURLsAreAnchoredPerFilm(t *testing.T) {
+	html := buildIFMPage([]struct {
+		sceneID, price, artistID, performer, title, duration, date, thumb string
+		categories, tags                                                  []string
+	}{
+		{sceneID: "12345", artistID: "ABC123", performer: "Luna", title: "One", duration: "9:48", date: "08 May 2026"},
+		{sceneID: "12346", artistID: "ABC123", performer: "Luna", title: "Two", duration: "8:00", date: "09 May 2026"},
+	})
+
+	scenes := parseListingPage([]byte(html), "https://ifeelmyself.com")
+	if len(scenes) != 2 {
+		t.Fatalf("got %d scenes, want 2", len(scenes))
+	}
+	if scenes[0].URL == scenes[1].URL {
+		t.Errorf("both scenes share the URL %q", scenes[0].URL)
+	}
+	for _, sc := range scenes {
+		if !strings.Contains(sc.URL, "#") {
+			t.Errorf("scene %s URL %q carries no per-film anchor", sc.ID, sc.URL)
+		}
 	}
 }

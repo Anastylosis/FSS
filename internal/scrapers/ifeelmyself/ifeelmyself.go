@@ -372,9 +372,16 @@ func parseListingPage(body []byte, studioURL string) []models.Scene {
 			performers = []string{performer}
 		}
 
+		// The site has no per-scene page: a card links its artist's bio, or the
+		// bare listing when it names no artist. Anchoring on the film id at
+		// least distinguishes two scenes — otherwise every scene by one artist
+		// shares a single URL. See docs/scrapers.md.
 		sceneURL := siteBase + "/public/main.php?page=artist_bio&artist_id=" + performerID
 		if performerID == "" {
 			sceneURL = siteBase + "/public/main.php?page=view&mode=all"
+		}
+		if filmID != "" {
+			sceneURL += "#" + filmID
 		}
 
 		// data-scene-id is a film id, not a scene id: the listing runs the
