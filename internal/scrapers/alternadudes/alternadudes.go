@@ -79,15 +79,19 @@ type listEntry struct {
 	title      string
 	thumbnail  string
 	trailerURL string
+	// listURL is the page the card was found on, used as the scene URL when the
+	// card carries no trailer anchor — it is then the only page the scene is
+	// reachable at, and Scene.URL must never be empty.
+	listURL string
 }
 
-func parseListingPage(body []byte) []listEntry {
+func parseListingPage(body []byte, listURL string) []listEntry {
 	cards := cardRe.FindAll(body, -1)
 	entries := make([]listEntry, 0, len(cards))
 	for _, card := range cards {
 		block := string(card)
 
-		var e listEntry
+		e := listEntry{listURL: listURL}
 
 		if m := contentID.FindStringSubmatch(block); m != nil {
 			e.id = m[1]
@@ -185,7 +189,7 @@ func (s *Scraper) produceModel(ctx context.Context, studioURL string, opts scrap
 		}
 		return
 	}
-	entries := parseListingPage(body)
+	entries := parseListingPage(body, studioURL)
 	if len(entries) > 0 {
 		select {
 		case out <- scraper.Progress(len(entries)):
@@ -228,7 +232,8 @@ func (s *Scraper) produceListing(ctx context.Context, base string, opts scraper.
 		}
 		scraper.Debugf(1, "alternadudes: fetching page %d", page)
 
-		body, err := s.fetchPage(ctx, pageURL(base, page))
+		listURL := pageURL(base, page)
+		body, err := s.fetchPage(ctx, listURL)
 		if err != nil {
 			select {
 			case out <- scraper.Error(fmt.Errorf("page %d: %w", page, err)):
@@ -237,7 +242,7 @@ func (s *Scraper) produceListing(ctx context.Context, base string, opts scraper.
 			break
 		}
 
-		entries := parseListingPage(body)
+		entries := parseListingPage(body, listURL)
 		if len(entries) == 0 {
 			break
 		}
@@ -298,6 +303,7 @@ func (s *Scraper) processEntry(ctx context.Context, base, studioURL string, entr
 		ScrapedAt: now,
 	}
 
+	scene.URL = entry.listURL + "#" + entry.id
 	if entry.trailerURL != "" {
 		scene.URL = base + entry.trailerURL
 		body, err := s.fetchPage(ctx, scene.URL)

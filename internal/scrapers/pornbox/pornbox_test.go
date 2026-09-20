@@ -3,11 +3,13 @@ package pornbox
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 
 	"github.com/Anastylosis/FSS/scraper"
@@ -510,5 +512,42 @@ func TestGoldenStudioContents(t *testing.T) {
 	}
 	if len(sc.PriceHistory) == 0 {
 		t.Error("scene PriceHistory is empty (content_price_usd)")
+	}
+}
+
+// The session bootstrap is a plain homepage fetch used to seed the cookie jar.
+// Caching its failure for the process lifetime turned one blip into a dead
+// scraper, so a failed attempt must be retried on the next call.
+func TestInitSessionRetriesAfterFailure(t *testing.T) {
+	var hits int32
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		atomic.AddInt32(&hits, 1)
+		_, _ = fmt.Fprint(w, "<html></html>")
+	}))
+	defer ts.Close()
+
+	dead := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	deadURL := dead.URL
+	dead.Close()
+
+	s := newTestScraper(ts)
+	s.baseURL = deadURL
+	if err := s.initSession(context.Background()); err == nil {
+		t.Fatal("first initSession: want an error")
+	}
+
+	s.baseURL = ts.URL
+	if err := s.initSession(context.Background()); err != nil {
+		t.Fatalf("second initSession: %v", err)
+	}
+	if got := atomic.LoadInt32(&hits); got != 1 {
+		t.Fatalf("hits = %d, want 1", got)
+	}
+	// A success is remembered, so later calls do not re-fetch.
+	if err := s.initSession(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if got := atomic.LoadInt32(&hits); got != 1 {
+		t.Errorf("hits = %d after a cached call, want 1", got)
 	}
 }

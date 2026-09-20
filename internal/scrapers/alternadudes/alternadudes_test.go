@@ -39,7 +39,7 @@ const testCardNoTrailer = `<div class="item col-lg-4 col-md-4 col-12 padx">
 
 func TestParseListingPage(t *testing.T) {
 	body := []byte(testCard + testCardNoTrailer)
-	entries := parseListingPage(body)
+	entries := parseListingPage(body, "https://www.alternadudes.com/categories/movies.html")
 	if len(entries) != 2 {
 		t.Fatalf("got %d entries, want 2", len(entries))
 	}
@@ -64,6 +64,24 @@ func TestParseListingPage(t *testing.T) {
 	}
 	if e2.trailerURL != "" {
 		t.Errorf("trailerURL = %q, want empty", e2.trailerURL)
+	}
+	if e2.listURL != "https://www.alternadudes.com/categories/movies.html" {
+		t.Errorf("listURL = %q", e2.listURL)
+	}
+}
+
+// A card with no trailer anchor still has to carry a URL: the listing page it
+// appeared on is the only place the scene is reachable.
+func TestProcessEntryWithoutTrailerFallsBackToListingPage(t *testing.T) {
+	s := New()
+	entry := listEntry{
+		id:      "12345",
+		title:   "No Trailer",
+		listURL: "https://www.alternadudes.com/categories/movies_3_d.html",
+	}
+	scene := s.processEntry(context.Background(), "https://www.alternadudes.com", "https://www.alternadudes.com/", entry)
+	if scene.URL != "https://www.alternadudes.com/categories/movies_3_d.html#12345" {
+		t.Errorf("URL = %q", scene.URL)
 	}
 }
 

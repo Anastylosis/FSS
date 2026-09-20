@@ -320,3 +320,43 @@ func TestListScenesKnownIDs(t *testing.T) {
 		t.Errorf("got ids %v, want [12345]", scenes)
 	}
 }
+
+// Performer and sub-site names come from the same markup as title and
+// description, so an ampersand arrives as `&amp;` there too.
+func TestFetchListingUnescapesPerformersAndSubSite(t *testing.T) {
+	page := `<html><body>
+<figure class=" ">
+    <div class="img-wrapper">
+        <a href="/video/watch/999/some-scene-s1e1"><picture><img data-srcset="https://images.example.com/c960.jpg 960w," alt="x"></picture></a>
+    </div>
+    <figcaption>
+        <div class="caption-header"><span class="title"><a href="/video/watch/999/some-scene-s1e1">Some Scene</a></span></div>
+        <div class="models ">
+            <a class="model" href="/model/profile/1/a">Ren&eacute;e D&#39;Amour</a>
+        </div>
+        <a class="site-link">Moms &amp; Daughters</a>
+        &ndash; <span class="date">Apr 20, 2026</span>
+    </figcaption>
+</figure>
+</body></html>`
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = fmt.Fprint(w, page)
+	}))
+	defer ts.Close()
+
+	s := &Scraper{client: ts.Client()}
+	entries, _, err := s.fetchListing(context.Background(), ts.URL+"/video/gallery")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("entries = %d, want 1", len(entries))
+	}
+	if got := entries[0].performers; len(got) != 1 || got[0] != "Renée D'Amour" {
+		t.Errorf("performers = %v", got)
+	}
+	if entries[0].subSite != "Moms & Daughters" {
+		t.Errorf("subSite = %q", entries[0].subSite)
+	}
+}

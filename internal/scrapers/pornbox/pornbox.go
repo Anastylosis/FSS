@@ -19,10 +19,11 @@ import (
 const defaultBase = "https://pornbox.com"
 
 type Scraper struct {
-	client   *http.Client
-	baseURL  string
-	sessOnce sync.Once
-	sessErr  error
+	client  *http.Client
+	baseURL string
+
+	sessMu sync.Mutex
+	sessOK bool
 }
 
 func New() *Scraper {
@@ -296,19 +297,25 @@ func parseRuntime(s string) int {
 	return 0
 }
 
+// initSession fetches the homepage once to seed the cookie jar. A failure is
+// not cached — the bootstrap is a plain page fetch, so a transient one would
+// otherwise poison every later request for the process lifetime.
 func (s *Scraper) initSession(ctx context.Context) error {
-	s.sessOnce.Do(func() {
-		resp, err := httpx.Do(ctx, s.client, httpx.Request{
-			URL:     s.baseURL,
-			Headers: httpx.BrowserHeaders(httpx.UserAgentFirefox),
-		})
-		if err != nil {
-			s.sessErr = fmt.Errorf("session bootstrap: %w", err)
-			return
-		}
-		_ = resp.Body.Close()
+	s.sessMu.Lock()
+	defer s.sessMu.Unlock()
+	if s.sessOK {
+		return nil
+	}
+	resp, err := httpx.Do(ctx, s.client, httpx.Request{
+		URL:     s.baseURL,
+		Headers: httpx.BrowserHeaders(httpx.UserAgentFirefox),
 	})
-	return s.sessErr
+	if err != nil {
+		return fmt.Errorf("session bootstrap: %w", err)
+	}
+	_ = resp.Body.Close()
+	s.sessOK = true
+	return nil
 }
 
 func (s *Scraper) fetchJSON(ctx context.Context, url string, v any) error {

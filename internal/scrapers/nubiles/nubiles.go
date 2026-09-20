@@ -414,11 +414,11 @@ func (s *Scraper) fetchListing(ctx context.Context, pageURL string) ([]listEntry
 		}
 
 		for _, m := range modelLinkRe.FindAllSubmatch(fig, -1) {
-			e.performers = append(e.performers, strings.TrimSpace(string(m[1])))
+			e.performers = append(e.performers, strings.TrimSpace(html.UnescapeString(string(m[1]))))
 		}
 
 		if m := siteLinkRe.FindSubmatch(fig); m != nil {
-			e.subSite = strings.TrimSpace(string(m[1]))
+			e.subSite = strings.TrimSpace(html.UnescapeString(string(m[1])))
 		}
 
 		if m := dateRe.FindSubmatch(fig); m != nil {

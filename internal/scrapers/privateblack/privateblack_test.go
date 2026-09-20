@@ -267,3 +267,39 @@ func TestListScenes_pornstarPage(t *testing.T) {
 		t.Errorf("got %d scenes, want 2", scenes)
 	}
 }
+
+// A page that loads but yields no cards is a parser or redesign failure, not an
+// empty catalogue: reported silently it would let an authoritative Save delete
+// every stored scene.
+func TestListScenes_emptyPageIsAParseError(t *testing.T) {
+	for _, tt := range []struct{ name, path string }{
+		{"catalogue", "/scenes"},
+		{"pornstar", "/pornstar/363-milenaray/"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "text/html")
+				_, _ = fmt.Fprint(w, `<html><body><div class="redesigned"></div></body></html>`)
+			}))
+			defer ts.Close()
+
+			s := &Scraper{client: ts.Client(), base: ts.URL}
+			ch, err := s.ListScenes(context.Background(), ts.URL+tt.path, scraper.ListOpts{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			var errs int
+			for r := range ch {
+				if r.Kind == scraper.KindError {
+					errs++
+					if got := scraper.Classify(r.Err); got != scraper.FailureParse {
+						t.Errorf("Classify = %v, want FailureParse", got)
+					}
+				}
+			}
+			if errs != 1 {
+				t.Errorf("got %d errors, want 1", errs)
+			}
+		})
+	}
+}

@@ -227,6 +227,9 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 		}
 
 		items := parseListing(body)
+		if page == 1 && len(items) == 0 {
+			return scraper.PageResult{}, scraper.ParseError(pageURL, fmt.Errorf("no scene cards on the first listing page"))
+		}
 		scenes := make([]models.Scene, len(items))
 		for i, item := range items {
 			scenes[i] = s.toScene(item, studioURL, now)
@@ -255,6 +258,10 @@ func (s *Scraper) scrapePornstarPage(ctx context.Context, studioURL string, opts
 
 	items := parseListing(body)
 	if len(items) == 0 {
+		select {
+		case out <- scraper.Error(scraper.ParseError(pageURL, fmt.Errorf("no scene cards on pornstar page"))):
+		case <-ctx.Done():
+		}
 		return
 	}
 	scraper.Debugf(1, "privateblack: found %d scenes on pornstar page", len(items))
