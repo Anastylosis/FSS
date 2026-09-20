@@ -42,6 +42,7 @@ var sites = []siteConfig{
 	{"niksindian", "niksindian.com", "Niks Indian", nil, nil},
 	{"peccatriciproduzioni", "peccatriciproduzioni.com", "Peccatrici Produzioni", nil, nil},
 	{"pennybarber", "pennybarber.com", "Penny Barber", []string{"Penny Barber"}, nil},
+	{"peghim", "peghim.com", "Peg Him", nil, nil},
 	{"pervsmilfsnteens", "pervsmilfsnteens.com", "Pervs MILFs n Teens", nil, nil},
 	{"porntugal", "porntugal.com", "Porntugal", nil, nil},
 	{"pvgirls", "pvgirls.com", "Porn Valley Girls", nil, nil},

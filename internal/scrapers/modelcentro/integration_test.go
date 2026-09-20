@@ -102,3 +102,15 @@ func TestLiveNewSites(t *testing.T) {
 		})
 	}
 }
+
+func TestLivePeghim(t *testing.T) {
+	url := "https://peghim.com/videos"
+	s, err := scraper.ForURL(url)
+	if err != nil {
+		t.Fatalf("no scraper matched %s: %v", url, err)
+	}
+	if s.ID() != "peghim" {
+		t.Fatalf("expected peghim, got %s", s.ID())
+	}
+	testutil.RunLiveScrape(t, s, url, 2)
+}
