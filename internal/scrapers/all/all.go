@@ -328,6 +328,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/puremedia"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/purepass"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/putalocura"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/puzzyfun"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/queensnake"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/r18dev"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/rachelsteele"
