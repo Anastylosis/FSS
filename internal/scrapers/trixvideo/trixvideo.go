@@ -44,6 +44,7 @@ func (c SiteConfig) dateLayout() string {
 }
 
 var sites = []SiteConfig{
+	{SiteID: "cherokeedass", Domain: "cherokeedass.com", StudioName: "Cherokee D'Ass"},
 	{SiteID: "dallasdiamondz", Domain: "dallasdiamondz.com", StudioName: "Dallas Diamondz"},
 	{SiteID: "dixiestrailerpark", Domain: "dixiestrailerpark.com", StudioName: "Dixie's Trailer Park"},
 	{SiteID: "grannycumshere", Domain: "grannycumshere.com", StudioName: "Granny Cums Here"},

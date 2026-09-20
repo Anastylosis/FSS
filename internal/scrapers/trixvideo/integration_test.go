@@ -56,3 +56,7 @@ func TestLiveDallasDiamondzCategory(t *testing.T) {
 	testutil.RunLiveScrape(t, liveScraper(t, "dallasdiamondz"),
 		"https://www.dallasdiamondz.com/tour/categories/MILF.html", 2)
 }
+
+func TestLiveCherokeeDAss(t *testing.T) {
+	testutil.RunLiveScrape(t, liveScraper(t, "cherokeedass"), "https://cherokeedass.com/tour/", 2)
+}
