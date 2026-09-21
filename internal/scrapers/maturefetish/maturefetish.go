@@ -401,9 +401,14 @@ type detailPage struct {
 }
 
 var (
-	titleRe     = regexp.MustCompile(`<h1[^>]*>([^<]+)</h1>`)
-	posterRe    = regexp.MustCompile(`poster="(https?://[^"]*)"`)
-	trailerRe   = regexp.MustCompile(`(https?://l\.cdn\.mature\.nl/[^"]*?trailer[^"]*\.mp4[^"]*)`)
+	titleRe   = regexp.MustCompile(`<h1[^>]*>([^<]+)</h1>`)
+	posterRe  = regexp.MustCompile(`poster="(https?://[^"]*)"`)
+	trailerRe = regexp.MustCompile(`(https?://l\.cdn\.mature\.nl/[^"]*?trailer[^"]*\.mp4[^"]*)`)
+	// The date, runtime and photo count share one info line under the title.
+	// Both values are read out of that block rather than the whole page: a
+	// bare d-m-Y or m:ss pattern also matches sidebar promos and the player's
+	// own markup, and whichever came first would win.
+	infoLineRe  = regexp.MustCompile(`(?s)<div class="text-page-text-alt[^"]*">(.*?)</div>`)
 	dateRe      = regexp.MustCompile(`(\d{1,2}-\d{1,2}-\d{4})`)
 	durationRe  = regexp.MustCompile(`(\d{1,2}:\d{2}(?::\d{2})?)`)
 	modelLinkRe = regexp.MustCompile(`href="/en/model/\d+[^"]*">([^<]+)</a>`)
@@ -423,14 +428,13 @@ func parseDetailPage(body []byte) detailPage {
 	if m := trailerRe.FindSubmatch(body); m != nil {
 		d.preview = html.UnescapeString(string(m[1]))
 	}
-	if m := dateRe.FindSubmatch(body); m != nil {
-		d.date = parseDate(string(m[1]))
-	}
-
-	// Duration appears near the date, after mat-ico span.
-	// Find it in the date/duration info line.
-	if m := durationRe.FindSubmatch(body); m != nil {
-		d.duration = parseutil.ParseDurationColon(string(m[1]))
+	if info := infoLineRe.FindSubmatch(body); info != nil {
+		if m := dateRe.FindSubmatch(info[1]); m != nil {
+			d.date = parseDate(string(m[1]))
+		}
+		if m := durationRe.FindSubmatch(info[1]); m != nil {
+			d.duration = parseutil.ParseDurationColon(string(m[1]))
+		}
 	}
 
 	for _, m := range modelLinkRe.FindAllSubmatch(body, -1) {

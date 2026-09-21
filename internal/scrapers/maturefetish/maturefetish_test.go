@@ -303,3 +303,20 @@ func TestCancellation(t *testing.T) {
 	s := &Scraper{client: ts.Client(), base: ts.URL}
 	testutil.AssertCancellable(t, s, ts.URL+"/en/updates", scraper.ListOpts{Workers: 2})
 }
+
+// A d-m-Y or m:ss pattern elsewhere on the page — a sidebar promo, the
+// player's markup — must not be read as the scene's date or runtime.
+func TestParseDetailPageIgnoresDatesOutsideTheInfoLine(t *testing.T) {
+	page := `<html><body>
+<div class="promo">Members since 1-1-2001 &middot; 99:99 of new video weekly</div>
+<h1>Some Scene</h1>
+<div class="text-page-text-alt flex items-center gap-1 mt-1"><span class="mat-ico"></span> 10-8-2026 <span class="mat-ico ml-3"></span> 15:02 <span class="mat-ico ml-3"></span> 118</div>
+</body></html>`
+	d := parseDetailPage([]byte(page))
+	if got := d.date.Format("2006-01-02"); got != "2026-08-10" {
+		t.Errorf("date = %s, want 2026-08-10", got)
+	}
+	if d.duration != 902 {
+		t.Errorf("duration = %d, want 902", d.duration)
+	}
+}

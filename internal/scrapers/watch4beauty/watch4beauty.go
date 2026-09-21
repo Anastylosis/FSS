@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -85,7 +86,6 @@ func (s *Scraper) runListingFrom(ctx context.Context, studioURL string, opts scr
 	}
 
 	var before string
-	sentTotal := false
 
 	for {
 		if ctx.Err() != nil {
@@ -94,7 +94,7 @@ func (s *Scraper) runListingFrom(ctx context.Context, studioURL string, opts scr
 
 		u := base + "/issues"
 		if before != "" {
-			u += "?before=" + before
+			u += "?before=" + url.QueryEscape(before)
 		}
 		issues, err := s.fetchIssuesFrom(ctx, u)
 		if err != nil {
@@ -107,10 +107,11 @@ func (s *Scraper) runListingFrom(ctx context.Context, studioURL string, opts scr
 		if len(issues) == 0 {
 			return
 		}
-
-		if !sentTotal && len(issues) == pageSize {
-			sentTotal = true
-		}
+		// The API mixes photo-only issues into the same feed; only an issue
+		// with a video is a scene. Paging still counts the raw page, since the
+		// cursor walks the unfiltered feed.
+		page := issues
+		issues = videoIssues(issues)
 
 		type result struct {
 			scene models.Scene
@@ -160,11 +161,11 @@ func (s *Scraper) runListingFrom(ctx context.Context, studioURL string, opts scr
 			}
 		}
 
-		if len(issues) < pageSize {
+		if len(page) < pageSize {
 			return
 		}
 
-		before = issues[len(issues)-1].Datetime
+		before = page[len(page)-1].Datetime
 
 		if opts.Delay > 0 {
 			select {
@@ -197,7 +198,7 @@ func (s *Scraper) runModelFrom(ctx context.Context, modelSlug, studioURL string,
 	}
 
 	modelName := updates[0].ModelNickname
-	issues := updates[0].Issues
+	issues := videoIssues(updates[0].Issues)
 	scraper.Debugf(1, "%s: model %s has %d issues", siteID, modelName, len(issues))
 
 	if len(issues) > 0 {
@@ -246,6 +247,18 @@ type issue struct {
 	CoverMigrated int               `json:"cover_migrated"`
 	Widecover     bool              `json:"widecover"`
 	CoverFiles    map[string]string `json:"cover_files"`
+}
+
+// videoIssues drops the photo-only issues the feed mixes in. `issue_video_present`
+// is the API's own flag; roughly half of a listing page is photo sets.
+func videoIssues(in []issue) []issue {
+	out := in[:0:0]
+	for _, i := range in {
+		if i.VideoPresent != 0 {
+			out = append(out, i)
+		}
+	}
+	return out
 }
 
 type issueModelsResp struct {

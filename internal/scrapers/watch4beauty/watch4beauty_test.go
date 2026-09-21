@@ -267,7 +267,7 @@ func TestRunModel(t *testing.T) {
 			Issues: []issue{
 				{
 					ID: 7899, Title: "Sweet Street Sin", SimpleTitle: "sweet-street-sin",
-					Datetime: "2026-06-09T02:00:00.000Z", Tags: "outdoor",
+					Datetime: "2026-06-09T02:00:00.000Z", Tags: "outdoor", VideoPresent: 1,
 					Prefix: "issues/2026/06/sweet-street-sin", CoverMigrated: 1,
 					CoverFiles: map[string]string{"wide-blank": "cover"},
 				},
@@ -311,7 +311,7 @@ func TestRunListing(t *testing.T) {
 	issues := []issue{
 		{
 			ID: 7899, Title: "Sweet Street Sin", SimpleTitle: "sweet-street-sin",
-			Datetime: "2026-06-09T02:00:00.000Z", Tags: "outdoor",
+			Datetime: "2026-06-09T02:00:00.000Z", Tags: "outdoor", VideoPresent: 1,
 			Prefix: "issues/2026/06/sweet-street-sin", CoverMigrated: 1,
 			CoverFiles: map[string]string{"wide-blank": "cover"},
 		},
@@ -423,5 +423,111 @@ func TestGoldenIssues(t *testing.T) {
 	}
 	if sc.Thumbnail == "" {
 		t.Error("Thumbnail is empty (cdn_host + prefix + cover_files)")
+	}
+}
+
+// Roughly half the feed is photo-only issues, which are not scenes. They are
+// dropped, and the cursor still walks the unfiltered feed.
+func TestPhotoOnlyIssuesAreNotScenes(t *testing.T) {
+	issues := []issue{
+		{
+			ID: 7953, Title: "Photo Set", SimpleTitle: "photo-set",
+			Datetime: "2026-09-15T02:00:00.000Z", VideoPresent: 0,
+		},
+		{
+			ID: 7899, Title: "Sweet Street Sin", SimpleTitle: "sweet-street-sin",
+			Datetime: "2026-06-09T02:00:00.000Z", VideoPresent: 1,
+		},
+	}
+	modelsResp := []issueModelsResp{
+		{IssueID: 7899, Models: []issueModel{{ModelID: 1189, ModelNickname: "Erika Heiss"}}},
+	}
+
+	var modelCalls []string
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/issues":
+			_ = json.NewEncoder(w).Encode(issues)
+		case "/api/issues/sweet-street-sin/models":
+			modelCalls = append(modelCalls, r.URL.Path)
+			_ = json.NewEncoder(w).Encode(modelsResp)
+		default:
+			modelCalls = append(modelCalls, r.URL.Path)
+			_, _ = fmt.Fprint(w, "[]")
+		}
+	}))
+	defer ts.Close()
+
+	s := &Scraper{Client: ts.Client(), apiBase: ts.URL}
+	out := make(chan scraper.SceneResult, 10)
+	s.runListingFrom(context.Background(), ts.URL+"/", scraper.ListOpts{Workers: 1}, out, ts.URL+"/api")
+	close(out)
+
+	var scenes []string
+	for r := range out {
+		if r.Kind == scraper.KindScene {
+			scenes = append(scenes, r.Scene.Title)
+		}
+	}
+	if len(scenes) != 1 || scenes[0] != "Sweet Street Sin" {
+		t.Errorf("scenes = %v, want only the video issue", scenes)
+	}
+	// The photo set is not fetched for models either.
+	for _, p := range modelCalls {
+		if p == "/api/issues/photo-set/models" {
+			t.Error("fetched models for a photo-only issue")
+		}
+	}
+}
+
+func TestVideoIssuesFilter(t *testing.T) {
+	in := []issue{{ID: 1, VideoPresent: 0}, {ID: 2, VideoPresent: 1}, {ID: 3, VideoPresent: 0}}
+	got := videoIssues(in)
+	if len(got) != 1 || got[0].ID != 2 {
+		t.Errorf("videoIssues = %+v", got)
+	}
+	// The input must not be rewritten under the caller — the cursor still
+	// needs the raw page's last entry.
+	if len(in) != 3 || in[0].ID != 1 || in[1].ID != 2 {
+		t.Errorf("input mutated: %+v", in)
+	}
+}
+
+// The cursor is a timestamp with a colon and dots in it; it goes into a query
+// value, so it is escaped rather than concatenated raw.
+func TestListingCursorIsQueryEscaped(t *testing.T) {
+	var got []string
+	page1 := make([]issue, pageSize)
+	for i := range page1 {
+		page1[i] = issue{ID: i + 1, SimpleTitle: fmt.Sprintf("s%d", i), VideoPresent: 0,
+			Datetime: "2026-06-09T02:00:00.000Z"}
+	}
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/api/issues" {
+			got = append(got, r.URL.RawQuery)
+			if r.URL.RawQuery == "" {
+				_ = json.NewEncoder(w).Encode(page1)
+				return
+			}
+			if r.URL.Query().Get("before") != "2026-06-09T02:00:00.000Z" {
+				t.Errorf("before = %q", r.URL.Query().Get("before"))
+			}
+		}
+		_, _ = fmt.Fprint(w, "[]")
+	}))
+	defer ts.Close()
+
+	s := &Scraper{Client: ts.Client(), apiBase: ts.URL}
+	out := make(chan scraper.SceneResult, pageSize*2)
+	s.runListingFrom(context.Background(), ts.URL+"/", scraper.ListOpts{Workers: 1}, out, ts.URL+"/api")
+	close(out)
+
+	if len(got) != 2 {
+		t.Fatalf("requests = %v, want two pages", got)
+	}
+	if got[1] != "before=2026-06-09T02%3A00%3A00.000Z" {
+		t.Errorf("query = %q", got[1])
 	}
 }
