@@ -31,10 +31,22 @@ type SiteConfig struct {
 	// past 12). Guessing wrong silently mis-dates every scene whose day is
 	// 12 or lower, so it is stated per site. Empty means MM/DD/YYYY.
 	DateLayout string
+	// TourPath is the tour's directory, without a trailing slash. Empty means
+	// "/tour", which is where the vendor installs it; a site that has rebuilt
+	// its tour keeps the old one live and numbers the new one (Desperate
+	// Amateurs serves "/tour3").
+	TourPath string
 }
 
 // defaultDateLayout is the MM/DD/YYYY form the majority of these tours use.
 const defaultDateLayout = "01/02/2006"
+
+func (c SiteConfig) tourPath() string {
+	if c.TourPath == "" {
+		return "/tour"
+	}
+	return c.TourPath
+}
 
 func (c SiteConfig) dateLayout() string {
 	if c.DateLayout == "" {
@@ -46,6 +58,7 @@ func (c SiteConfig) dateLayout() string {
 var sites = []SiteConfig{
 	{SiteID: "cherokeedass", Domain: "cherokeedass.com", StudioName: "Cherokee D'Ass"},
 	{SiteID: "dallasdiamondz", Domain: "dallasdiamondz.com", StudioName: "Dallas Diamondz"},
+	{SiteID: "desperateamateurs", Domain: "desperateamateurs.com", StudioName: "Desperate Amateurs", TourPath: "/tour3"},
 	{SiteID: "dixiestrailerpark", Domain: "dixiestrailerpark.com", StudioName: "Dixie's Trailer Park"},
 	{SiteID: "grannycumshere", Domain: "grannycumshere.com", StudioName: "Granny Cums Here"},
 	{SiteID: "msparisandfriends", Domain: "msparisandfriends.com", StudioName: "Ms Paris & Friends"},
@@ -84,8 +97,8 @@ func (s *Scraper) ID() string { return s.cfg.SiteID }
 func (s *Scraper) Patterns() []string {
 	return []string{
 		s.cfg.Domain,
-		s.cfg.Domain + "/tour/models/{slug}.html",
-		s.cfg.Domain + "/tour/categories/{slug}.html",
+		s.cfg.Domain + s.cfg.tourPath() + "/models/{slug}.html",
+		s.cfg.Domain + s.cfg.tourPath() + "/categories/{slug}.html",
 	}
 }
 
@@ -116,8 +129,8 @@ func (s *Scraper) base(studioURL string) string {
 }
 
 var (
-	modelURLRe    = regexp.MustCompile(`/tour/models/([^/?#]+)\.html`)
-	categoryURLRe = regexp.MustCompile(`/tour/categories/([^/?#]+)\.html`)
+	modelURLRe    = regexp.MustCompile(`/tour\d*/models/([^/?#]+)\.html`)
+	categoryURLRe = regexp.MustCompile(`/tour\d*/categories/([^/?#]+)\.html`)
 )
 
 func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
@@ -150,11 +163,13 @@ func (s *Scraper) runModel(ctx context.Context, studioURL, base, slug string, op
 }
 
 func (s *Scraper) updatePages() func(page int) string {
-	return func(page int) string { return fmt.Sprintf("/tour/updates/page_%d.html", page) }
+	return func(page int) string { return fmt.Sprintf("%s/updates/page_%d.html", s.cfg.tourPath(), page) }
 }
 
 func (s *Scraper) categoryPages(slug string) func(page int) string {
-	return func(page int) string { return fmt.Sprintf("/tour/categories/%s_%d_p.html", slug, page) }
+	return func(page int) string {
+		return fmt.Sprintf("%s/categories/%s_%d_p.html", s.cfg.tourPath(), slug, page)
+	}
 }
 
 const (
@@ -315,9 +330,9 @@ func (s *Scraper) fetchDetail(ctx context.Context, studioURL, base string, e lis
 		scene.Performers = e.performers
 	}
 	if d.thumbnail != "" {
-		scene.Thumbnail = resolveURL(base, d.thumbnail)
+		scene.Thumbnail = resolveURL(base, s.cfg.tourPath(), d.thumbnail)
 	} else if e.thumbnail != "" {
-		scene.Thumbnail = resolveURL(base, e.thumbnail)
+		scene.Thumbnail = resolveURL(base, s.cfg.tourPath(), e.thumbnail)
 	}
 	if t, ok := parseDate(firstNonEmpty(d.date, e.date), s.cfg.dateLayout()); ok {
 		scene.Date = t
@@ -362,12 +377,12 @@ func (e listEntry) creditsModel(slug string) bool {
 var (
 	cardSplitRe  = regexp.MustCompile(`<div class="update_details"`)
 	setIDRe      = regexp.MustCompile(`data-setid="(\d+)"`)
-	updatePathRe = regexp.MustCompile(`href="(?:https?://[^"]*?)?(/tour/updates/[^"?#]+\.html)"`)
-	cardTitleRe  = regexp.MustCompile(`(?s)<a[^>]*href="[^"]*/tour/updates/[^"]+\.html"[^>]*>([^<]+)</a>`)
+	updatePathRe = regexp.MustCompile(`href="(?:https?://[^"]*?)?(/tour\d*/updates/[^"?#]+\.html)"`)
+	cardTitleRe  = regexp.MustCompile(`(?s)<a[^>]*href="[^"]*/tour\d*/updates/[^"]+\.html"[^>]*>([^<]+)</a>`)
 	cardModelsRe = regexp.MustCompile(`(?s)<span class="update_models">(.*?)</span>`)
 	cardDateRe   = regexp.MustCompile(`(?s)class="cell update_date">.*?(\d{2}/\d{2}/\d{4})`)
 	cardThumbRe  = regexp.MustCompile(`\ssrc="((?:[^"]*?/)?content/[^"]+)"`)
-	modelHrefRe  = regexp.MustCompile(`/tour/models/([^"/?#]+)\.html`)
+	modelHrefRe  = regexp.MustCompile(`/tour\d*/models/([^"/?#]+)\.html`)
 	anchorTextRe = regexp.MustCompile(`(?s)<a[^>]*>(.*?)</a>`)
 )
 
@@ -496,16 +511,16 @@ func parseDate(s, layout string) (time.Time, bool) {
 }
 
 // resolveURL turns the tour's relative `content/...` image paths into absolute
-// ones. The pages carry a <base href> of "<origin>/tour/", which is what the
-// relative form is written against.
-func resolveURL(base, ref string) string {
+// ones. The pages carry a <base href> of "<origin><tourPath>/", which is what
+// the relative form is written against.
+func resolveURL(base, tourPath, ref string) string {
 	switch {
 	case strings.HasPrefix(ref, "http://"), strings.HasPrefix(ref, "https://"):
 		return ref
 	case strings.HasPrefix(ref, "/"):
 		return base + ref
 	default:
-		return base + "/tour/" + ref
+		return base + tourPath + "/" + ref
 	}
 }
 

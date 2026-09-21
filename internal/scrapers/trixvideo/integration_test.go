@@ -60,3 +60,18 @@ func TestLiveDallasDiamondzCategory(t *testing.T) {
 func TestLiveCherokeeDAss(t *testing.T) {
 	testutil.RunLiveScrape(t, liveScraper(t, "cherokeedass"), "https://cherokeedass.com/tour/", 2)
 }
+
+func TestLiveDesperateAmateurs(t *testing.T) {
+	testutil.RunLiveScrape(t, liveScraper(t, "desperateamateurs"), "https://desperateamateurs.com/tour3/", 2)
+}
+
+// The numbered tour has to carry through model and category modes too.
+func TestLiveDesperateAmateursModel(t *testing.T) {
+	testutil.RunLiveScrape(t, liveScraper(t, "desperateamateurs"),
+		"https://desperateamateurs.com/tour3/models/Bexx.html", 2)
+}
+
+func TestLiveDesperateAmateursCategory(t *testing.T) {
+	testutil.RunLiveScrape(t, liveScraper(t, "desperateamateurs"),
+		"https://desperateamateurs.com/tour3/categories/BBW.html", 2)
+}

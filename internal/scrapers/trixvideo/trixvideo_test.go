@@ -40,8 +40,32 @@ func TestRegisteredSiteIDsAreUnique(t *testing.T) {
 			t.Errorf("site %q has an empty domain or studio name", cfg.SiteID)
 		}
 	}
-	if len(sites) != 9 {
-		t.Errorf("expected the 9 Trix Video sites, got %d", len(sites))
+	if len(sites) != 10 {
+		t.Errorf("expected the 10 Trix Video sites, got %d", len(sites))
+	}
+}
+
+func TestTourPathDefaultsToTour(t *testing.T) {
+	if got := (SiteConfig{}).tourPath(); got != "/tour" {
+		t.Errorf("tourPath() = %q, want /tour", got)
+	}
+	if got := (SiteConfig{TourPath: "/tour3"}).tourPath(); got != "/tour3" {
+		t.Errorf("tourPath() = %q, want the configured path", got)
+	}
+	s := New(siteByID(t, "desperateamateurs"))
+	if got := s.updatePages()(2); got != "/tour3/updates/page_2.html" {
+		t.Errorf("updatePages(2) = %q", got)
+	}
+	if got := s.categoryPages("BBW")(1); got != "/tour3/categories/BBW_1_p.html" {
+		t.Errorf("categoryPages(1) = %q", got)
+	}
+	for _, u := range []string{
+		"https://desperateamateurs.com/tour3/models/Bexx.html",
+		"https://desperateamateurs.com/tour3/categories/BBW.html",
+	} {
+		if !modelURLRe.MatchString(u) && !categoryURLRe.MatchString(u) {
+			t.Errorf("%q matched no URL mode", u)
+		}
 	}
 }
 
@@ -304,14 +328,17 @@ func TestDateLayoutDefaultsToUS(t *testing.T) {
 
 func TestResolveURL(t *testing.T) {
 	const base = "https://www.dallasdiamondz.com"
-	tests := []struct{ ref, want string }{
-		{"content/X/0.jpg", base + "/tour/content/X/0.jpg"},
-		{"/tour/content/X/0.jpg", base + "/tour/content/X/0.jpg"},
-		{"https://cdn.example.com/a.jpg", "https://cdn.example.com/a.jpg"},
+	tests := []struct{ tourPath, ref, want string }{
+		{"/tour", "content/X/0.jpg", base + "/tour/content/X/0.jpg"},
+		{"/tour", "/tour/content/X/0.jpg", base + "/tour/content/X/0.jpg"},
+		{"/tour", "https://cdn.example.com/a.jpg", "https://cdn.example.com/a.jpg"},
+		// A site on a numbered tour writes its relative paths against that one.
+		{"/tour3", "content/X/0.jpg", base + "/tour3/content/X/0.jpg"},
+		{"/tour3", "/tour3/content/X/0.jpg", base + "/tour3/content/X/0.jpg"},
 	}
 	for _, tt := range tests {
-		if got := resolveURL(base, tt.ref); got != tt.want {
-			t.Errorf("resolveURL(%q) = %q, want %q", tt.ref, got, tt.want)
+		if got := resolveURL(base, tt.tourPath, tt.ref); got != tt.want {
+			t.Errorf("resolveURL(%q, %q) = %q, want %q", tt.tourPath, tt.ref, got, tt.want)
 		}
 	}
 }
