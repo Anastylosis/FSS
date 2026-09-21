@@ -170,6 +170,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/grandparentsx"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/grooby"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/guysinsweatpants"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/handdomination"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/hegre"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/helenascockquest"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/helixstudios"
