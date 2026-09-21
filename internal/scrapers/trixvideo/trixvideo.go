@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -36,6 +37,12 @@ type SiteConfig struct {
 	// its tour keeps the old one live and numbers the new one (Desperate
 	// Amateurs serves "/tour3").
 	TourPath string
+	// DefaultCategory is the category slug a bare studio URL walks, for a site
+	// whose "/updates/page_{N}.html" listing is not the catalogue. Earl Miller
+	// serves the homepage there and splits its sets into "movies" and
+	// "photos", so only the movies category is a listing of scenes. Empty
+	// means the updates listing.
+	DefaultCategory string
 }
 
 // defaultDateLayout is the MM/DD/YYYY form the majority of these tours use.
@@ -60,6 +67,7 @@ var sites = []SiteConfig{
 	{SiteID: "dallasdiamondz", Domain: "dallasdiamondz.com", StudioName: "Dallas Diamondz"},
 	{SiteID: "desperateamateurs", Domain: "desperateamateurs.com", StudioName: "Desperate Amateurs", TourPath: "/tour3"},
 	{SiteID: "dixiestrailerpark", Domain: "dixiestrailerpark.com", StudioName: "Dixie's Trailer Park"},
+	{SiteID: "earlmiller", Domain: "earlmiller.com", StudioName: "Earl Miller", DefaultCategory: "movies"},
 	{SiteID: "grannycumshere", Domain: "grannycumshere.com", StudioName: "Granny Cums Here"},
 	{SiteID: "msparisandfriends", Domain: "msparisandfriends.com", StudioName: "Ms Paris & Friends"},
 	{SiteID: "suburbantaboo", Domain: "suburbantaboo.com", StudioName: "Suburban Taboo"},
@@ -149,8 +157,23 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 		return
 	}
 
+	if slug := s.cfg.DefaultCategory; slug != "" {
+		scraper.Debugf(1, "%s: scraping default category %q", s.cfg.SiteID, slug)
+		s.collect(ctx, studioURL, base, s.categoryPages(slug), nil, opts, out)
+		return
+	}
+
 	scraper.Debugf(1, "%s: scraping full update listing", s.cfg.SiteID)
 	s.collect(ctx, studioURL, base, s.updatePages(), nil, opts, out)
+}
+
+// listingPages is the walk a model filter runs over: the default category when
+// the site has one, the updates listing otherwise.
+func (s *Scraper) listingPages() func(page int) string {
+	if slug := s.cfg.DefaultCategory; slug != "" {
+		return s.categoryPages(slug)
+	}
+	return s.updatePages()
 }
 
 // runModel filters the full listing rather than parsing the model page's own
@@ -159,7 +182,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 // yields the same scenes with the same ids as a full scrape.
 func (s *Scraper) runModel(ctx context.Context, studioURL, base, slug string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
 	scraper.Debugf(1, "%s: scraping model %q", s.cfg.SiteID, slug)
-	s.collect(ctx, studioURL, base, s.updatePages(), &slug, opts, out)
+	s.collect(ctx, studioURL, base, s.listingPages(), &slug, opts, out)
 }
 
 func (s *Scraper) updatePages() func(page int) string {
@@ -337,6 +360,7 @@ func (s *Scraper) fetchDetail(ctx context.Context, studioURL, base string, e lis
 	if t, ok := parseDate(firstNonEmpty(d.date, e.date), s.cfg.dateLayout()); ok {
 		scene.Date = t
 	}
+	scene.Duration = e.duration
 	return scene, nil
 }
 
@@ -363,6 +387,7 @@ type listEntry struct {
 	modelSlugs []string
 	date       string
 	thumbnail  string
+	duration   int
 }
 
 func (e listEntry) creditsModel(slug string) bool {
@@ -375,15 +400,17 @@ func (e listEntry) creditsModel(slug string) bool {
 }
 
 var (
-	cardSplitRe  = regexp.MustCompile(`<div class="update_details"`)
-	setIDRe      = regexp.MustCompile(`data-setid="(\d+)"`)
-	updatePathRe = regexp.MustCompile(`href="(?:https?://[^"]*?)?(/tour\d*/updates/[^"?#]+\.html)"`)
-	cardTitleRe  = regexp.MustCompile(`(?s)<a[^>]*href="[^"]*/tour\d*/updates/[^"]+\.html"[^>]*>([^<]+)</a>`)
-	cardModelsRe = regexp.MustCompile(`(?s)<span class="update_models">(.*?)</span>`)
-	cardDateRe   = regexp.MustCompile(`(?s)class="cell update_date">.*?(\d{2}/\d{2}/\d{4})`)
-	cardThumbRe  = regexp.MustCompile(`\ssrc="((?:[^"]*?/)?content/[^"]+)"`)
-	modelHrefRe  = regexp.MustCompile(`/tour\d*/models/([^"/?#]+)\.html`)
-	anchorTextRe = regexp.MustCompile(`(?s)<a[^>]*>(.*?)</a>`)
+	cardSplitRe   = regexp.MustCompile(`<div class="update_details"`)
+	setIDRe       = regexp.MustCompile(`data-setid="(\d+)"`)
+	updatePathRe  = regexp.MustCompile(`href="(?:https?://[^"]*?)?(/tour\d*/updates/[^"?#]+\.html)"`)
+	cardTitleRe   = regexp.MustCompile(`(?s)<a[^>]*href="[^"]*/tour\d*/updates/[^"]+\.html"[^>]*>([^<]+)</a>`)
+	cardModelsRe  = regexp.MustCompile(`(?s)<span class="update_models">(.*?)</span>`)
+	cardDateRe    = regexp.MustCompile(`(?s)class="cell update_date">.*?(\d{2}/\d{2}/\d{4})`)
+	cardThumbRe   = regexp.MustCompile(`\ssrc="((?:[^"]*?/)?content/[^"]+)"`)
+	modelHrefRe   = regexp.MustCompile(`/tour\d*/models/([^"/?#]+)\.html`)
+	cardMinutesRe = regexp.MustCompile(`(?s)<div class="update_counts">(.*?)</div>`)
+	minutesRe     = regexp.MustCompile(`(\d+)(?:&nbsp;|\s)*min`)
+	anchorTextRe  = regexp.MustCompile(`(?s)<a[^>]*>(.*?)</a>`)
 )
 
 // parseCards reads the compact `update_details` cards. They are the only card
@@ -412,6 +439,7 @@ func parseCards(body string) []listEntry {
 			e.performers = anchorTexts(span)
 			e.modelSlugs = modelSlugs(span)
 		}
+		e.duration = parseMinutes(firstSubmatch(cardMinutesRe, chunk))
 		out = append(out, e)
 	}
 	return out
@@ -435,6 +463,12 @@ var (
 	richModelsRe = regexp.MustCompile(`(?s)<span class="tour_update_models">(.*?)</span>`)
 	richTagsRe   = regexp.MustCompile(`(?s)<span class="tour_update_tags">(.*?)</span>`)
 	richThumbRe  = regexp.MustCompile(`class="[^"]*large_update_thumb[^"]*"\s+src="([^"]+)"`)
+	// Fallbacks for the Bootstrap rebuild of the same detail page (Earl
+	// Miller): the title moves to a jumbotron heading and the tags to the
+	// hidden spider block. Its `update_date` span holds the runtime, not a
+	// date, so richDateRe simply does not match and the card's date stands.
+	altTitleRe = regexp.MustCompile(`(?s)<h1 class="display-4">(.*?)</h1>`)
+	altTagsRe  = regexp.MustCompile(`(?s)<div id="tags">(.*?)</div>`)
 )
 
 func parseDetail(body string) detail {
@@ -444,10 +478,17 @@ func parseDetail(body string) detail {
 		description: cleanText(firstSubmatch(descRe, body)),
 		thumbnail:   firstSubmatch(richThumbRe, body),
 	}
+	if d.title == "" {
+		d.title = cleanText(firstSubmatch(altTitleRe, body))
+	}
 	if span := firstSubmatch(richModelsRe, body); span != "" {
 		d.performers = anchorTexts(span)
 	}
-	if span := firstSubmatch(richTagsRe, body); span != "" {
+	span := firstSubmatch(richTagsRe, body)
+	if span == "" {
+		span = firstSubmatch(altTagsRe, body)
+	}
+	if span != "" {
 		d.tags = anchorTexts(span)
 	}
 	return d
@@ -508,6 +549,20 @@ func parseDate(s, layout string) (time.Time, bool) {
 		return time.Time{}, false
 	}
 	return t.UTC(), true
+}
+
+// parseMinutes reads the card's "20&nbsp;min&nbsp;of video" count. Most tours
+// on this template leave the block empty (the runtime is members-only).
+func parseMinutes(counts string) int {
+	m := minutesRe.FindStringSubmatch(counts)
+	if m == nil {
+		return 0
+	}
+	n, err := strconv.Atoi(m[1])
+	if err != nil {
+		return 0
+	}
+	return n * 60
 }
 
 // resolveURL turns the tour's relative `content/...` image paths into absolute

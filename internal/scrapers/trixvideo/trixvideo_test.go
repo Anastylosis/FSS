@@ -40,8 +40,38 @@ func TestRegisteredSiteIDsAreUnique(t *testing.T) {
 			t.Errorf("site %q has an empty domain or studio name", cfg.SiteID)
 		}
 	}
-	if len(sites) != 10 {
-		t.Errorf("expected the 10 Trix Video sites, got %d", len(sites))
+	if len(sites) != 11 {
+		t.Errorf("expected the 11 Trix Video sites, got %d", len(sites))
+	}
+}
+
+// A site whose "/updates/page_{N}.html" is not its catalogue names the
+// category to walk instead, and the model filter has to follow it.
+func TestDefaultCategoryDrivesTheWalk(t *testing.T) {
+	plain := New(siteByID(t, "dallasdiamondz"))
+	if got := plain.listingPages()(2); got != "/tour/updates/page_2.html" {
+		t.Errorf("listingPages(2) = %q", got)
+	}
+	em := New(siteByID(t, "earlmiller"))
+	if got := em.listingPages()(2); got != "/tour/categories/movies_2_p.html" {
+		t.Errorf("listingPages(2) = %q", got)
+	}
+}
+
+func TestParseMinutes(t *testing.T) {
+	tests := []struct {
+		in   string
+		want int
+	}{
+		{"\n20&nbsp;min&nbsp;of video\t", 1200},
+		{"  7 min of video ", 420},
+		{"", 0},
+		{"12 photos", 0},
+	}
+	for _, tt := range tests {
+		if got := parseMinutes(tt.in); got != tt.want {
+			t.Errorf("parseMinutes(%q) = %d, want %d", tt.in, got, tt.want)
+		}
 	}
 }
 

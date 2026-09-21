@@ -75,3 +75,15 @@ func TestLiveDesperateAmateursCategory(t *testing.T) {
 	testutil.RunLiveScrape(t, liveScraper(t, "desperateamateurs"),
 		"https://desperateamateurs.com/tour3/categories/BBW.html", 2)
 }
+
+// Earl Miller serves its homepage at /tour/updates/, so a bare studio URL has
+// to walk the movies category instead; /tour/categories/photos.html is the
+// other half of the catalogue and is deliberately not a scene listing.
+func TestLiveEarlMiller(t *testing.T) {
+	testutil.RunLiveScrape(t, liveScraper(t, "earlmiller"), "https://earlmiller.com/", 2)
+}
+
+func TestLiveEarlMillerModel(t *testing.T) {
+	testutil.RunLiveScrape(t, liveScraper(t, "earlmiller"),
+		"https://earlmiller.com/tour/models/faye-reagan.html", 2)
+}
