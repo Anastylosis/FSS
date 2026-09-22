@@ -42,7 +42,7 @@ import (
 	"github.com/Anastylosis/FSS/scraper"
 )
 
-const studioName = "Ghost Pro Productions"
+const defaultStudioName = "Ghost Pro Productions"
 
 // SiteConfig describes one Ghost Pro Next.js sister site. SiteBase has no
 // trailing slash; SiteName is the human-readable site label shown on the
@@ -53,6 +53,24 @@ type SiteConfig struct {
 	SiteName string
 	Patterns []string
 	MatchRe  *regexp.Regexp
+	// StudioName overrides the network label stored as Scene.Studio. Empty
+	// means "Ghost Pro Productions"; a site outside that network running the
+	// same template (Severe Sex Films) names itself.
+	StudioName string
+}
+
+func (c SiteConfig) studioName() string {
+	if c.StudioName == "" {
+		return defaultStudioName
+	}
+	return c.StudioName
+}
+
+func (s *Scraper) seriesName() string {
+	if s.cfg.SiteName == s.cfg.studioName() {
+		return ""
+	}
+	return s.cfg.SiteName
 }
 
 type Scraper struct {
@@ -157,6 +175,9 @@ type sceneEntry struct {
 	Link string `json:"link"`
 	// TrailerURL is the preview clip; surfaced as Scene.Preview when present.
 	TrailerURL string `json:"trailer_url"`
+	// ContentPrice is the per-scene price in USD, null on the Ghost Pro sites
+	// (they sell membership only) and set on Severe Sex Films.
+	ContentPrice *float64 `json:"content_price"`
 }
 
 func parseListing(body []byte) (*pageContents, error) {
@@ -233,9 +254,11 @@ func (s *Scraper) toScene(e sceneEntry, now time.Time) models.Scene {
 		// No public detail page — synthesise a stable per-scene URL anchor for
 		// downstream matching. Mirrors the pattern used by other listing-only
 		// scrapers in FSS (e.g. extrememoviepass).
-		URL:        fmt.Sprintf("%s/videos#scene-%s", s.cfg.SiteBase, id),
-		Studio:     studioName,
-		Series:     s.cfg.SiteName,
+		URL:    fmt.Sprintf("%s/videos#scene-%s", s.cfg.SiteBase, id),
+		Studio: s.cfg.studioName(),
+		// Series names the site within the network. A site that is its own
+		// studio has no series to record.
+		Series:     s.seriesName(),
 		ScrapedAt:  now,
 		Preview:    e.TrailerURL,
 		Thumbnail:  e.Thumb,
@@ -259,6 +282,11 @@ func (s *Scraper) toScene(e sceneEntry, now time.Time) models.Scene {
 	}
 	if e.Views > 0 {
 		scene.Views = int(e.Views)
+	}
+	// Only the sites that sell scenes individually quote a price; the rest
+	// leave the field null, and a zero snapshot would record nothing.
+	if e.ContentPrice != nil && *e.ContentPrice > 0 {
+		scene.AddPrice(models.PriceSnapshot{Date: now, Regular: *e.ContentPrice})
 	}
 
 	return scene

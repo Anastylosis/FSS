@@ -361,6 +361,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/seehim"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/seemomsuck"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/sensationalvideo"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/severesexfilms"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/sexbabesvr"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/sexlikereal"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/sexmexpro"

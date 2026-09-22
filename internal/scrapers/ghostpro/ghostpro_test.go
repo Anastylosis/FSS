@@ -407,3 +407,46 @@ func TestSiteTableIntegrity(t *testing.T) {
 	}
 	testutil.CheckSiteTable(t, rows)
 }
+
+// The template is not exclusive to the Ghost Pro network: a site outside it
+// names its own studio, and then has no series to record.
+func TestStudioAndSeriesNaming(t *testing.T) {
+	base := SiteConfig{ID: "x", SiteBase: "https://x.com", SiteName: "Tussinee"}
+	s := New(base)
+	sc := s.toScene(sceneEntry{ID: 1, Title: "T"}, time.Now().UTC())
+	if sc.Studio != defaultStudioName {
+		t.Errorf("studio = %q, want %q", sc.Studio, defaultStudioName)
+	}
+	if sc.Series != "Tussinee" {
+		t.Errorf("series = %q", sc.Series)
+	}
+
+	own := SiteConfig{ID: "y", SiteBase: "https://y.com", SiteName: "Severe Sex Films", StudioName: "Severe Sex Films"}
+	sc = New(own).toScene(sceneEntry{ID: 2, Title: "T"}, time.Now().UTC())
+	if sc.Studio != "Severe Sex Films" {
+		t.Errorf("studio = %q", sc.Studio)
+	}
+	if sc.Series != "" {
+		t.Errorf("series = %q, want empty", sc.Series)
+	}
+}
+
+// Only the sites that sell scenes individually quote a price; the Ghost Pro
+// sites leave the field null and must record no snapshot.
+func TestContentPriceIsOptional(t *testing.T) {
+	s := New(SiteConfig{ID: "x", SiteBase: "https://x.com", SiteName: "X"})
+	now := time.Now().UTC()
+
+	if sc := s.toScene(sceneEntry{ID: 1, Title: "T"}, now); len(sc.PriceHistory) != 0 {
+		t.Errorf("price history = %v, want none", sc.PriceHistory)
+	}
+	zero := 0.0
+	if sc := s.toScene(sceneEntry{ID: 2, Title: "T", ContentPrice: &zero}, now); len(sc.PriceHistory) != 0 {
+		t.Errorf("zero price recorded: %v", sc.PriceHistory)
+	}
+	fifteen := 15.0
+	sc := s.toScene(sceneEntry{ID: 3, Title: "T", ContentPrice: &fifteen}, now)
+	if len(sc.PriceHistory) != 1 || sc.PriceHistory[0].Regular != 15 {
+		t.Errorf("price history = %v", sc.PriceHistory)
+	}
+}
