@@ -1,6 +1,6 @@
 # Covered Sites — All Domains
 
-1846 scrapers covering 1927 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
+1851 scrapers covering 1932 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
 
 Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scraper ID(s)** column lists every scraper that claims URLs on that domain — most domains have one entry, but table-driven networks (`adultprime`, `tmw`, `nextdoorstudios`, etc.) host many sub-studios on a single root domain. See [`scrapers.md`](scrapers.md) for what each ID covers.
 
@@ -1059,6 +1059,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | misspussycat.com | `misspussycat` |
 | mistresst.net | `mistresst` |
 | mixedx.com | `mixedx` |
+| mixitupboy.com | `mixitupboy` |
 | mmpnetwork.com | `mmpnetwork` |
 | mmvfilms.com | `gasm` |
 | modeltime.com | `modeltime` |
@@ -1223,6 +1224,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | pantyamateur.com | `pantyamateur` |
 | pantymaniacs.com | `pantymaniacs` |
 | papi.com | `realitydudes` |
+| papicock.com | `papicock` |
 | paradise-films.com | `gasm` |
 | parasited.com | `parasited` |
 | partyhardcore.com | `tainster` |
@@ -1356,6 +1358,8 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | rawfuck.com | `rawfuck` |
 | rawfuckclub.com | `rawfuckclub` |
 | rawhole.com | `rawhole` |
+| rawrio.com | `rawrio` |
+| rawrods.com | `rawrods` |
 | reaganfoxx.com | `reaganfoxx` |
 | realafricans.com | `africanbucks` |
 | realbikinigirls.com | `realbikinigirls` |
@@ -1651,6 +1655,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | thirdsexxxx.com | `thirdsexxxx` |
 | throated.com | `throated` |
 | throatwars.com | `throatwars` |
+| thugboy.com | `thugboy` |
 | thughunter.com | `thughunter` |
 | thundercock.com | `naughtyamerica` |
 | tieable.com | `tieable` |

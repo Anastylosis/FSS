@@ -135,6 +135,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/finishesthejob"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/firstanalquest"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/fittingroom"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/flavaworks"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/flourish"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/flourishuniv"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/footfetishdaily"
