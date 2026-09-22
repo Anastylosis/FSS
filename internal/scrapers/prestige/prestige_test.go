@@ -104,6 +104,13 @@ func newTestServer(products []product) *httptest.Server {
 			}
 			http.NotFound(w, r)
 
+		case r.URL.Path == "/api/label":
+			labels := []makerEntry{
+				{UUID: "11111111-2222-3333-4444-555555555555", Name: "Prestige Premium"},
+			}
+			b, _ := json.Marshal(labels)
+			_, _ = fmt.Fprint(w, string(b))
+
 		case r.URL.Path == "/api/maker":
 			makers := []makerEntry{
 				{UUID: "maker-1", Name: "Prestige"},
@@ -816,5 +823,41 @@ func TestBareArrayExactlyFullFirstPageKeepsWalking(t *testing.T) {
 	}
 	if scenes != perPage+1 {
 		t.Errorf("got %d scenes, want %d — page 2 must still be walked", scenes, perPage+1)
+	}
+}
+
+// `Patterns()` advertises `?label={name}`, but the value went straight into
+// the API's `labelId`, which wants a uuid — so a name matched nothing.
+func TestResolveLabelID(t *testing.T) {
+	ts := newTestServer(nil)
+	defer ts.Close()
+	s := newTestScraper(ts)
+	ctx := context.Background()
+
+	const uuid = "11111111-2222-3333-4444-555555555555"
+	if got := s.resolveLabelID(ctx, "Prestige Premium"); got != uuid {
+		t.Errorf("resolveLabelID(name) = %q, want %q", got, uuid)
+	}
+	// A caller who already has an id is not sent on a lookup.
+	if got := s.resolveLabelID(ctx, uuid); got != uuid {
+		t.Errorf("resolveLabelID(uuid) = %q", got)
+	}
+	// An unlisted value still goes through, so nothing that worked before
+	// stops working.
+	if got := s.resolveLabelID(ctx, "Not A Label"); got != "Not A Label" {
+		t.Errorf("resolveLabelID(unknown) = %q", got)
+	}
+}
+
+// With the endpoint gone the value is passed through rather than the run
+// failing.
+func TestResolveLabelIDWithoutTheEndpoint(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.NotFound(w, r)
+	}))
+	defer ts.Close()
+	s := newTestScraper(ts)
+	if got := s.resolveLabelID(context.Background(), "Prestige Premium"); got != "Prestige Premium" {
+		t.Errorf("resolveLabelID = %q", got)
 	}
 }

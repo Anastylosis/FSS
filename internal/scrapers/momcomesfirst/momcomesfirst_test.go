@@ -153,9 +153,10 @@ func TestListScenes(t *testing.T) {
 </urlset>`
 
 	videoPage := `<html><head>
-<title>Video One - tags - Mom Comes First</title>
+<title>Video One - test tag, step-mother - Mom Comes First</title>
 <meta property="article:published_time" content="2026-01-15T10:00:00+00:00" />
 <meta property="article:tag" content="test tag" />
+<meta property="article:tag" content="step-mother" />
 <link rel='shortlink' href='%s/?p=42' />
 </head><body></body></html>`
 
@@ -198,4 +199,33 @@ func TestListScenes(t *testing.T) {
 
 func fixedTime() time.Time {
 	return time.Date(2026, 4, 24, 12, 0, 0, 0, time.UTC)
+}
+
+// The og:title is "Title - tag1, tag2 - Mom Comes First". Matching the tag
+// segment on a bare hyphen truncated the title at a hyphenated tag's own
+// hyphen ("step-mother"), leaving the tag list in the stored title.
+func TestStripTitleSuffix(t *testing.T) {
+	tags := []string{"alex adams", "Andie Anderson", "step mom", "step-mother"}
+	tests := []struct {
+		title string
+		tags  []string
+		want  string
+	}{
+		{"Jealous - alex adams, Andie Anderson, step mom, step-mother - Mom Comes First", tags, "Jealous"},
+		{"Bully Negotiation Tactics - alex adams, step mom - Mom Comes First", tags, "Bully Negotiation Tactics"},
+		// A title with its own spaced hyphen keeps it.
+		{"Part One - Part Two - alex adams - Mom Comes First", tags, "Part One - Part Two"},
+		// No tag segment at all.
+		{"Jealous - Mom Comes First", tags, "Jealous"},
+		// A trailing segment that is not a tag is part of the title.
+		{"Jealous - The Reckoning - Mom Comes First", tags, "Jealous - The Reckoning"},
+		// A page with no declared tags keeps its whole title.
+		{"Jealous - alex adams - Mom Comes First", nil, "Jealous - alex adams"},
+		{"Mom Comes First", tags, "Mom Comes First"},
+	}
+	for _, tt := range tests {
+		if got := stripTitleSuffix(tt.title, tt.tags); got != tt.want {
+			t.Errorf("stripTitleSuffix(%q) = %q, want %q", tt.title, got, tt.want)
+		}
+	}
 }

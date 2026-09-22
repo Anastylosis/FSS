@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/Anastylosis/FSS/internal/httpx"
@@ -58,16 +59,36 @@ func (s *Scraper) ListScenes(ctx context.Context, studioURL string, opts scraper
 	return out, nil
 }
 
-// titleSuffixRe strips the tag list and site name from the og:title.
-// Format: "Title - tag1, tag2, performer - Mom Comes First"
-var titleSuffixRe = regexp.MustCompile(`\s*-\s*(?:[^-]+-\s*)?Mom Comes First$`)
+// siteSuffixRe strips the site name from the og:title, whose format is
+// "Title - tag1, tag2, performer - Mom Comes First".
+var siteSuffixRe = regexp.MustCompile(`\s*-\s*Mom Comes First\s*$`)
+
+// stripTitleSuffix removes the site name and the tag list the og:title carries.
+// The segments are separated by a spaced hyphen, which a hyphenated tag
+// ("step-mother") does not contain — matching on a bare hyphen truncated the
+// title at the tag's own hyphen instead. The tag segment is only dropped when
+// it actually opens with one of the page's declared tags, so a scene with no
+// tags keeps its whole title.
+func stripTitleSuffix(title string, tags []string) string {
+	title = siteSuffixRe.ReplaceAllString(title, "")
+	i := strings.LastIndex(title, " - ")
+	if i < 0 || len(tags) == 0 {
+		return strings.TrimSpace(title)
+	}
+	first := strings.TrimSpace(strings.SplitN(title[i+3:], ",", 2)[0])
+	for _, t := range tags {
+		if strings.EqualFold(t, first) {
+			return strings.TrimSpace(title[:i])
+		}
+	}
+	return strings.TrimSpace(title)
+}
 
 func parsePage(studioURL, pageURL string, body []byte, now time.Time) (models.Scene, bool, error) {
 	meta := wputil.ParseMeta(body, "")
 
-	// Strip the compound suffix: " - tags - Mom Comes First"
 	if meta.Title != "" {
-		meta.Title = titleSuffixRe.ReplaceAllString(meta.Title, "")
+		meta.Title = stripTitleSuffix(meta.Title, meta.Tags)
 	}
 
 	// Skip non-video pages (homepage, about, etc.)

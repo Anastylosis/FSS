@@ -224,10 +224,38 @@ func (s *Scraper) resolveListingParams(ctx context.Context, studioURL string) (l
 	}
 
 	if label != "" {
-		params.labelID = label
+		params.labelID = s.resolveLabelID(ctx, label)
 	}
 
 	return params, nil
+}
+
+// uuidRe matches the API's own id form, so a caller who already has one is not
+// sent on a lookup.
+var uuidRe = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
+
+// resolveLabelID turns the advertised `?label={name}` into the uuid the API
+// wants. `Patterns()` has always promised a name while the value went straight
+// into `labelId`, which matches nothing and yields an empty catalogue. A
+// lookup that fails falls back to passing the value through, so a caller who
+// supplies an id the endpoint does not list is no worse off than before.
+func (s *Scraper) resolveLabelID(ctx context.Context, label string) string {
+	if uuidRe.MatchString(label) {
+		return label
+	}
+	var labels []makerEntry
+	if err := s.fetchJSON(ctx, s.base+"/api/label", &labels); err != nil {
+		scraper.Debugf(1, "prestige: label lookup failed (%v), using %q verbatim", err, label)
+		return label
+	}
+	for _, l := range labels {
+		if strings.EqualFold(l.Name, label) {
+			scraper.Debugf(1, "prestige: resolved label %q to %s", label, l.UUID)
+			return l.UUID
+		}
+	}
+	scraper.Debugf(1, "prestige: label %q not listed, using it verbatim", label)
+	return label
 }
 
 func (s *Scraper) resolveMakerUUID(ctx context.Context, name string) (string, error) {
