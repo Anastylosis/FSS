@@ -273,3 +273,30 @@ func TestNoAliasesKeepsTheOperatorsHost(t *testing.T) {
 		t.Errorf("baseFor = %q, want the operator's own host", got)
 	}
 }
+
+// The template emits the runtime under either `seconds_duration` (an int) or
+// `videos_duration` (a decimal-seconds string), and the thumbnail under either
+// `thumb` or `thumbnail`, protocol-relative on several sites.
+func TestDurationAndThumbnailSpellings(t *testing.T) {
+	tests := []struct {
+		name string
+		item contentItem
+		dur  int
+		img  string
+	}{
+		{"seconds_duration", contentItem{SecondsDuration: 1614, Thumb: "https://cdn.example.com/a.jpg"}, 1614, "https://cdn.example.com/a.jpg"},
+		{"videos_duration", contentItem{VideosDuration: "1614.46", Thumbnail: "//cdn.example.com/a.jpg"}, 1614, "https://cdn.example.com/a.jpg"},
+		{"seconds wins", contentItem{SecondsDuration: 10, VideosDuration: "99.9"}, 10, ""},
+		{"neither", contentItem{VideosDuration: "not a number"}, 0, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.item.duration(); got != tt.dur {
+				t.Errorf("duration = %d, want %d", got, tt.dur)
+			}
+			if got := absoluteURL(firstNonEmpty(tt.item.Thumb, tt.item.Thumbnail)); got != tt.img {
+				t.Errorf("thumbnail = %q, want %q", got, tt.img)
+			}
+		})
+	}
+}

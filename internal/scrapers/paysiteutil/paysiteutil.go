@@ -143,18 +143,54 @@ type contentResponse struct {
 }
 
 type contentItem struct {
-	ID              int         `json:"id"`
-	Title           string      `json:"title"`
-	Slug            string      `json:"slug"`
-	PublishDate     string      `json:"publish_date"`
-	SecondsDuration int         `json:"seconds_duration"`
-	Thumb           string      `json:"thumb"`
-	Models          []string    `json:"models"`
-	ModelsSlugs     []modelSlug `json:"models_slugs"`
-	Tags            []string    `json:"tags"`
-	Description     string      `json:"description"`
-	ContentPrice    float64     `json:"content_price"`
-	Site            string      `json:"site"`
+	ID              int    `json:"id"`
+	Title           string `json:"title"`
+	Slug            string `json:"slug"`
+	PublishDate     string `json:"publish_date"`
+	SecondsDuration int    `json:"seconds_duration"`
+	// VideosDuration is the same runtime as a decimal-seconds string. Some
+	// sites on this template emit only this one (Phoenixxx: "1614.46").
+	VideosDuration string `json:"videos_duration"`
+	Thumb          string `json:"thumb"`
+	// Thumbnail is the same image under the other spelling the template uses.
+	Thumbnail    string      `json:"thumbnail"`
+	Models       []string    `json:"models"`
+	ModelsSlugs  []modelSlug `json:"models_slugs"`
+	Tags         []string    `json:"tags"`
+	Description  string      `json:"description"`
+	ContentPrice float64     `json:"content_price"`
+	Site         string      `json:"site"`
+}
+
+// duration returns the runtime in whole seconds from whichever of the two
+// fields the site populates.
+func (c contentItem) duration() int {
+	if c.SecondsDuration > 0 {
+		return c.SecondsDuration
+	}
+	secs, err := strconv.ParseFloat(strings.TrimSpace(c.VideosDuration), 64)
+	if err != nil || secs <= 0 {
+		return 0
+	}
+	return int(secs)
+}
+
+func firstNonEmpty(vals ...string) string {
+	for _, v := range vals {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+// absoluteURL gives a protocol-relative CDN path a scheme; the template emits
+// its image URLs as "//host/path" on several sites.
+func absoluteURL(u string) string {
+	if strings.HasPrefix(u, "//") {
+		return "https:" + u
+	}
+	return u
 }
 
 type modelSlug struct {
@@ -311,8 +347,8 @@ func (s *Scraper) toScene(item contentItem, studioURL string, now time.Time) mod
 		StudioURL:   studioURL,
 		Title:       item.Title,
 		URL:         fmt.Sprintf("https://%s/%s/%s", s.cfg.Domain, s.cfg.listPath(), item.Slug),
-		Thumbnail:   item.Thumb,
-		Duration:    item.SecondsDuration,
+		Thumbnail:   absoluteURL(firstNonEmpty(item.Thumb, item.Thumbnail)),
+		Duration:    item.duration(),
 		Date:        date,
 		Description: item.Description,
 		Tags:        item.Tags,
