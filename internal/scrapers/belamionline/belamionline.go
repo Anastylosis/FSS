@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Anastylosis/FSS/internal/httpx"
@@ -38,6 +39,9 @@ type Scraper struct {
 	// base is the tour origin, overridable so the listing and model paths can
 	// be exercised offline.
 	base string
+
+	rosterOnce sync.Once
+	roster     map[string]bool
 }
 
 func New() *Scraper {
@@ -122,6 +126,7 @@ func detectSection(u string) *section {
 
 func (s *Scraper) runSection(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult, sec section) {
 	now := time.Now().UTC()
+	roster := s.loadRoster(ctx, opts.Delay)
 	maxPage := 0
 	scraper.Paginate(ctx, opts, siteID, out, func(ctx context.Context, page int) (scraper.PageResult, error) {
 		pageURL := s.origin() + "/" + sec.page
@@ -144,7 +149,7 @@ func (s *Scraper) runSection(ctx context.Context, studioURL string, opts scraper
 		}
 		scenes := make([]models.Scene, len(items))
 		for i, item := range items {
-			scenes[i] = toScene(studioURL, item, now)
+			scenes[i] = toScene(studioURL, item, now, roster)
 		}
 		// Termination comes from the pager the site itself renders. The
 		// short-page check is only a fallback: a page-size change would make a
@@ -186,9 +191,10 @@ func (s *Scraper) runModel(ctx context.Context, studioURL string, opts scraper.L
 	// stopping at a known scene saves no request and drops the rest of the
 	// model's catalogue. Skip and continue.
 	now := time.Now().UTC()
+	roster := s.loadRoster(ctx, opts.Delay)
 	skipped := 0
 	for _, item := range items {
-		scene := toScene(studioURL, item, now)
+		scene := toScene(studioURL, item, now, roster)
 		if opts.KnownIDs[scene.ID] {
 			skipped++
 			continue
@@ -324,30 +330,106 @@ func parseMaxPage(body []byte) int {
 	return maxPage
 }
 
-func parsePerformers(title string) []string {
-	if title == "" {
+// titlePartRe splits a scene label on the separators the tour uses between
+// credited boys.
+var titlePartRe = regexp.MustCompile(`\s*(?:&|,)\s*`)
+
+// parsePerformers reads the cast out of a scene label. The tour has no cast
+// markup at all — the label is either a list of first names ("Dano, Julian &
+// Mark") or a descriptive title ("Back to Greece Leftovers", "Lovers &
+// Rivals"), and nothing in the markup tells the two apart.
+//
+// roster is the set of first names the site's own model index publishes,
+// lowercased. A label counts as a cast list only when **every** part is a
+// known model, so a descriptive title contributes nothing rather than filing
+// "Lovers" and "Rivals" as performers. With no roster (the index could not be
+// read) nothing is credited, which is the safe direction: a missing credit is
+// recoverable, an invented one pollutes the shared performer vocabulary.
+func parsePerformers(title string, roster map[string]bool) []string {
+	title = strings.TrimSpace(title)
+	if title == "" || len(roster) == 0 {
 		return nil
 	}
-	// Titles like "Private shots - ORGY 1" or "Blond Bottoms Orgy" don't have performer names.
-	if strings.Contains(strings.ToLower(title), "orgy") ||
-		strings.Contains(strings.ToLower(title), "private shots") ||
-		strings.Contains(title, " - Part ") {
+	// A series marker means the rest of the label is an episode, not a cast.
+	if strings.Contains(title, " - ") {
 		return nil
 	}
-	parts := strings.Split(title, " & ")
 	var performers []string
-	for _, p := range parts {
-		for _, name := range strings.Split(p, ", ") {
-			name = strings.TrimSpace(name)
-			if name != "" {
-				performers = append(performers, name)
-			}
+	seen := map[string]bool{}
+	for _, part := range titlePartRe.Split(title, -1) {
+		name := strings.TrimSpace(part)
+		if name == "" {
+			continue
 		}
+		if !roster[strings.ToLower(name)] {
+			return nil
+		}
+		if seen[name] {
+			continue
+		}
+		seen[name] = true
+		performers = append(performers, name)
 	}
 	return performers
 }
 
-func toScene(studioURL string, item listItem, now time.Time) models.Scene {
+// modelLabelRe reads a model's name off the index card.
+var modelLabelRe = regexp.MustCompile(`<span class="label">([^<]*)</span>`)
+
+// maxRosterPages bounds the model-index walk. Past the last page the tour
+// clamps and re-serves it, so the walk also stops when a page adds no name.
+const maxRosterPages = 60
+
+// loadRoster walks the model index once per run and returns the set of names
+// it publishes, lowercased, each under both its full spelling and its first
+// name — the index lists "Alan Cartier" while scene labels credit "Alan".
+func (s *Scraper) loadRoster(ctx context.Context, delay time.Duration) map[string]bool {
+	s.rosterOnce.Do(func() {
+		names := map[string]bool{}
+		for page := 1; page <= maxRosterPages; page++ {
+			if ctx.Err() != nil {
+				break
+			}
+			if page > 1 && delay > 0 {
+				select {
+				case <-time.After(delay):
+				case <-ctx.Done():
+					return
+				}
+			}
+			pageURL := s.origin() + "/models.aspx"
+			if page > 1 {
+				pageURL += "?page=" + strconv.Itoa(page)
+			}
+			body, err := s.fetchPage(ctx, pageURL)
+			if err != nil {
+				scraper.Debugf(1, "%s: model index page %d: %v", siteID, page, err)
+				break
+			}
+			added := 0
+			for _, m := range modelLabelRe.FindAllStringSubmatch(string(body), -1) {
+				full := strings.Join(strings.Fields(html.UnescapeString(m[1])), " ")
+				if full == "" {
+					continue
+				}
+				for _, key := range []string{strings.ToLower(full), strings.ToLower(strings.Fields(full)[0])} {
+					if !names[key] {
+						names[key] = true
+						added++
+					}
+				}
+			}
+			if added == 0 {
+				break
+			}
+		}
+		scraper.Debugf(1, "%s: %d model names in the roster", siteID, len(names))
+		s.roster = names
+	})
+	return s.roster
+}
+
+func toScene(studioURL string, item listItem, now time.Time, roster map[string]bool) models.Scene {
 	return models.Scene{
 		ID:          item.videoID,
 		SiteID:      siteID,
@@ -357,7 +439,7 @@ func toScene(studioURL string, item listItem, now time.Time) models.Scene {
 		Date:        item.date,
 		Description: item.description,
 		Thumbnail:   item.thumbnail,
-		Performers:  parsePerformers(item.title),
+		Performers:  parsePerformers(item.title, roster),
 		Tags:        item.tags,
 		Studio:      "BelAmi",
 		ScrapedAt:   now,

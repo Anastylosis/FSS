@@ -123,6 +123,17 @@ func TestParseMaxPage_NoPagination(t *testing.T) {
 	}
 }
 
+// testRoster is the shape loadRoster builds: every published name under both
+// its full spelling and its first name.
+var testRoster = map[string]bool{
+	"bruce": true, "rikki": true, "edison jones": true, "edison": true,
+	"helmut": true, "hoyt": true, "jerome": true,
+	"kevin": true, "sven": true, "pip": true, "adam": true,
+}
+
+// The tour publishes no cast markup: the label is either a list of first names
+// or a descriptive title, and only the site's own model roster tells them
+// apart. Without it "Lovers & Rivals" was filed as two performers.
 func TestParsePerformers(t *testing.T) {
 	tests := []struct {
 		title string
@@ -135,10 +146,18 @@ func TestParsePerformers(t *testing.T) {
 		{"Blond Bottoms Orgy", nil},
 		{"Private shots - ORGY 1", nil},
 		{"Summer Loves - Part 29", nil},
+		{"Sun & Sangria - Series 2 - Part 9", nil},
+		// Two capitalised words joined by "&" look exactly like a pair of
+		// first names; only the roster rejects them.
+		{"Lovers & Rivals", nil},
+		{"Back to Greece Leftovers", nil},
+		{"Day on the beach", nil},
+		// One unknown part disqualifies the whole label.
+		{"Bruce & Rivals", nil},
 		{"", nil},
 	}
 	for _, tt := range tests {
-		got := parsePerformers(tt.title)
+		got := parsePerformers(tt.title, testRoster)
 		if len(got) != len(tt.want) {
 			t.Errorf("parsePerformers(%q) = %v, want %v", tt.title, got, tt.want)
 			continue
@@ -148,6 +167,10 @@ func TestParsePerformers(t *testing.T) {
 				t.Errorf("parsePerformers(%q)[%d] = %q, want %q", tt.title, i, got[i], tt.want[i])
 			}
 		}
+	}
+	// With no roster nothing is credited rather than everything.
+	if got := parsePerformers("Bruce & Rikki", nil); got != nil {
+		t.Errorf("parsePerformers without a roster = %v, want nil", got)
 	}
 }
 
@@ -161,7 +184,7 @@ func TestToScene(t *testing.T) {
 		tags:        []string{"Condom Free", "Sex Scenes"},
 	}
 	now := time.Date(2026, 6, 9, 12, 0, 0, 0, time.UTC)
-	scene := toScene("https://belamionline.com", item, now)
+	scene := toScene("https://belamionline.com", item, now, testRoster)
 
 	if scene.ID != "19490" {
 		t.Errorf("ID = %q", scene.ID)
@@ -293,12 +316,12 @@ func TestParseListingPage_ModelPage(t *testing.T) {
 		t.Errorf("item 1 title = %q", items[1].title)
 	}
 
-	performers0 := parsePerformers(items[0].title)
+	performers0 := parsePerformers(items[0].title, testRoster)
 	if len(performers0) != 3 {
 		t.Errorf("performers for %q = %v", items[0].title, performers0)
 	}
 
-	performers1 := parsePerformers(items[1].title)
+	performers1 := parsePerformers(items[1].title, testRoster)
 	if performers1 != nil {
 		t.Errorf("performers for %q = %v, want nil", items[1].title, performers1)
 	}
@@ -398,5 +421,51 @@ func TestListingWalkUsesTheHighestPagerNumberSeen(t *testing.T) {
 	}
 	if got := parseMaxPage([]byte(pages["2"])); got != 9 {
 		t.Errorf("page 2 max = %d, want 9", got)
+	}
+}
+
+// loadRoster walks the model index once, stops when a page adds no new name
+// (the tour clamps past the last page rather than serving an empty one), and
+// indexes each model under both its full spelling and its first name.
+func TestLoadRoster(t *testing.T) {
+	page := func(names ...string) string {
+		var b strings.Builder
+		for _, n := range names {
+			fmt.Fprintf(&b, `<div class="content"><span class="label">%s</span></div>`, n)
+		}
+		return `<html><body>` + b.String() + `</body></html>`
+	}
+	var calls int
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		switch r.URL.Query().Get("page") {
+		case "":
+			_, _ = fmt.Fprint(w, page("Alan Cartier", "Jamie Durrell"))
+		case "2":
+			_, _ = fmt.Fprint(w, page("Camillo Ramos"))
+		default:
+			// Past the end the tour re-serves the last page.
+			_, _ = fmt.Fprint(w, page("Camillo Ramos"))
+		}
+	}))
+	defer ts.Close()
+
+	s := &Scraper{Client: ts.Client(), base: ts.URL}
+	roster := s.loadRoster(context.Background(), 0)
+
+	for _, want := range []string{"alan cartier", "alan", "jamie durrell", "jamie", "camillo ramos", "camillo"} {
+		if !roster[want] {
+			t.Errorf("roster is missing %q", want)
+		}
+	}
+	if roster["rivals"] {
+		t.Error("roster contains a name it was never given")
+	}
+	if calls != 3 {
+		t.Errorf("fetched %d index pages, want 3 (the third adds nothing)", calls)
+	}
+	// The walk runs once per scraper.
+	if s.loadRoster(context.Background(), 0) == nil || calls != 3 {
+		t.Errorf("roster re-fetched: %d calls", calls)
 	}
 }
