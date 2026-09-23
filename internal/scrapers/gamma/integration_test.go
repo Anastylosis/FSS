@@ -268,3 +268,9 @@ func TestLiveFantasyMassage(t *testing.T) {
 	cfg := findSite("fantasymassage")
 	testutil.RunLiveScrape(t, newTestScraper(cfg), "https://www."+cfg.Domain+"/", 2)
 }
+
+// BSkow is its own segment with one site in it, so the Algolia key is
+// unfiltered by availableOnSite.
+func TestLiveBSkow(t *testing.T) {
+	testutil.RunLiveScrape(t, newTestScraper(findSite("bskow")), "https://www.bskow.com/", 2)
+}

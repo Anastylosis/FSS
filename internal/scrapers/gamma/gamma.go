@@ -329,6 +329,9 @@ var sites = []siteConfig{
 	// GenderXFilms — own segment:genderxfilms key from /en/videos.
 	// SiteName empty → no availableOnSite filter → whole segment catalog.
 	{"genderxfilms", "genderxfilms.com", "GenderXFilms", "", "", "", "", ""},
+
+	// BSkow — own segment:bskow key from /en/videos, one site in it.
+	{"bskow", "bskow.com", "BSkow", "", "", "", "", ""},
 }
 
 type siteScraper struct {
