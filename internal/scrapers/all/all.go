@@ -119,6 +119,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/erikalust"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/erosarts"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/evolvedfights"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/expliciteart"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/exploitedteens"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/exploitedx"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/extrememoviepass"
