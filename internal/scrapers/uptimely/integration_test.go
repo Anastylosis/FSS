@@ -80,3 +80,7 @@ func TestLiveTameikeGoroCatalogue(t *testing.T) {
 func TestLiveKiraKira(t *testing.T) {
 	testutil.RunLiveScrape(t, newTestScraper(findSite("kirakira")), "https://kirakira-av.com/works/list/release", 2)
 }
+
+func TestLiveMsVideoGroup(t *testing.T) {
+	testutil.RunLiveScrape(t, newTestScraper(findSite("msvideogroup")), "https://mvg.jp/works/list/release", 3)
+}
