@@ -383,6 +383,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/stashbox"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/stasyqvr"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/staxus"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/stmackenzies"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/stripzvr"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/strokies"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/stylerotica"
