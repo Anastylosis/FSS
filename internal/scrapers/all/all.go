@@ -61,6 +61,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/boynapped"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/brandnewamateurs"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/bratprincess"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/brickyates"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/britishbratz"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/brokenlatinawhores"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/bronetwork"
