@@ -90,3 +90,16 @@ func TestLiveVOYR(t *testing.T) {
 	}
 	testutil.RunLiveScrape(t, newTestScraper(cfg), "https://www.voyr.com/", 2)
 }
+
+// Deviante's five StashDB studios are sub-brands of one Aylo site, reached as
+// series on the same catalogue.
+func TestLiveDeviante(t *testing.T) {
+	var cfg siteConfig
+	for _, c := range sites {
+		if c.SiteID == "deviante" {
+			cfg = c
+			break
+		}
+	}
+	testutil.RunLiveScrape(t, newTestScraper(cfg), "https://www.deviante.com/", 3)
+}
