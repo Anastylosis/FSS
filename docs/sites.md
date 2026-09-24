@@ -1,6 +1,6 @@
 # Covered Sites — All Domains
 
-1864 scrapers covering 1945 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
+1865 scrapers covering 1947 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
 
 Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scraper ID(s)** column lists every scraper that claims URLs on that domain — most domains have one entry, but table-driven networks (`adultprime`, `tmw`, `nextdoorstudios`, etc.) host many sub-studios on a single root domain. See [`scrapers.md`](scrapers.md) for what each ID covers.
 
@@ -305,6 +305,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | camsoda.com | `camsoda` |
 | canada-tgirl.com | `canadatgirl` |
 | candyglitterclips.com | `candyglitter` |
+| candyxs.com | `candyxs` |
 | capricavanni.puba.com | `pubacapricavanni` |
 | captiveclinic.com | `captiveclinic` |
 | caribbeancom.com | `caribbeancom` |
@@ -1122,6 +1123,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | myfamilypies.com | `nubiles` |
 | myfriendshotmom.com | `naughtyamerica` |
 | mylf.com | `mylf` |
+| mymember.site | `candyxs` |
 | mypervmom.com | `mypervmom` |
 | mypervyfamily.com | `mypervyfamily` |
 | mypickupgirls.com | `mypickupgirls` |

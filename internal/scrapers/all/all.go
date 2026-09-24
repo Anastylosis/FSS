@@ -67,6 +67,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/brutalmaster"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/cademaddox"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/camsoda"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/candyxs"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/caribbeancom"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/carnalplus"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/cearalynch"

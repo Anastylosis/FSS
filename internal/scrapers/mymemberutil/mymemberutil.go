@@ -22,9 +22,14 @@ const apiPath = "/api/cancellable-request"
 
 // SiteConfig defines a MyMember.site instance.
 type SiteConfig struct {
-	SiteID          string
-	Domain          string
-	StudioName      string
+	SiteID     string
+	Domain     string
+	StudioName string
+	// BasePath is the path the instance is mounted at, with a leading and no
+	// trailing slash. Empty means the domain root; a site that never took its
+	// own domain is served under the platform's (CandyXS at
+	// mymember.site/candyxs).
+	BasePath        string
 	KnownPerformers map[string]bool
 }
 
@@ -40,7 +45,7 @@ func New(cfg SiteConfig) *Scraper {
 	return &Scraper{
 		cfg:      cfg,
 		Client:   httpx.NewClient(30 * time.Second),
-		SiteBase: "https://" + cfg.Domain,
+		SiteBase: "https://" + cfg.Domain + cfg.BasePath,
 	}
 }
 
