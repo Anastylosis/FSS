@@ -4,11 +4,41 @@ package pornstarplatinum
 
 import (
 	"context"
+	"io"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/Anastylosis/FSS/internal/httpx"
 	"github.com/Anastylosis/FSS/scraper"
 )
+
+// skipIfTourDown skips when a sister tour answers the Elevated X licence-expiry
+// page instead of its catalogue. The CMS serves it under HTTP 200 for every
+// path, so a scrape simply sees nothing — the same site-side outage
+// testutil.RunLiveScrape skips on, which these hand-rolled tests have to check
+// for themselves.
+func skipIfTourDown(t *testing.T, url string) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	resp, err := httpx.DoWithStatus(ctx, httpx.NewClient(15*time.Second), httpx.Request{
+		URL:     url,
+		Headers: httpx.BrowserHeaders(httpx.UserAgentFirefox),
+	})
+	if err != nil {
+		t.Skipf("tour unreachable: %v", err)
+		return
+	}
+	defer func() { _ = resp.Body.Close() }()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 4096))
+	if err != nil {
+		return
+	}
+	if strings.Contains(string(body), "error has occured with your product key") {
+		t.Skipf("tour's CMS licence has expired: %s", url)
+	}
+}
 
 // runPerSiteCount drains the scraper channel collecting scene count
 // and a stop-condition. Returns once `wantScenes` are seen or the
@@ -33,6 +63,9 @@ func runPerSiteCount(t *testing.T, url string, wantScenes int, wantPerformer str
 				cancel()
 			}
 		}
+	}
+	if scenes == 0 {
+		skipIfTourDown(t, url)
 	}
 	return scenes
 }

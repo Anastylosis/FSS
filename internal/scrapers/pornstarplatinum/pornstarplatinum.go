@@ -67,6 +67,7 @@ import (
 	"fmt"
 	"html"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -374,18 +375,21 @@ func parseCards(body []byte) ([]card, int) {
 	return cards, maxPage
 }
 
-// siteBaseFromVideos turns the configured `PerSiteVideos` URL back
-// into the bare sister-tour origin. Used to build absolute scene URLs
-// from path-only hrefs the per-site templates emit. Each supported
-// template has a different suffix: `/videos` for the sceneBlock sites,
-// `/scenes` for Taboo Stepmom, `/categories/Movies` for Joslyn James.
+// siteBaseFromVideos turns the configured `PerSiteVideos` URL back into the
+// bare sister-tour origin. Used to build absolute scene URLs from the
+// path-only hrefs the per-site templates emit.
+//
+// It takes the origin off the URL rather than matching the listing suffixes
+// the templates use: a suffix list has to be extended for every new template
+// and silently produced a broken base when it was not. Mindi Mink's listing is
+// `/videos.php`, which no entry matched, so every scene URL came out as
+// `…/videos.php/set/{id}/…` and 404ed.
 func siteBaseFromVideos(perSiteVideos string) string {
-	for _, suffix := range []string{"/categories/Movies", "/videos", "/scenes"} {
-		if strings.HasSuffix(perSiteVideos, suffix) {
-			return strings.TrimSuffix(perSiteVideos, suffix)
-		}
+	u, err := url.Parse(perSiteVideos)
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		return perSiteVideos
 	}
-	return perSiteVideos
+	return u.Scheme + "://" + u.Host
 }
 
 // perSitePageURL builds the page-N URL for a given site, honouring the

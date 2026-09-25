@@ -357,3 +357,32 @@ func TestSiteFilterTable(t *testing.T) {
 		seen[sf.Performer] = i
 	}
 }
+
+// The origin is taken off the configured listing URL rather than matched
+// against a list of listing suffixes: Mindi Mink's listing is `/videos.php`,
+// which no suffix entry covered, so every scene URL came out as
+// `…/videos.php/set/{id}/…` and 404ed.
+func TestSiteBaseFromVideos(t *testing.T) {
+	tests := []struct{ in, want string }{
+		{"https://tour.deewilliams.xxx/videos", "https://tour.deewilliams.xxx"},
+		{"https://tour.taboostepmom.com/scenes", "https://tour.taboostepmom.com"},
+		{"https://tour.joslynjames.xxx/categories/Movies", "https://tour.joslynjames.xxx"},
+		{"https://tour.mindiminkxxx.com/videos.php", "https://tour.mindiminkxxx.com"},
+		{"", ""},
+	}
+	for _, tt := range tests {
+		if got := siteBaseFromVideos(tt.in); got != tt.want {
+			t.Errorf("siteBaseFromVideos(%q) = %q, want %q", tt.in, got, tt.want)
+		}
+	}
+	// Every configured listing resolves to a bare origin.
+	for _, site := range sites {
+		if site.PerSiteVideos == "" {
+			continue
+		}
+		base := siteBaseFromVideos(site.PerSiteVideos)
+		if strings.Count(base, "/") != 2 {
+			t.Errorf("%s: siteBaseFromVideos(%q) = %q, want a bare origin", site.Performer, site.PerSiteVideos, base)
+		}
+	}
+}
