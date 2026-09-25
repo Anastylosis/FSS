@@ -1014,6 +1014,21 @@ backlog files for the same reason.
 | GloveMansion | The site is a one-page tour whose only outbound link is its storefront; scrape `clips4sale.com/studio/78265/glove-sex-clips` instead. The rest of the Fetish Liza tree stays on the backlog | 2026-09-17 |
 | Urlilgoddess | No catalogue of its own — the site is a link page to `iwantclips.com/store/1625193/Urlilgoddess`, which FSS already scrapes | 2026-09-17 |
 | Texas Bukkake | The domain now serves a white-label Fundorado VOD single-page app, not a studio tour: the HTML is a 675-byte React shell and the bundle's API (`api.fundorado.com`) answers with the platform's own `vodeu.com` site config and an empty catalogue for this host. The rest of the United Content tree stays on the backlog | 2026-09-17 |
+| Aurora Project (aurora-pro.com) | A 3 KB splash page with no catalogue behind it | 2026-09-17 |
+| Ayumi Anime | Her MFC Share page renders no album grid: `/AyumiAnime_/albums` serves the age interstitial and the grid partial (`?layout=false`) answers HTTP 404, while every other model's returns cards. The four MFC Share models FSS does cover are in the `mfcshare` table | 2026-09-17 |
+| Beshine | The tour's CMS licence expired on 2026-09-15: every page under `/tour/` answers "An error has occured with your product key" in 189 bytes. Worth re-checking if the licence is renewed | 2026-09-17 |
+| Bunny Walker | The only URL StashDB carries is an AniDB creator page, which is a credits database, not a catalogue | 2026-09-17 |
+| Cathy's Craving | `scenes.html` shows 53 of ~110 scenes as title and thumbnail only — every link goes to `join.html`, there are no per-scene pages, and no date, synopsis, cast or runtime anywhere | 2026-09-17 |
+| Danika Mori | The URL StashDB carries is a UVIU model page, and UVIU has shut down ("UViU is no longer available") | 2026-09-17 |
+| Entrancement | `entrancement.co.uk/blog/wordpress/` answers HTTP 403 to every request | 2026-09-17 |
+| Kinpatu86, Wet Kelly, Taboo Diaries (desperatepleasuresxxx.com), My Naked Dolls | Hosts do not resolve or refuse the connection | 2026-09-17 |
+| Luna Okko | A WeWeb single-page app: the HTML is a 7 KB shell that renders nothing without JavaScript and exposes no data endpoint | 2026-09-17 |
+| MAX-A (max-a.co.jp) | The domain serves a 1.5 KB page with no links and no catalogue | 2026-09-17 |
+| Miss Noel Knight | A WordPress link page with no catalogue of its own; scrape `clips4sale.com/studio/134017/mistress-noel-knight` instead (its other storefront is `iwantclips.com/store/715520`, which the iwantclips scraper needs the store slug for) | 2026-09-17 |
+| Nagae Style | The site is a promo page whose every title links out to DMM; there is no catalogue on the domain | 2026-09-17 |
+| phatassedangel69 | StashDB carries no URL for the studio at all | 2026-09-17 |
+| Samantha Flair | The URL StashDB carries redirects to Pornhub's pornstar index, which is an aggregator listing rather than the studio's catalogue | 2026-09-17 |
+| Valerica Steele | A link page whose two outbound links are a Fansly and an OnlyFans profile; no catalogue of its own | 2026-09-17 |
 | Model Media US tree — Jerkaoke, Delphine Films, POV Adventure | All three are paywalled single-page apps: `/videos` renders no scene links at all (every link is `/plans`), there is no JSON island and no public API. POV Adventure's domain now serves a tube aggregator's feed | 2026-09-16 |
 | Bondage Life | The tour publishes four demo clips behind `video.aspx?file=…` and nothing else; the catalogue is a members area | 2026-09-16 |
 | Futanaria | A frameset-era shell: `main.htm` is a styled index with no scene listing and `join.htm` is 392 bytes | 2026-09-16 |
