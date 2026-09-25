@@ -93,8 +93,22 @@ func (s *Scraper) Run(ctx context.Context, studioURL string, opts scraper.ListOp
 	wg.Wait()
 }
 
+// studioPathRe matches the shop's studio page, whose id is the only part of it
+// worth keeping.
+var studioPathRe = regexp.MustCompile(`/(\d+)/studio/`)
+
+// resolveListingURL maps an operator URL onto the listing to walk.
+//
+// A `/{id}/studio/…` URL is **not** a listing: on the store domains it
+// redirects to the store's front page, so passing it through scraped the
+// store's newest scenes under the studio's name. The store serves that
+// studio's scenes at `watch-streaming-video-by-scene.html?studio={id}`, which
+// is what the id is rewritten to.
 func resolveListingURL(studioURL, base, defaultListing string) string {
-	if strings.Contains(studioURL, "/scenes/") || strings.Contains(studioURL, "-scene") || strings.Contains(studioURL, "/studio/") {
+	if m := studioPathRe.FindStringSubmatch(studioURL); m != nil {
+		return base + "/watch-streaming-video-by-scene.html?studio=" + m[1]
+	}
+	if strings.Contains(studioURL, "/scenes/") || strings.Contains(studioURL, "-scene") {
 		return studioURL
 	}
 	return base + defaultListing

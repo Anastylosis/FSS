@@ -60,3 +60,13 @@ func TestLiveJodiWest(t *testing.T) {
 	cfg := siteConfig{"jodiwest", "jodiwest.com", "Jodi West", "/watch-newest-jodi-west-clips-and-scenes.html"}
 	testutil.RunLiveScrape(t, newSiteScraper(cfg), u, 2)
 }
+
+// A `/{id}/studio/…` URL is a shop page that redirects to the store's front
+// page, so it is rewritten to the store's scene listing filtered by that
+// studio id.
+func TestLiveStudioFilter(t *testing.T) {
+	const u = "https://bobsvideos.empirestores.co/427/studio/bobs-videos-streaming-porn-movies.html"
+	testutil.SkipIfPlaceholder(t, u)
+	cfg := siteConfig{"bobsvideos", "bobsvideos.empirestores.co", "Bob's Videos", "/shop-streaming-video-by-scene.html"}
+	testutil.RunLiveScrape(t, newSiteScraper(cfg), u, 1)
+}
