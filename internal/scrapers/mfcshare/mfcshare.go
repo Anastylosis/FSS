@@ -46,6 +46,7 @@ type SiteConfig struct {
 var sites = []SiteConfig{
 	{SiteID: "alexcoal", Studio: "Alex Coal", Username: "AlexxxCoal"},
 	{SiteID: "kerriking", Studio: "Kerri King", Username: "KerriKing"},
+	{SiteID: "reyasunshine", Studio: "Reya Sunshine", Username: "ReyasRoom"},
 	{
 		SiteID: "exquisitegoddess", Studio: "ExquisiteGoddess",
 		Username: "GoddessOfPleasure",
