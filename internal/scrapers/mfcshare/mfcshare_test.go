@@ -27,9 +27,22 @@ func TestSiteConfigsAreComplete(t *testing.T) {
 	}
 }
 
+// siteByID keeps the tests independent of the table's order, which changes
+// whenever a model is added.
+func siteByID(t *testing.T, id string) SiteConfig {
+	t.Helper()
+	for _, c := range sites {
+		if c.SiteID == id {
+			return c
+		}
+	}
+	t.Fatalf("no site %q", id)
+	return SiteConfig{}
+}
+
 func TestMatchesURL(t *testing.T) {
-	kerri := New(sites[0])
-	goddess := New(sites[1])
+	kerri := New(siteByID(t, "kerriking"))
+	goddess := New(siteByID(t, "exquisitegoddess"))
 	cases := []struct {
 		s    *Scraper
 		url  string
@@ -95,7 +108,7 @@ func TestParseAlbumsKeepsOnlyVideos(t *testing.T) {
 }
 
 func TestBaseScene(t *testing.T) {
-	s := New(sites[0])
+	s := New(siteByID(t, "kerriking"))
 	sc := s.baseScene(albumCard{slug: "erv18qux", title: "Overtime", duration: 575,
 		thumbnail: "https://t/0.jpg"}, "https://share.myfreecams.com/KerriKing")
 
@@ -121,7 +134,7 @@ func TestBaseScene(t *testing.T) {
 }
 
 func TestBaseSceneFallsBackToTheSlugForATitle(t *testing.T) {
-	s := New(sites[0])
+	s := New(siteByID(t, "kerriking"))
 	sc := s.baseScene(albumCard{slug: "erv18qux"}, "https://share.myfreecams.com/KerriKing")
 	if sc.Title != "erv18qux" {
 		t.Errorf("title = %q, want the slug", sc.Title)
@@ -210,7 +223,7 @@ func collect(t *testing.T, s *Scraper, studioURL string) ([]string, []error) {
 // the authoritative Save.
 func TestRunTreatsA404PastTheEndAsDone(t *testing.T) {
 	f := &fakeSite{total: 35}
-	s := newTestScraper(t, sites[0], f)
+	s := newTestScraper(t, siteByID(t, "kerriking"), f)
 
 	ids, errs := collect(t, s, "https://share.myfreecams.com/KerriKing")
 	if len(errs) > 0 {
@@ -228,7 +241,7 @@ func TestRunTreatsA404PastTheEndAsDone(t *testing.T) {
 // continues past it.
 func TestRunContinuesPastAPageOfPhotoAlbums(t *testing.T) {
 	f := &fakeSite{total: 32, photoEvery: 1}
-	s := newTestScraper(t, sites[0], f)
+	s := newTestScraper(t, siteByID(t, "kerriking"), f)
 
 	ids, errs := collect(t, s, "https://share.myfreecams.com/KerriKing")
 	if len(errs) != 1 {
@@ -240,7 +253,7 @@ func TestRunContinuesPastAPageOfPhotoAlbums(t *testing.T) {
 
 	// With videos after the first page, the walk must reach them.
 	f2 := &fakeSite{total: 32, photoEvery: 0}
-	s2 := newTestScraper(t, sites[0], f2)
+	s2 := newTestScraper(t, siteByID(t, "kerriking"), f2)
 	ids2, errs2 := collect(t, s2, "https://share.myfreecams.com/KerriKing")
 	if len(errs2) > 0 {
 		t.Fatalf("errors: %v", errs2)
@@ -252,7 +265,7 @@ func TestRunContinuesPastAPageOfPhotoAlbums(t *testing.T) {
 
 func TestRunReportsAnEmptyFirstPage(t *testing.T) {
 	f := &fakeSite{total: 0}
-	s := newTestScraper(t, sites[0], f)
+	s := newTestScraper(t, siteByID(t, "kerriking"), f)
 
 	ids, errs := collect(t, s, "https://share.myfreecams.com/KerriKing")
 	if len(ids) != 0 {
