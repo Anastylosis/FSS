@@ -463,6 +463,19 @@ func (s *Scraper) fetchDetail(ctx context.Context, entry listEntry, siteID, stud
 	}
 
 	if vo := parseutil.ExtractVideoObject(body); vo != nil {
+		// Series mode reaches a shoot with nothing but its id — the series
+		// page lists no cards — so the JSON-LD is the only source for the
+		// title and the date there. In the other modes the card already
+		// carried both, so the block only fills what is missing.
+		if scene.Title == "" {
+			scene.Title = vo.Name
+		}
+		if scene.Date.IsZero() {
+			if t, err := parseutil.TryParseDate(firstNonEmpty(vo.UploadDate, vo.DatePublished),
+				time.RFC3339, "2006-01-02T15:04:05.000Z", "2006-01-02"); err == nil {
+				scene.Date = t.UTC()
+			}
+		}
 		if vo.Description != "" {
 			scene.Description = vo.Description
 		}
@@ -516,6 +529,15 @@ func (s *Scraper) fetchHTML(ctx context.Context, rawURL string) ([]byte, error) 
 	}
 	defer func() { _ = resp.Body.Close() }()
 	return httpx.ReadBody(resp.Body)
+}
+
+func firstNonEmpty(vals ...string) string {
+	for _, v := range vals {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 func appendIfMissing(slice []string, val string) []string {
