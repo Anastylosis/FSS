@@ -254,3 +254,28 @@ func TestGoldenVideosIsRawCapture(t *testing.T) {
 		t.Error("fixture lost Mongoose's __v; unknown-field tolerance is no longer covered")
 	}
 }
+
+// The tour is a hash-router with no per-scene route, so every scene by one
+// performer used to share a single URL and collapse downstream. The video id
+// rides as a query the router ignores.
+func TestSceneURLIsPerScene(t *testing.T) {
+	s := New(SiteConfig{ID: "smokingerotica", SiteCode: "SE", Studio: "Smoking Erotica",
+		SiteBase: "https://smokingerotica.com"})
+
+	a := s.sceneURL("Abigail", "698cf02ef2ee6afc5e41231f")
+	b := s.sceneURL("Abigail", "698cf02ef2ee6afc5e412320")
+	if a == b {
+		t.Errorf("two scenes by one performer share a URL: %q", a)
+	}
+	if a != "https://smokingerotica.com/#/models/Abigail?video=698cf02ef2ee6afc5e41231f" {
+		t.Errorf("sceneURL = %q", a)
+	}
+	// A name with a space still addresses the model route.
+	if got := s.sceneURL("Lady Anne", "1"); got != "https://smokingerotica.com/#/models/Lady%20Anne?video=1" {
+		t.Errorf("sceneURL = %q", got)
+	}
+	// With no id the bare model route stands.
+	if got := s.sceneURL("Abigail", ""); got != "https://smokingerotica.com/#/models/Abigail" {
+		t.Errorf("sceneURL = %q", got)
+	}
+}

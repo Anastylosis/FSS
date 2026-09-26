@@ -160,8 +160,26 @@ func ExtractPerformer(name string) string {
 	return name
 }
 
+// sceneURL builds a per-scene link. The tour is an Angular hash-router whose
+// only content route is `/#/models/{name}` — there is no per-scene page — so
+// every scene by one performer used to share a single URL and collapse into
+// one entry downstream. The video id is carried as a query on that route,
+// which the router ignores, so the link still opens the model's page while
+// each scene keeps a distinct URL.
+func (s *Scraper) sceneURL(performer, videoID string) string {
+	u := s.cfg.SiteBase + "/#/models/" + url.PathEscape(performer)
+	if videoID != "" {
+		u += "?video=" + url.QueryEscape(videoID)
+	}
+	return u
+}
+
 func (s *Scraper) toScene(studioURL string, v APIVideo, now time.Time) models.Scene {
 	performer := ExtractPerformer(v.Name)
+	// The API publishes no image, so the thumbnail is derived from the site's
+	// own naming convention ("{SiteCode} {Name}.jpg" under /assets/images).
+	// It is a convention, not a published URL: a scene the site names
+	// differently there simply has no image.
 	thumbnail := s.cfg.SiteBase + "/assets/images/" + url.PathEscape(s.cfg.SiteCode+" "+v.Name) + ".jpg"
 
 	scene := models.Scene{
@@ -169,7 +187,7 @@ func (s *Scraper) toScene(studioURL string, v APIVideo, now time.Time) models.Sc
 		SiteID:     s.cfg.ID,
 		StudioURL:  studioURL,
 		Title:      v.Name,
-		URL:        s.cfg.SiteBase + "/#/models/" + url.PathEscape(performer),
+		URL:        s.sceneURL(performer, v.ID),
 		Thumbnail:  thumbnail,
 		Duration:   ParseDuration(v.Duration),
 		Performers: []string{performer},
