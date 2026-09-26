@@ -63,7 +63,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 	defer close(out)
 
 	if keyword := extractSearchKeyword(studioURL); keyword != "" {
-		s.runSearch(ctx, studioURL, keyword, opts, out)
+		s.runSearch(ctx, studioURL, keyword, "", opts, out)
 		return
 	}
 
@@ -166,7 +166,11 @@ func (s *Scraper) runArtist(ctx context.Context, studioURL string, artistID stri
 		return
 	}
 
-	s.runSearch(ctx, studioURL, name, opts, out)
+	// The site offers no artist filter, only a free-text search, which matches
+	// any scene whose text mentions the name — a co-star's scene, or another
+	// artist whose name is a substring. Scene ids are `{filmID}/{artistID}`,
+	// so the artist's own scenes are the ones whose id carries this artist.
+	s.runSearch(ctx, studioURL, name, artistID, opts, out)
 }
 
 func (s *Scraper) resolveArtistName(ctx context.Context, artistID string, delay time.Duration) (string, error) {
@@ -205,7 +209,9 @@ func (s *Scraper) resolveArtistName(ctx context.Context, artistID string, delay 
 	return "", fmt.Errorf("artist_id %s not found in first %d listing pages — try quick_search URL instead", artistID, maxPages)
 }
 
-func (s *Scraper) runSearch(ctx context.Context, studioURL string, keyword string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
+// runSearch walks the site's free-text search. A non-empty artistID keeps only
+// the scenes actually credited to that artist; the search itself cannot filter.
+func (s *Scraper) runSearch(ctx context.Context, studioURL string, keyword, artistID string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
 	body, err := s.postSearch(ctx, keyword)
 	if err != nil {
 		select {
@@ -216,6 +222,9 @@ func (s *Scraper) runSearch(ctx context.Context, studioURL string, keyword strin
 	}
 
 	scenes := parseListingPage(body, studioURL)
+	if artistID != "" {
+		scenes = filterByArtist(scenes, artistID)
+	}
 	if len(scenes) == 0 {
 		return
 	}
@@ -290,6 +299,19 @@ func (s *Scraper) fetchBody(ctx context.Context, pageURL string) ([]byte, error)
 	}
 	defer func() { _ = resp.Body.Close() }()
 	return httpx.ReadBody(resp.Body)
+}
+
+// filterByArtist keeps the scenes whose id names this artist. Scene ids are
+// `{filmID}/{artistID}` (a film runs once per artist who appears in it), so the
+// suffix is the credit the site itself recorded.
+func filterByArtist(scenes []models.Scene, artistID string) []models.Scene {
+	kept := scenes[:0]
+	for _, sc := range scenes {
+		if strings.HasSuffix(sc.ID, "/"+artistID) {
+			kept = append(kept, sc)
+		}
+	}
+	return kept
 }
 
 func parseListingPage(body []byte, studioURL string) []models.Scene {

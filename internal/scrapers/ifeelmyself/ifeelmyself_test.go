@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/Anastylosis/FSS/internal/scrapers/testutil"
+	"github.com/Anastylosis/FSS/models"
 	"github.com/Anastylosis/FSS/scraper"
 )
 
@@ -381,5 +382,30 @@ func TestSceneURLsAreAnchoredPerFilm(t *testing.T) {
 		if !strings.Contains(sc.URL, "#") {
 			t.Errorf("scene %s URL %q carries no per-film anchor", sc.ID, sc.URL)
 		}
+	}
+}
+
+// The site offers no artist filter, only a free-text search, so an artist URL
+// used to collect any scene whose text mentioned the name. Scene ids are
+// `{filmID}/{artistID}`, which is the credit the site itself recorded.
+func TestFilterByArtist(t *testing.T) {
+	scenes := []models.Scene{
+		{ID: "24195/512", Title: "Hers"},
+		{ID: "24195/998", Title: "A co-star's cut of the same film"},
+		{ID: "30001/512", Title: "Also hers"},
+		{ID: "30002", Title: "Uncredited"},
+		// A different artist whose id merely ends in the same digits.
+		{ID: "30003/1512", Title: "Someone else"},
+	}
+	got := filterByArtist(append([]models.Scene(nil), scenes...), "512")
+	if len(got) != 2 {
+		t.Fatalf("got %d scenes, want 2: %v", len(got), got)
+	}
+	if got[0].ID != "24195/512" || got[1].ID != "30001/512" {
+		t.Errorf("scenes = %v", got)
+	}
+	// With no artist the caller does not filter at all.
+	if n := len(filterByArtist(append([]models.Scene(nil), scenes...), "")); n != 0 {
+		t.Errorf("empty artist kept %d scenes; the caller must skip the filter instead", n)
 	}
 }
