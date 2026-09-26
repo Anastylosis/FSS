@@ -160,6 +160,7 @@ func (s *Scraper) fetchSitemap(ctx context.Context) ([]sceneRef, error) {
 // ---- runner ----
 
 func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
+	workers := scraper.WorkerCount(opts, detailWorkers)
 	defer close(out)
 
 	refs, err := s.fetchSitemap(ctx)
@@ -181,8 +182,8 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 	now := time.Now().UTC()
 	work := make(chan sceneRef)
 	var wg sync.WaitGroup
-	scraper.Debugf(1, "%s: fetching details with %d workers", s.cfg.SiteID, detailWorkers)
-	for i := 0; i < detailWorkers; i++ {
+	scraper.Debugf(1, "%s: fetching details with %d workers", s.cfg.SiteID, workers)
+	for i := 0; i < workers; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()

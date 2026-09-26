@@ -92,7 +92,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 	now := time.Now().UTC()
 	if singlePageRe.MatchString(studioURL) {
 		scraper.Debugf(1, "%s: scraping filtered page %s", siteID, studioURL)
-		s.runSinglePage(ctx, studioURL, out, now, opts.Delay)
+		s.runSinglePage(ctx, scraper.WorkerCount(opts, detailWorkers), studioURL, out, now, opts.Delay)
 		return
 	}
 
@@ -113,7 +113,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 		if len(fresh) == 0 {
 			return scraper.PageResult{Done: true}, nil
 		}
-		scenes := s.enrich(ctx, studioURL, fresh, now, opts.Delay, out)
+		scenes := s.enrich(ctx, scraper.WorkerCount(opts, detailWorkers), studioURL, fresh, now, opts.Delay, out)
 		// The id lives only on the detail page, so a page whose details all
 		// failed yields no scenes — Continue keeps that from reading as the end
 		// of the catalogue, which --full would then act on by deleting the tail.
@@ -130,7 +130,7 @@ func listingPageURL(page int) string {
 	return fmt.Sprintf("%s/videos/%d", siteBase, page)
 }
 
-func (s *Scraper) runSinglePage(ctx context.Context, studioURL string, out chan<- scraper.SceneResult, now time.Time, delay time.Duration) {
+func (s *Scraper) runSinglePage(ctx context.Context, workers int, studioURL string, out chan<- scraper.SceneResult, now time.Time, delay time.Duration) {
 	body, err := s.fetchPage(ctx, studioURL)
 	if err != nil {
 		select {
@@ -147,7 +147,7 @@ func (s *Scraper) runSinglePage(ctx context.Context, studioURL string, out chan<
 	case <-ctx.Done():
 		return
 	}
-	for _, scene := range s.enrich(ctx, studioURL, items, now, delay, out) {
+	for _, scene := range s.enrich(ctx, workers, studioURL, items, now, delay, out) {
 		select {
 		case out <- scraper.Scene(scene):
 		case <-ctx.Done():
@@ -230,11 +230,11 @@ func parseListing(body []byte) []listItem {
 
 // enrich fetches each scene's detail page; failures are reported and the scene
 // is skipped, since without the detail page it has no id.
-func (s *Scraper) enrich(ctx context.Context, studioURL string, items []listItem, now time.Time, delay time.Duration, out chan<- scraper.SceneResult) []models.Scene {
+func (s *Scraper) enrich(ctx context.Context, workers int, studioURL string, items []listItem, now time.Time, delay time.Duration, out chan<- scraper.SceneResult) []models.Scene {
 	scenes := make([]models.Scene, len(items))
-	scraper.Debugf(1, "%s: fetching %d details with %d workers", siteID, len(items), detailWorkers)
+	scraper.Debugf(1, "%s: fetching %d details with %d workers", siteID, len(items), workers)
 	var wg sync.WaitGroup
-	sem := make(chan struct{}, detailWorkers)
+	sem := make(chan struct{}, workers)
 	for i, it := range items {
 		wg.Add(1)
 		go func(i int, it listItem) {

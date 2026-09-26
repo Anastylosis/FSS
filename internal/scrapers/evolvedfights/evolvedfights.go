@@ -89,7 +89,7 @@ func (s *Scraper) run(ctx context.Context, opts scraper.ListOpts, out chan<- scr
 		if len(cards) == 0 {
 			return scraper.PageResult{Done: true}, nil
 		}
-		scenes := s.enrich(ctx, cards, now)
+		scenes := s.enrich(ctx, scraper.WorkerCount(opts, detailWorkers), cards, now)
 		return scraper.PageResult{Scenes: scenes}, nil
 	})
 }
@@ -111,11 +111,11 @@ func (s *Scraper) fetchListing(ctx context.Context, page int) ([]card, error) {
 // enrich fetches each card's detail page (date/duration/description) with a
 // bounded worker pool, then builds the scenes. Detail failures fall back to the
 // listing data so a transient error never drops a scene.
-func (s *Scraper) enrich(ctx context.Context, cards []card, now time.Time) []models.Scene {
+func (s *Scraper) enrich(ctx context.Context, workers int, cards []card, now time.Time) []models.Scene {
 	scenes := make([]models.Scene, len(cards))
 	jobs := make(chan int)
 	var wg sync.WaitGroup
-	for i := 0; i < detailWorkers; i++ {
+	for i := 0; i < workers; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()

@@ -87,7 +87,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 		if len(items) == 0 {
 			return scraper.PageResult{}, nil
 		}
-		scenes := s.enrich(ctx, studioURL, items, now, opts.Delay)
+		scenes := s.enrich(ctx, scraper.WorkerCount(opts, detailWorkers), studioURL, items, now, opts.Delay)
 		return scraper.PageResult{Scenes: scenes}, nil
 	})
 }
@@ -138,10 +138,10 @@ func parseCard(card string) (listItem, bool) {
 	return it, true
 }
 
-func (s *Scraper) enrich(ctx context.Context, studioURL string, items []listItem, now time.Time, delay time.Duration) []models.Scene {
+func (s *Scraper) enrich(ctx context.Context, workers int, studioURL string, items []listItem, now time.Time, delay time.Duration) []models.Scene {
 	scenes := make([]models.Scene, len(items))
 	var wg sync.WaitGroup
-	sem := make(chan struct{}, detailWorkers)
+	sem := make(chan struct{}, workers)
 	for i, it := range items {
 		wg.Add(1)
 		go func(i int, it listItem) {

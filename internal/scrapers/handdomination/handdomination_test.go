@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/Anastylosis/FSS/models"
 	"github.com/Anastylosis/FSS/scraper"
@@ -302,5 +305,84 @@ func TestEmptyListingIsAParseError(t *testing.T) {
 	}
 	if errs != 1 {
 		t.Errorf("got %d errors, want 1", errs)
+	}
+}
+
+// `--workers` sizes the detail pool. It used to be read by the cmd layer and
+// then ignored by every scraper that took its pool size from a package
+// constant, so `--workers 1` on a fragile site still ran the hardcoded four.
+func TestWorkersFlagSizesTheDetailPool(t *testing.T) {
+	for _, tt := range []struct{ workers, want int }{
+		{1, 1},
+		{3, 3},
+		// Unset falls back to the package default.
+		{0, detailWorkers},
+	} {
+		t.Run(fmt.Sprintf("workers=%d", tt.workers), func(t *testing.T) {
+			var mu sync.Mutex
+			inFlight, peak := 0, 0
+			release := make(chan struct{})
+
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/browse_video.php" {
+					var b strings.Builder
+					b.WriteString(`<html><body>`)
+					for i := 0; i < 8; i++ {
+						b.WriteString(card(strconv.Itoa(100+i), "t.jpg", "Scene", "72", "Audrey Lords", "Jun 17, 2019", "16:33"))
+					}
+					b.WriteString(`</body></html>`)
+					_, _ = fmt.Fprint(w, b.String())
+					return
+				}
+				mu.Lock()
+				inFlight++
+				if inFlight > peak {
+					peak = inFlight
+				}
+				mu.Unlock()
+				<-release
+				mu.Lock()
+				inFlight--
+				mu.Unlock()
+				_, _ = fmt.Fprint(w, detailPage)
+			}))
+			defer ts.Close()
+
+			s := newTestScraper(ts)
+			done := make(chan struct{})
+			go func() {
+				defer close(done)
+				ch, err := s.ListScenes(context.Background(), ts.URL+"/", scraper.ListOpts{Workers: tt.workers})
+				if err != nil {
+					t.Error(err)
+					return
+				}
+				collect(ch)
+			}()
+
+			// Let the pool fill, then let every held request finish.
+			deadline := time.After(3 * time.Second)
+			for {
+				mu.Lock()
+				got := peak
+				mu.Unlock()
+				if got >= tt.want {
+					break
+				}
+				select {
+				case <-deadline:
+					t.Fatalf("peak concurrency reached %d, want %d", got, tt.want)
+				case <-time.After(5 * time.Millisecond):
+				}
+			}
+			close(release)
+			<-done
+
+			mu.Lock()
+			defer mu.Unlock()
+			if peak != tt.want {
+				t.Errorf("peak concurrency = %d, want %d", peak, tt.want)
+			}
+		})
 	}
 }

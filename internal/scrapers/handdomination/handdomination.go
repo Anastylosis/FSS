@@ -202,6 +202,7 @@ func parseListing(body string) []entry {
 // enrich fetches each scene's detail page for the untruncated title, the
 // categories and the description. A failure keeps the listing-only record.
 func (s *Scraper) enrich(ctx context.Context, studioURL string, entries []entry, opts scraper.ListOpts, out chan<- scraper.SceneResult) []models.Scene {
+	workers := scraper.WorkerCount(opts, detailWorkers)
 	scenes := make([]models.Scene, len(entries))
 	now := time.Now().UTC()
 	for i, e := range entries {
@@ -211,9 +212,9 @@ func (s *Scraper) enrich(ctx context.Context, studioURL string, entries []entry,
 		return scenes
 	}
 
-	scraper.Debugf(1, "%s: fetching %d details with %d workers", siteID, len(entries), detailWorkers)
+	scraper.Debugf(1, "%s: fetching %d details with %d workers", siteID, len(entries), workers)
 	var wg sync.WaitGroup
-	sem := make(chan struct{}, detailWorkers)
+	sem := make(chan struct{}, workers)
 	for i := range entries {
 		wg.Add(1)
 		go func(i int) {

@@ -84,7 +84,8 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 	}
 	scraper.Debugf(1, "%s: found %d model pages", s.cfg.ID, len(modelURLs))
 
-	stubs := s.collectScenes(ctx, modelURLs, opts.Delay)
+	workers := scraper.WorkerCount(opts, detailWorkers)
+	stubs := s.collectScenes(ctx, workers, modelURLs, opts.Delay)
 	if ctx.Err() != nil {
 		return
 	}
@@ -96,9 +97,9 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 		return
 	}
 
-	scraper.Debugf(1, "%s: fetching %d details with %d workers", s.cfg.ID, len(stubs), detailWorkers)
+	scraper.Debugf(1, "%s: fetching %d details with %d workers", s.cfg.ID, len(stubs), workers)
 	var wg sync.WaitGroup
-	sem := make(chan struct{}, detailWorkers)
+	sem := make(chan struct{}, workers)
 	for _, st := range stubs {
 		wg.Add(1)
 		go func(st *sceneStub) {
@@ -158,13 +159,13 @@ func (s *Scraper) fetchModelList(ctx context.Context) ([]string, error) {
 
 // collectScenes walks every model page (worker pool) and aggregates scene stubs,
 // deduping by trailer URL and unioning the performers that listed each scene.
-func (s *Scraper) collectScenes(ctx context.Context, modelURLs []string, delay time.Duration) []*sceneStub {
+func (s *Scraper) collectScenes(ctx context.Context, workers int, modelURLs []string, delay time.Duration) []*sceneStub {
 	var mu sync.Mutex
 	byURL := map[string]*sceneStub{}
 	var order []*sceneStub
 
 	var wg sync.WaitGroup
-	sem := make(chan struct{}, detailWorkers)
+	sem := make(chan struct{}, workers)
 	for _, mu0 := range modelURLs {
 		wg.Add(1)
 		go func(modelURL string) {

@@ -90,10 +90,10 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 		// The server reports where the next batch starts. If it ever fails to
 		// advance, stop rather than re-requesting the same offset forever.
 		if next <= offset {
-			return scraper.PageResult{Scenes: s.enrich(ctx, studioURL, items, now, opts.Delay), Done: true}, nil
+			return scraper.PageResult{Scenes: s.enrich(ctx, scraper.WorkerCount(opts, detailWorkers), studioURL, items, now, opts.Delay), Done: true}, nil
 		}
 		offset = next
-		return scraper.PageResult{Scenes: s.enrich(ctx, studioURL, items, now, opts.Delay)}, nil
+		return scraper.PageResult{Scenes: s.enrich(ctx, scraper.WorkerCount(opts, detailWorkers), studioURL, items, now, opts.Delay)}, nil
 	})
 }
 
@@ -143,11 +143,11 @@ func (s *Scraper) fetchBatch(ctx context.Context, offset int) ([]item, int, erro
 
 // ---- detail enrichment ----
 
-func (s *Scraper) enrich(ctx context.Context, studioURL string, items []item, now time.Time, delay time.Duration) []models.Scene {
+func (s *Scraper) enrich(ctx context.Context, workers int, studioURL string, items []item, now time.Time, delay time.Duration) []models.Scene {
 	scenes := make([]models.Scene, len(items))
-	scraper.Debugf(1, "%s: fetching %d details with %d workers", siteID, len(items), detailWorkers)
+	scraper.Debugf(1, "%s: fetching %d details with %d workers", siteID, len(items), workers)
 	var wg sync.WaitGroup
-	sem := make(chan struct{}, detailWorkers)
+	sem := make(chan struct{}, workers)
 	for i, it := range items {
 		wg.Add(1)
 		go func(i int, it item) {

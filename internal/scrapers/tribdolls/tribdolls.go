@@ -121,7 +121,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 			return scraper.PageResult{Done: true}, nil
 		}
 		return scraper.PageResult{
-			Scenes: s.enrich(ctx, studioURL, fresh, now, opts.Delay),
+			Scenes: s.enrich(ctx, scraper.WorkerCount(opts, detailWorkers), studioURL, fresh, now, opts.Delay),
 			Done:   maxPage > 0 && page >= maxPage,
 		}, nil
 	})
@@ -199,11 +199,11 @@ func parseListing(body []byte, today time.Time) []listItem {
 
 // ---- detail enrichment ----
 
-func (s *Scraper) enrich(ctx context.Context, studioURL string, items []listItem, now time.Time, delay time.Duration) []models.Scene {
+func (s *Scraper) enrich(ctx context.Context, workers int, studioURL string, items []listItem, now time.Time, delay time.Duration) []models.Scene {
 	scenes := make([]models.Scene, len(items))
-	scraper.Debugf(1, "%s: fetching %d details with %d workers", siteID, len(items), detailWorkers)
+	scraper.Debugf(1, "%s: fetching %d details with %d workers", siteID, len(items), workers)
 	var wg sync.WaitGroup
-	sem := make(chan struct{}, detailWorkers)
+	sem := make(chan struct{}, workers)
 	for i, it := range items {
 		wg.Add(1)
 		go func(i int, it listItem) {

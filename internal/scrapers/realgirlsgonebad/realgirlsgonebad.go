@@ -89,7 +89,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 		if len(urls) == 0 {
 			return scraper.PageResult{Done: true}, nil
 		}
-		scenes := s.enrich(ctx, studioURL, urls, now, opts.Delay)
+		scenes := s.enrich(ctx, scraper.WorkerCount(opts, detailWorkers), studioURL, urls, now, opts.Delay)
 		return scraper.PageResult{Scenes: scenes}, nil
 	})
 }
@@ -127,10 +127,10 @@ func normalizeURL(u string) string {
 	return baseURL + "/tour/" + u
 }
 
-func (s *Scraper) enrich(ctx context.Context, studioURL string, urls []string, now time.Time, delay time.Duration) []models.Scene {
+func (s *Scraper) enrich(ctx context.Context, workers int, studioURL string, urls []string, now time.Time, delay time.Duration) []models.Scene {
 	scenes := make([]models.Scene, len(urls))
 	var wg sync.WaitGroup
-	sem := make(chan struct{}, detailWorkers)
+	sem := make(chan struct{}, workers)
 	for i, u := range urls {
 		wg.Add(1)
 		go func(i int, u string) {

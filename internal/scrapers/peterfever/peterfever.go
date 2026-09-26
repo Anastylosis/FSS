@@ -99,7 +99,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 		if len(items) == 0 {
 			return scraper.PageResult{Done: true}, nil
 		}
-		scenes := s.enrich(ctx, studioURL, items, nil, now, opts.Delay)
+		scenes := s.enrich(ctx, scraper.WorkerCount(opts, detailWorkers), studioURL, items, nil, now, opts.Delay)
 		return scraper.PageResult{Scenes: scenes}, nil
 	})
 }
@@ -122,7 +122,7 @@ func (s *Scraper) runModel(ctx context.Context, studioURL string, opts scraper.L
 	if model != "" {
 		performers = []string{model}
 	}
-	scenes := s.enrich(ctx, studioURL, items, performers, now, opts.Delay)
+	scenes := s.enrich(ctx, scraper.WorkerCount(opts, detailWorkers), studioURL, items, performers, now, opts.Delay)
 	for _, sc := range scenes {
 		if opts.KnownIDs[sc.ID] {
 			scraper.Debugf(1, "%s: hit known ID, stopping early", siteID)
@@ -213,11 +213,11 @@ func parseModelName(body []byte) string {
 // performers, if non-nil (model-page mode), is applied to every scene. A detail
 // fetch failure is non-fatal: the scene keeps its (non-empty) listing data
 // rather than being dropped.
-func (s *Scraper) enrich(ctx context.Context, studioURL string, items []listItem, performers []string, now time.Time, delay time.Duration) []models.Scene {
-	scraper.Debugf(1, "%s: fetching %d details with %d workers", siteID, len(items), detailWorkers)
+func (s *Scraper) enrich(ctx context.Context, workers int, studioURL string, items []listItem, performers []string, now time.Time, delay time.Duration) []models.Scene {
+	scraper.Debugf(1, "%s: fetching %d details with %d workers", siteID, len(items), workers)
 	scenes := make([]models.Scene, len(items))
 	var wg sync.WaitGroup
-	sem := make(chan struct{}, detailWorkers)
+	sem := make(chan struct{}, workers)
 	for i, it := range items {
 		wg.Add(1)
 		go func(i int, it listItem) {

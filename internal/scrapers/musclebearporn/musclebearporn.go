@@ -199,12 +199,13 @@ func (s *Scraper) baseScene(c card, studioURL string, now time.Time) models.Scen
 // enrich fetches each scene's detail page, which is where everything but the
 // title lives.
 func (s *Scraper) enrich(ctx context.Context, scenes []models.Scene, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
+	workers := scraper.WorkerCount(opts, detailWorkers)
 	if len(scenes) == 0 {
 		return
 	}
-	scraper.Debugf(1, "%s: fetching %d details with %d workers", siteID, len(scenes), detailWorkers)
+	scraper.Debugf(1, "%s: fetching %d details with %d workers", siteID, len(scenes), workers)
 	var wg sync.WaitGroup
-	sem := make(chan struct{}, detailWorkers)
+	sem := make(chan struct{}, workers)
 	for i := range scenes {
 		wg.Add(1)
 		go func(i int) {

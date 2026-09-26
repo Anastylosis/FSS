@@ -249,7 +249,7 @@ func (s *Scraper) enrich(ctx context.Context, scenes []models.Scene, opts scrape
 		return
 	}
 	scraper.Debugf(1, "%s: fetching %d details with %d workers", siteID, len(scenes), detailWorkers)
-	s.pool(ctx, len(scenes), opts.Delay, func(i int) {
+	s.pool(ctx, scraper.WorkerCount(opts, detailWorkers), len(scenes), opts.Delay, func(i int) {
 		body, err := s.fetch(ctx, scenes[i].URL)
 		if err != nil {
 			select {
@@ -342,7 +342,7 @@ func (s *Scraper) fetchCast(ctx context.Context, opts scraper.ListOpts) map[stri
 
 	var mu sync.Mutex
 	cast := map[string][]string{}
-	s.pool(ctx, len(paths), opts.Delay, func(i int) {
+	s.pool(ctx, scraper.WorkerCount(opts, detailWorkers), len(paths), opts.Delay, func(i int) {
 		body, err := s.fetch(ctx, s.base+paths[i])
 		if err != nil {
 			scraper.Debugf(1, "%s: model page %s: %v", siteID, paths[i], err)
@@ -413,9 +413,9 @@ func (s *Scraper) modelPaths(ctx context.Context, opts scraper.ListOpts) []strin
 
 // pool runs fn for each index 0..n-1 over a bounded worker pool, applying the
 // configured delay before each request.
-func (s *Scraper) pool(ctx context.Context, n int, delay time.Duration, fn func(i int)) {
+func (s *Scraper) pool(ctx context.Context, workers int, n int, delay time.Duration, fn func(i int)) {
 	var wg sync.WaitGroup
-	sem := make(chan struct{}, detailWorkers)
+	sem := make(chan struct{}, workers)
 	for i := 0; i < n; i++ {
 		wg.Add(1)
 		go func(i int) {

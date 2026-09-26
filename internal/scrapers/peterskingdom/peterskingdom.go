@@ -197,12 +197,13 @@ func (s *Scraper) siteURL(link string) string {
 // REST payload does not carry — performers are a separate post type with no
 // relation exposed on the video.
 func (s *Scraper) enrich(ctx context.Context, scenes []models.Scene, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
+	workers := scraper.WorkerCount(opts, detailWorkers)
 	if len(scenes) == 0 {
 		return
 	}
-	scraper.Debugf(1, "%s: fetching %d details with %d workers", s.cfg.SiteID, len(scenes), detailWorkers)
+	scraper.Debugf(1, "%s: fetching %d details with %d workers", s.cfg.SiteID, len(scenes), workers)
 	var wg sync.WaitGroup
-	sem := make(chan struct{}, detailWorkers)
+	sem := make(chan struct{}, workers)
 	for i := range scenes {
 		wg.Add(1)
 		go func(i int) {

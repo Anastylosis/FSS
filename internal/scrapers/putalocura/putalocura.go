@@ -76,6 +76,7 @@ var (
 )
 
 func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
+	workers := scraper.WorkerCount(opts, detailWorkers)
 	defer close(out)
 
 	now := time.Now().UTC()
@@ -108,11 +109,11 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 		return
 	}
 
-	scraper.Debugf(1, "putalocura: fetching %d details with %d workers", len(urls), detailWorkers)
+	scraper.Debugf(1, "putalocura: fetching %d details with %d workers", len(urls), workers)
 
 	jobs := make(chan string)
 	var wg sync.WaitGroup
-	for i := 0; i < detailWorkers; i++ {
+	for i := 0; i < workers; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()

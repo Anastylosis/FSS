@@ -92,7 +92,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 	now := time.Now().UTC()
 	if singlePageRe.MatchString(studioURL) {
 		scraper.Debugf(1, "%s: scraping single-page listing %s", siteID, studioURL)
-		s.runSinglePage(ctx, studioURL, out, now, opts.Delay)
+		s.runSinglePage(ctx, scraper.WorkerCount(opts, detailWorkers), studioURL, out, now, opts.Delay)
 		return
 	}
 	scraper.Debugf(1, "%s: scraping /most-recent/ listing", siteID)
@@ -110,7 +110,7 @@ func (s *Scraper) runListing(ctx context.Context, studioURL string, opts scraper
 		if len(cards) == 0 {
 			return scraper.PageResult{Done: true}, nil
 		}
-		return scraper.PageResult{Scenes: s.enrich(ctx, studioURL, cards, now, opts.Delay)}, nil
+		return scraper.PageResult{Scenes: s.enrich(ctx, scraper.WorkerCount(opts, detailWorkers), studioURL, cards, now, opts.Delay)}, nil
 	})
 }
 
@@ -124,7 +124,7 @@ func listingPageURL(page int) string {
 }
 
 // runSinglePage handles model and tag pages, which have no pagination.
-func (s *Scraper) runSinglePage(ctx context.Context, studioURL string, out chan<- scraper.SceneResult, now time.Time, delay time.Duration) {
+func (s *Scraper) runSinglePage(ctx context.Context, workers int, studioURL string, out chan<- scraper.SceneResult, now time.Time, delay time.Duration) {
 	body, err := s.get(ctx, studioURL)
 	if err != nil {
 		select {
@@ -142,7 +142,7 @@ func (s *Scraper) runSinglePage(ctx context.Context, studioURL string, out chan<
 		return
 	}
 
-	for _, scene := range s.enrich(ctx, studioURL, cards, now, delay) {
+	for _, scene := range s.enrich(ctx, workers, studioURL, cards, now, delay) {
 		select {
 		case out <- scraper.Scene(scene):
 		case <-ctx.Done():
@@ -233,11 +233,11 @@ func parseCard(inner string) (card, bool) {
 
 // ---- detail enrichment ----
 
-func (s *Scraper) enrich(ctx context.Context, studioURL string, cards []card, now time.Time, delay time.Duration) []models.Scene {
+func (s *Scraper) enrich(ctx context.Context, workers int, studioURL string, cards []card, now time.Time, delay time.Duration) []models.Scene {
 	scenes := make([]models.Scene, len(cards))
-	scraper.Debugf(1, "%s: fetching %d details with %d workers", siteID, len(cards), detailWorkers)
+	scraper.Debugf(1, "%s: fetching %d details with %d workers", siteID, len(cards), workers)
 	var wg sync.WaitGroup
-	sem := make(chan struct{}, detailWorkers)
+	sem := make(chan struct{}, workers)
 	for i, c := range cards {
 		wg.Add(1)
 		go func(i int, c card) {

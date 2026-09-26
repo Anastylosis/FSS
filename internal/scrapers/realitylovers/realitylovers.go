@@ -124,7 +124,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 		if len(fresh) == 0 {
 			return scraper.PageResult{Done: true}, nil
 		}
-		return scraper.PageResult{Scenes: s.enrich(ctx, studioURL, fresh, now, opts.Delay, out)}, nil
+		return scraper.PageResult{Scenes: s.enrich(ctx, scraper.WorkerCount(opts, detailWorkers), studioURL, fresh, now, opts.Delay, out)}, nil
 	})
 }
 
@@ -166,11 +166,11 @@ func parseListing(body []byte) []listItem {
 // scene and reports the error, so a transient block costs metadata rather than
 // the scene itself — and an all-failed page still returns scenes, which is what
 // keeps Paginate from reading it as the end of the catalogue.
-func (s *Scraper) enrich(ctx context.Context, studioURL string, items []listItem, now time.Time, delay time.Duration, out chan<- scraper.SceneResult) []models.Scene {
+func (s *Scraper) enrich(ctx context.Context, workers int, studioURL string, items []listItem, now time.Time, delay time.Duration, out chan<- scraper.SceneResult) []models.Scene {
 	scenes := make([]models.Scene, len(items))
-	scraper.Debugf(1, "%s: fetching %d details with %d workers", s.cfg.SiteID, len(items), detailWorkers)
+	scraper.Debugf(1, "%s: fetching %d details with %d workers", s.cfg.SiteID, len(items), workers)
 	var wg sync.WaitGroup
-	sem := make(chan struct{}, detailWorkers)
+	sem := make(chan struct{}, workers)
 	for i, it := range items {
 		wg.Add(1)
 		go func(i int, it listItem) {

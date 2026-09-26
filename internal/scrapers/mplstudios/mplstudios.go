@@ -84,7 +84,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 	now := time.Now().UTC()
 	if m := portfolioRe.FindStringSubmatch(studioURL); m != nil {
 		scraper.Debugf(1, "%s: scraping model portfolio %s", siteID, m[2])
-		s.runPortfolio(ctx, studioURL, out, now, opts.Delay)
+		s.runPortfolio(ctx, scraper.WorkerCount(opts, detailWorkers), studioURL, out, now, opts.Delay)
 		return
 	}
 	scraper.Debugf(1, "%s: scraping video listing", siteID)
@@ -102,12 +102,12 @@ func (s *Scraper) runListing(ctx context.Context, studioURL string, opts scraper
 		if len(cards) == 0 {
 			return scraper.PageResult{Done: true}, nil
 		}
-		return scraper.PageResult{Scenes: s.enrich(ctx, studioURL, cards, now, opts.Delay)}, nil
+		return scraper.PageResult{Scenes: s.enrich(ctx, scraper.WorkerCount(opts, detailWorkers), studioURL, cards, now, opts.Delay)}, nil
 	})
 }
 
 // runPortfolio scrapes a single model page, which lists every update at once.
-func (s *Scraper) runPortfolio(ctx context.Context, studioURL string, out chan<- scraper.SceneResult, now time.Time, delay time.Duration) {
+func (s *Scraper) runPortfolio(ctx context.Context, workers int, studioURL string, out chan<- scraper.SceneResult, now time.Time, delay time.Duration) {
 	body, err := s.get(ctx, studioURL)
 	if err != nil {
 		select {
@@ -125,7 +125,7 @@ func (s *Scraper) runPortfolio(ctx context.Context, studioURL string, out chan<-
 		return
 	}
 
-	for _, scene := range s.enrich(ctx, studioURL, cards, now, delay) {
+	for _, scene := range s.enrich(ctx, workers, studioURL, cards, now, delay) {
 		select {
 		case out <- scraper.Scene(scene):
 		case <-ctx.Done():
@@ -242,11 +242,11 @@ func parseCard(inner string) (card, bool) {
 
 // ---- detail enrichment ----
 
-func (s *Scraper) enrich(ctx context.Context, studioURL string, cards []card, now time.Time, delay time.Duration) []models.Scene {
+func (s *Scraper) enrich(ctx context.Context, workers int, studioURL string, cards []card, now time.Time, delay time.Duration) []models.Scene {
 	scenes := make([]models.Scene, len(cards))
-	scraper.Debugf(1, "%s: fetching %d details with %d workers", siteID, len(cards), detailWorkers)
+	scraper.Debugf(1, "%s: fetching %d details with %d workers", siteID, len(cards), workers)
 	var wg sync.WaitGroup
-	sem := make(chan struct{}, detailWorkers)
+	sem := make(chan struct{}, workers)
 	for i, c := range cards {
 		wg.Add(1)
 		go func(i int, c card) {

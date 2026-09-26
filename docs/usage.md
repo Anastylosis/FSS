@@ -32,7 +32,7 @@ For choosing a store, inspecting a database, and moving between the two, see [st
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
-| `--workers`, `-w` | int | 3 | Max parallel metadata fetchers |
+| `--workers`, `-w` | int | 3 | Max parallel metadata fetchers. Every scraper with a detail pool honours it; a scraper that caps its concurrency for the origin's sake (a listing walk that degrades under fan-out) says so in `docs/scrapers.md` |
 | `--full` | bool | false | Full traversal (no early-stop); preserves price history; drops scenes no longer on the site |
 | `--refresh` | bool | false | Re-fetch metadata for all known scenes; soft-delete missing ones |
 | `--force` | bool | false | Allow a destructive `--full`/`--refresh` against a populated studio without being asked — covers both the 0-scene case and a coverage collapse (see [Broken-scraper detection](#broken-scraper-detection)) |

@@ -124,3 +124,23 @@ func Progress(total int) SceneResult {
 func StoppedEarly() SceneResult {
 	return SceneResult{Kind: KindStoppedEarly}
 }
+
+// WorkerCount resolves how many parallel fetchers a scraper's detail pool
+// should run: the operator's `--workers` when they set one, the scraper's own
+// default otherwise.
+//
+// It exists because `--workers` was silently ignored by every scraper that
+// sized its pool from a package constant — `--workers 1` on a fragile site
+// still ran the hardcoded four, and raising it never helped. A scraper with a
+// reason to cap its concurrency independently of the flag (a listing walk that
+// degrades the origin, say) should keep its own constant and say so, rather
+// than reading the flag and ignoring it.
+func WorkerCount(opts ListOpts, def int) int {
+	if opts.Workers > 0 {
+		return opts.Workers
+	}
+	if def > 0 {
+		return def
+	}
+	return 1
+}

@@ -104,7 +104,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 		if len(fresh) == 0 {
 			return scraper.PageResult{Done: true}, nil
 		}
-		scenes := s.enrich(ctx, studioURL, fresh, now, opts.Delay)
+		scenes := s.enrich(ctx, scraper.WorkerCount(opts, detailWorkers), studioURL, fresh, now, opts.Delay)
 		return scraper.PageResult{Scenes: scenes}, nil
 	})
 }
@@ -132,11 +132,11 @@ func (s *Scraper) fetchListing(ctx context.Context, pageURL string) ([]string, e
 	return urls, nil
 }
 
-func (s *Scraper) enrich(ctx context.Context, studioURL string, urls []string, now time.Time, delay time.Duration) []models.Scene {
+func (s *Scraper) enrich(ctx context.Context, workers int, studioURL string, urls []string, now time.Time, delay time.Duration) []models.Scene {
 	scenes := make([]models.Scene, len(urls))
-	scraper.Debugf(1, "treasureislandmedia: fetching %d details with %d workers", len(urls), detailWorkers)
+	scraper.Debugf(1, "treasureislandmedia: fetching %d details with %d workers", len(urls), workers)
 	var wg sync.WaitGroup
-	sem := make(chan struct{}, detailWorkers)
+	sem := make(chan struct{}, workers)
 	for i, u := range urls {
 		wg.Add(1)
 		go func(i int, u string) {

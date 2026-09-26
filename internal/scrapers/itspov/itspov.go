@@ -167,7 +167,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 		// total is the only reliable stop signal.
 		done := total > 0 && page*perPage >= total
 		return scraper.PageResult{
-			Scenes: s.enrich(ctx, studioURL, studio, fresh, now, opts.Delay),
+			Scenes: s.enrich(ctx, scraper.WorkerCount(opts, detailWorkers), studioURL, studio, fresh, now, opts.Delay),
 			Total:  total,
 			Done:   done,
 		}, nil
@@ -227,11 +227,11 @@ func parseListing(body []byte) []listItem {
 
 // ---- detail enrichment ----
 
-func (s *Scraper) enrich(ctx context.Context, studioURL, studio string, items []listItem, now time.Time, delay time.Duration) []models.Scene {
+func (s *Scraper) enrich(ctx context.Context, workers int, studioURL, studio string, items []listItem, now time.Time, delay time.Duration) []models.Scene {
 	scenes := make([]models.Scene, len(items))
-	scraper.Debugf(1, "%s: fetching %d details with %d workers", siteID, len(items), detailWorkers)
+	scraper.Debugf(1, "%s: fetching %d details with %d workers", siteID, len(items), workers)
 	var wg sync.WaitGroup
-	sem := make(chan struct{}, detailWorkers)
+	sem := make(chan struct{}, workers)
 	for i, it := range items {
 		wg.Add(1)
 		go func(i int, it listItem) {
