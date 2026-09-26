@@ -436,6 +436,7 @@ func (s *Scraper) runNewCMS(ctx context.Context, studioURL, slug string, opts sc
 	base, listPath := newCMSBaseAndPath(studioURL, slug)
 	now := time.Now().UTC()
 	firstPage := true
+	maxPage := 0
 
 	scraper.Paginate(ctx, opts, "nookies/"+slug, out, func(ctx context.Context, page int) (scraper.PageResult, error) {
 		pageURL := fmt.Sprintf("%s%s?page=%d", base, listPath, page)
@@ -449,16 +450,29 @@ func (s *Scraper) runNewCMS(ctx context.Context, studioURL, slug string, opts sc
 			return scraper.PageResult{}, nil
 		}
 
+		// The pager is windowed, so a later page can name a higher last page
+		// than the first one did; keep the highest seen. A pager naming only
+		// page 1 is *unknown*, not one page — a filtered listing short enough
+		// to render no pager would otherwise end after its first page.
+		if seen := maxPageNum(body); seen > maxPage {
+			maxPage = seen
+		}
+
 		total := 0
 		if firstPage {
 			firstPage = false
-			total = maxPageNum(body) * len(ids)
+			total = maxPage * len(ids)
 		}
 
 		scenes := s.fetchNewScenes(ctx, ids, slug, base, studioURL, opts, now)
 		// If every detail fetch failed, scenes is empty while the page had ids;
 		// keep going (the terminal page is the empty-ids early return above).
-		return scraper.PageResult{Scenes: scenes, Total: total, Continue: len(ids) > 0}, nil
+		return scraper.PageResult{
+			Scenes:   scenes,
+			Total:    total,
+			Continue: len(ids) > 0,
+			Done:     maxPage > 1 && page >= maxPage,
+		}, nil
 	})
 }
 

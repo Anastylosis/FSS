@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -681,5 +683,67 @@ func TestModelMode(t *testing.T) {
 
 	if count != 2 {
 		t.Errorf("got %d scenes, want 2", count)
+	}
+}
+
+// The new CMS's only end-of-listing signal used to be an empty page, which
+// costs one request past the end and — on an out-of-range page — a pager that
+// names the page you asked for. Reading the pager ends the walk on the last
+// real page instead.
+func TestRunNewCMSStopsOnTheLastPagerPage(t *testing.T) {
+	listing := func(page, maxPage int, ids ...string) string {
+		var b strings.Builder
+		b.WriteString(`<html><body>`)
+		for _, id := range ids {
+			fmt.Fprintf(&b, `<a href="/video/%s">x</a>`, id)
+		}
+		for p := 1; p <= maxPage; p++ {
+			fmt.Fprintf(&b, `<a href="/videos?page=%d">%d</a>`, p, p)
+		}
+		b.WriteString(`</body></html>`)
+		return b.String()
+	}
+
+	var listingPages []int
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/video/") {
+			id := strings.TrimPrefix(r.URL.Path, "/video/")
+			_, _ = fmt.Fprintf(w, `<html><head><script type="application/ld+json">`+
+				`{"@type":"VideoObject","name":"Scene %s","description":"d"}`+
+				`</script></head><body></body></html>`, id)
+			return
+		}
+		page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+		listingPages = append(listingPages, page)
+		switch page {
+		case 1:
+			_, _ = fmt.Fprint(w, listing(1, 2, "101", "102"))
+		case 2:
+			_, _ = fmt.Fprint(w, listing(2, 2, "201"))
+		default:
+			// Past the end the CMS serves a pager that names the page asked
+			// for and no cards at all.
+			_, _ = fmt.Fprint(w, listing(page, page))
+		}
+	}))
+	defer ts.Close()
+
+	s := New()
+	s.client = ts.Client()
+	out := make(chan scraper.SceneResult, 32)
+	s.runNewCMS(context.Background(), ts.URL+"/videos", "over40handjobs", scraper.ListOpts{Workers: 1}, out)
+	close(out)
+
+	var scenes int
+	for r := range out {
+		if r.Kind == scraper.KindScene {
+			scenes++
+		}
+	}
+	if scenes != 3 {
+		t.Errorf("got %d scenes, want 3", scenes)
+	}
+	if len(listingPages) != 2 {
+		t.Errorf("fetched listing pages %v, want just 1 and 2", listingPages)
 	}
 }
