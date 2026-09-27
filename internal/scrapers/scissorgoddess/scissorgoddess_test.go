@@ -394,3 +394,68 @@ func TestPageErrorPastFirstPageIsReported(t *testing.T) {
 		})
 	}
 }
+
+// The 400 past the end is the only page>1 failure that means end-of-listing.
+// Reporting Done for any of them made a WAF block or DNS blip on page 4 of 12
+// indistinguishable from the end, and `--full` then deleted pages 4-12 while
+// printing a success line.
+func TestLatePageFailureIsAnErrorNotTheEnd(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		status  int
+		wantErr bool
+	}{
+		{"past the end", http.StatusBadRequest, false},
+		{"rate limited", http.StatusTooManyRequests, true},
+		{"bad gateway", http.StatusBadGateway, true},
+		{"forbidden", http.StatusForbidden, true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+				if page > 1 {
+					w.WriteHeader(tt.status)
+					return
+				}
+				out := make([]map[string]any, 0, perPage)
+				for i := 0; i < perPage; i++ {
+					out = append(out, map[string]any{
+						"id": 1000 + i, "date": "2026-01-01T00:00:00",
+						"link":  srvLink(r, i),
+						"title": map[string]string{"rendered": "Scene"},
+					})
+				}
+				w.Header().Set("Content-Type", "application/json")
+				_ = json.NewEncoder(w).Encode(out)
+			}))
+			defer srv.Close()
+
+			orig := siteBase
+			siteBase = srv.URL
+			defer func() { siteBase = orig }()
+
+			s := New()
+			s.Client = srv.Client()
+			ch, err := s.ListScenes(context.Background(), srv.URL, scraper.ListOpts{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			var errs int
+			for r := range ch {
+				if r.Kind == scraper.KindError {
+					errs++
+				}
+			}
+			if tt.wantErr && errs == 0 {
+				t.Errorf("HTTP %d on page 2 emitted no error — the run would look complete", tt.status)
+			}
+			if !tt.wantErr && errs != 0 {
+				t.Errorf("HTTP %d on page 2 is the end of the listing, not an error", tt.status)
+			}
+		})
+	}
+}
+
+func srvLink(r *http.Request, i int) string {
+	return "https://" + r.Host + "/product/scene-" + strconv.Itoa(i) + "/"
+}

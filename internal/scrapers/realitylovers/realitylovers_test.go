@@ -375,3 +375,59 @@ func TestTitleFromSlug(t *testing.T) {
 		t.Errorf("titleFromSlug = %q", got)
 	}
 }
+
+// A page whose detail fetches all fail must not read as the end of the
+// catalogue: `Paginate` treats an empty Scenes slice as end-of-listing, and
+// `--full` then hard-deletes everything the walk never reached. This scraper
+// takes the "keep the listing-derived scene and report the failure" answer —
+// the card alone is a usable scene — so the page is never empty.
+func TestAllDetailsFailingKeepsTheWalkGoing(t *testing.T) {
+	listing := readFixture(t, "listing.html")
+	var listPages, detailHits atomic.Int32
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if c, err := r.Cookie("agreedToDisclaimer"); err != nil || c.Value != "true" {
+			_, _ = w.Write([]byte("<html><body>age gate</body></html>"))
+			return
+		}
+		if strings.HasPrefix(r.URL.Path, "/vd/") {
+			detailHits.Add(1)
+			w.WriteHeader(http.StatusTooManyRequests)
+			return
+		}
+		if listPages.Add(1) == 1 {
+			_, _ = w.Write(listing)
+			return
+		}
+		_, _ = w.Write([]byte("<html><body>no scenes</body></html>"))
+	}))
+	defer srv.Close()
+
+	s := newTestScraper(t, srv)
+	ch, err := s.ListScenes(context.Background(), srv.URL, scraper.ListOpts{Workers: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var scenes, errs int
+	for r := range ch {
+		switch r.Kind {
+		case scraper.KindScene:
+			scenes++
+		case scraper.KindError:
+			errs++
+		}
+	}
+	if detailHits.Load() == 0 {
+		t.Fatal("no detail pages were fetched; the fixture did not exercise the path")
+	}
+	if scenes == 0 {
+		t.Error("every scene was dropped — an authoritative Save would delete them all")
+	}
+	if errs == 0 {
+		t.Error("the failed enrichments were silent; the run would look complete")
+	}
+	// The walk asked for the next page rather than stopping at the first.
+	if listPages.Load() < 2 {
+		t.Errorf("fetched %d listing pages — an all-failed page ended the walk", listPages.Load())
+	}
+}

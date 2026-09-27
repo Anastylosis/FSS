@@ -366,3 +366,59 @@ func TestSiteTableIntegrity(t *testing.T) {
 	}
 	testutil.CheckSiteDomainTable(t, rows)
 }
+
+// The 400 past the end is the *only* page>1 failure that means end-of-list.
+// Treating any of them as the end returned the pages already fetched with a nil
+// error, and under `--full` the authoritative Save then hard-deleted every
+// scene the run never reached — reporting success. This is the test whose
+// absence let that ship.
+func TestFetchAllPostsLatePageFailureIsFatal(t *testing.T) {
+	for _, tt := range []struct {
+		name   string
+		status int
+		want   bool // want an error
+	}{
+		{"past the end", http.StatusBadRequest, false},
+		{"rate limited", http.StatusTooManyRequests, true},
+		{"bad gateway", http.StatusBadGateway, true},
+		{"gone", http.StatusGone, true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var ts *httptest.Server
+			ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path != "/wp-json/wp/v2/posts" {
+					_, _ = fmt.Fprint(w, detailHTML)
+					return
+				}
+				page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+				if page > 1 {
+					w.WriteHeader(tt.status)
+					return
+				}
+				var sb strings.Builder
+				sb.WriteString("[")
+				for i := 0; i < postsPerPage; i++ {
+					if i > 0 {
+						sb.WriteString(",")
+					}
+					fmt.Fprintf(&sb, `{"id":%d,"date":"2026-01-01T00:00:00","slug":"s%d","link":"%s/s%d/","title":{"rendered":"Scene %d"},"content":{"rendered":""}}`,
+						1000+i, i, ts.URL, i, i)
+				}
+				sb.WriteString("]")
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = fmt.Fprint(w, sb.String())
+			}))
+			defer ts.Close()
+
+			s := &siteScraper{cfg: sites[0], client: ts.Client()}
+			out := make(chan scraper.SceneResult, 16)
+			_, err := s.fetchAllPosts(context.Background(), ts.URL, scraper.ListOpts{}, out)
+			if tt.want && err == nil {
+				t.Errorf("HTTP %d on page 2 returned no error — the caller would keep a truncated catalogue", tt.status)
+			}
+			if !tt.want && err != nil {
+				t.Errorf("HTTP %d on page 2 is the end of the listing, not an error: %v", tt.status, err)
+			}
+		})
+	}
+}

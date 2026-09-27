@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -467,5 +468,76 @@ func TestLoadRoster(t *testing.T) {
 	// The walk runs once per scraper.
 	if s.loadRoster(context.Background(), 0) == nil || calls != 3 {
 		t.Errorf("roster re-fetched: %d calls", calls)
+	}
+}
+
+// The pager is windowed: page 1 renders only the first few page numbers, so a
+// walk that trusted page 1's maximum stopped there. The maximum is re-read on
+// every page and the highest seen wins, so a later page naming a higher last
+// page carries the walk on.
+func TestWindowedPagerDoesNotStopTheWalkOnPageOne(t *testing.T) {
+	// A pager window of five, sliding as the walk advances, over four real pages.
+	page := func(n, window int, cards string) string {
+		var b strings.Builder
+		b.WriteString(`<html><body><div class="content_list">` + cards + `</div><div class="pag_b">`)
+		for p := n; p < n+window; p++ {
+			fmt.Fprintf(&b, `<a href="?page=%d">%d</a>`, p, p)
+		}
+		b.WriteString(`</div></body></html>`)
+		return b.String()
+	}
+	card := func(id int) string {
+		return fmt.Sprintf(`<div class="content"><div class="wrap"><div class="img">`+
+			`<a href="playvideo.aspx?VideoID=%d"><img data-src="https://freeassets.belamionline.com/%d.jpg" alt="Scene %d."></a>`+
+			`</div><div class="more_top"><span class="label">Scene %d</span></div></div>`+
+			`<div class="more_bottom"><div class="tags"><a>Sex Scenes</a></div><div class="date">5/27/2026</div></div></div>`, id, id, id, id)
+	}
+
+	const lastPage = 4
+	var pagesSeen []int
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/models.aspx") {
+			_, _ = fmt.Fprint(w, `<html><body></body></html>`)
+			return
+		}
+		n, _ := strconv.Atoi(r.URL.Query().Get("page"))
+		if n == 0 {
+			n = 1
+		}
+		pagesSeen = append(pagesSeen, n)
+		w.Header().Set("Content-Type", "text/html")
+		if n > lastPage {
+			_, _ = fmt.Fprint(w, page(n, 5, ""))
+			return
+		}
+		// Every real page is full, so the short-page fallback cannot end the
+		// walk either — only the pager can.
+		var cards strings.Builder
+		for i := 0; i < perPage; i++ {
+			cards.WriteString(card(n*1000 + i))
+		}
+		_, _ = fmt.Fprint(w, page(n, 5, cards.String()))
+	}))
+	defer ts.Close()
+
+	s := New()
+	s.Client = ts.Client()
+	s.base = ts.URL
+
+	out := make(chan scraper.SceneResult, perPage*(lastPage+2))
+	s.runSection(context.Background(), ts.URL, scraper.ListOpts{}, out, sections[0])
+	close(out)
+
+	var scenes int
+	for r := range out {
+		if r.Kind == scraper.KindScene {
+			scenes++
+		}
+	}
+	if want := perPage * lastPage; scenes != want {
+		t.Errorf("got %d scenes, want %d — the windowed pager truncated the walk", scenes, want)
+	}
+	if len(pagesSeen) < lastPage {
+		t.Errorf("fetched pages %v — page 1's window must not be read as the last page", pagesSeen)
 	}
 }

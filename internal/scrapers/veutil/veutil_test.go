@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -323,5 +324,61 @@ func TestGoldenPosts(t *testing.T) {
 	}
 	if !strings.Contains(sc.URL, "the-undress-rehearsal") {
 		t.Errorf("scene URL = %q (link)", sc.URL)
+	}
+}
+
+// Only the 400 past the end means the tag list is complete. Returning a partial
+// map with a nil error is worse than it sounds: no scene is dropped, so nothing
+// looks wrong, but every unmapped tag ID resolves to nothing and
+// `--full`/`--refresh` overwrite complete stored tag lists with truncated ones
+// across every veutil site.
+func TestFetchAllTagsLatePageFailureIsFatal(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		status  int
+		wantErr bool
+	}{
+		{"past the end", http.StatusBadRequest, false},
+		{"rate limited", http.StatusTooManyRequests, true},
+		{"bad gateway", http.StatusBadGateway, true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path != "/wp-json/wp/v2/tags" {
+					http.NotFound(w, r)
+					return
+				}
+				page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+				if page > 1 {
+					w.WriteHeader(tt.status)
+					return
+				}
+				out := make([]wpTag, 0, postsPerPage)
+				for i := 0; i < postsPerPage; i++ {
+					out = append(out, wpTag{ID: 100 + i, Name: "Tag"})
+				}
+				w.Header().Set("Content-Type", "application/json")
+				_ = json.NewEncoder(w).Encode(out)
+			}))
+			defer ts.Close()
+
+			s := &Scraper{
+				cfg:    SiteConfig{ID: "mypervmom", Studio: "PervMom", SiteBase: ts.URL, MatchRe: regexp.MustCompile(`.*`)},
+				Client: ts.Client(),
+			}
+			got, err := s.fetchAllTags(context.Background())
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("HTTP %d on page 2 returned %d tags and no error — a truncated map that looks complete", tt.status, len(got))
+				}
+				return
+			}
+			if err != nil {
+				t.Errorf("HTTP %d on page 2 is the end of the list, not an error: %v", tt.status, err)
+			}
+			if len(got) != postsPerPage {
+				t.Errorf("got %d tags, want %d", len(got), postsPerPage)
+			}
+		})
 	}
 }
