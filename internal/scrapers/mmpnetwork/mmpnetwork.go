@@ -304,7 +304,10 @@ func parseListing(body []byte) []listItem {
 		if m == nil {
 			continue
 		}
-		item := listItem{id: string(m[2]), path: html.UnescapeString(string(m[1]))}
+		// The card's href is not always tight against its quote: povbitch's
+		// markup wraps the attribute, so the path arrives with a trailing
+		// "\r\n" and every scene URL was stored malformed.
+		item := listItem{id: string(m[2]), path: strings.TrimSpace(html.UnescapeString(string(m[1])))}
 		if t := cardTitleRe.FindSubmatch(block); t != nil {
 			item.title = cleanText(string(t[1]))
 		}

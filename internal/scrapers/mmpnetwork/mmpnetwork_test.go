@@ -287,3 +287,19 @@ func serveFixture(t *testing.T, name, base string) []byte {
 	}
 	return []byte(rewritten)
 }
+
+// povbitch wraps the card's href attribute, so the path arrives with trailing
+// whitespace and every scene URL was stored as
+// "https://povbitch.com/video/295/… \r\n".
+func TestCardPathIsTrimmed(t *testing.T) {
+	page := "<div class=\"scene\">" +
+		"<a href=\"/video/295/sexy-asian-angel-received-vibrator-and-hard-dick-in-pov \r\n\">x</a>" +
+		"<div class=\"sceneInfo\">\n<h3>Sexy Asian Angel</h3></div></div>"
+	items := parseListing([]byte(page))
+	if len(items) != 1 {
+		t.Fatalf("got %d items, want 1", len(items))
+	}
+	if items[0].path != "/video/295/sexy-asian-angel-received-vibrator-and-hard-dick-in-pov" {
+		t.Errorf("path = %q", items[0].path)
+	}
+}
