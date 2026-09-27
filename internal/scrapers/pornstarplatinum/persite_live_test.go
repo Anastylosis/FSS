@@ -35,7 +35,7 @@ func skipIfTourDown(t *testing.T, url string) {
 	if err != nil {
 		return
 	}
-	if strings.Contains(string(body), "error has occured with your product key") {
+	if strings.Contains(string(body), "Your license key expired") {
 		t.Skipf("tour's CMS licence has expired: %s", url)
 	}
 }

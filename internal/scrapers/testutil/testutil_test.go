@@ -589,3 +589,25 @@ func TestSameSiteIgnoresWWW(t *testing.T) {
 		}
 	}
 }
+
+// Elevated X serves its licence-expiry page under HTTP 200, so nothing else in
+// the zero-scene probe can tell it from a catalogue that has gone empty. A
+// vendor-wide expiry took several tours down at once and turned their live
+// tests into failures that no change to FSS could fix.
+func TestCMSOutage(t *testing.T) {
+	// Reproduced from the live page, minus its first sentence — that one
+	// carries the vendor's own spelling mistake and is not what is matched.
+	const page = `Your license key expired on September 15th, 2026<P>` +
+		`Administrators: Please log into your CMS admin panel.`
+	reason, ok := cmsOutage([]byte(page))
+	if !ok {
+		t.Fatal("licence-expiry page not recognised as a site-side outage")
+	}
+	if reason == "" {
+		t.Error("outage reported with no reason")
+	}
+	// A real tour is not an outage.
+	if _, ok := cmsOutage([]byte(`<html><body><div class="update_details">…</div></body></html>`)); ok {
+		t.Error("a normal page was reported as an outage")
+	}
+}

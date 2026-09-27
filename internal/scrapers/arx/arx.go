@@ -57,11 +57,16 @@ var sites = []siteConfig{
 
 	// Also on the same CMS but absent from the embedded sites array — found
 	// via the ARX Bucks studio tree and confirmed by their /sitemap.xml
-	// exposing the same /scenes/{id}/{slug} shape. randypass.com is the
-	// network hub and its sitemap spans the whole catalogue (~4k scenes).
+	// exposing the same /scenes/{id}/{slug} shape.
 	{"transdaylight", "transdaylight.com", "Trans Daylight"},
 	{"transmidnight", "transmidnight.com", "Trans Midnight"},
-	{"randypass", "randypass.com", "Randy Pass"},
+
+	// randypass.com is deliberately absent. It used to be the network hub
+	// whose sitemap spanned the whole catalogue (~4k scenes); it has since
+	// been rebuilt as a portal — `/scenes` renders a "CHOOSE A SITE" list of
+	// the member domains and its sitemap lists five section pages and no
+	// scenes at all. Every site it fronts is in this table already, so the
+	// catalogue is still covered; the hub is not a listing any more.
 }
 
 // Scraper implements scraper.StudioScraper for one ARX site.

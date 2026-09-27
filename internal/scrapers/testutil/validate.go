@@ -13,6 +13,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -224,16 +225,36 @@ func probeSite(studioURL string) (string, bool) {
 		return fmt.Sprintf("the site could not be reached (%v)", err), true
 	}
 	defer func() { _ = resp.Body.Close() }()
-	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<20))
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 
 	if resp.StatusCode >= 500 {
 		return fmt.Sprintf("the site answers HTTP %d", resp.StatusCode), true
+	}
+	if reason, ok := cmsOutage(body); ok {
+		return reason, true
 	}
 	// A site that now redirects to somebody else's domain has been parked,
 	// sold or folded into another brand; whatever it is, the catalogue this
 	// scraper was written against is not there.
 	if final := resp.Request.URL; final != nil && !sameSite(studioURL, final) {
 		return fmt.Sprintf("the site redirects to %s, a different domain", final.Host), true
+	}
+	return "", false
+}
+
+// cmsOutageRe matches the page Elevated X serves in place of a tour when the
+// operator's licence lapses. It arrives under HTTP 200, so nothing else in the
+// probe can tell it from a catalogue that has gone empty. The page's first
+// sentence carries the vendor's own typo; this matches the second, which is
+// present in every instance seen and needs no misspell exemption.
+var cmsOutageRe = regexp.MustCompile(`(?i)Your license key expired|log into your CMS admin panel`)
+
+// cmsOutage reports whether a body is a CMS serving an outage page rather than
+// the site. It is the same judgement as a 5xx — the site is not serving its
+// catalogue — but the status code does not say so.
+func cmsOutage(body []byte) (string, bool) {
+	if cmsOutageRe.Match(body) {
+		return "the site's CMS licence has expired (it serves a product-key error instead of the tour)", true
 	}
 	return "", false
 }

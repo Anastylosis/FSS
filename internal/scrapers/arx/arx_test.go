@@ -35,8 +35,8 @@ func siteByID(t *testing.T, id string) siteConfig {
 }
 
 func TestSites(t *testing.T) {
-	if len(sites) != 11 {
-		t.Fatalf("got %d sites, want 11", len(sites))
+	if len(sites) != 10 {
+		t.Fatalf("got %d sites, want 10", len(sites))
 	}
 	ids := map[string]bool{}
 	for _, c := range sites {

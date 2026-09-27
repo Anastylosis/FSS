@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -69,15 +70,31 @@ var (
 	// Listing card: anchors to a scene detail page. On the live site these are
 	// absolute URLs on a brand subdomain (e.g.
 	// https://timfuck.treasureislandmedia.com/scenes/{slug}); relative
-	// /scenes/{slug} links are also accepted and resolved against baseURL. The
-	// bare /scenes listing/pagination links carry a query string or no trailing
-	// slug, so they do not match.
-	sceneLinkRe = regexp.MustCompile(`href="((?:https?://[^"]+)?/scenes/[^"?#]+)"`)
+	// /scenes/{slug} links are also accepted and resolved against baseURL.
+	//
+	// A trailing query is matched but not captured: the grid's cards now carry
+	// `?from=grid&n=1&sort=released`, and requiring the href to end at the slug
+	// made every card invisible. The bare `/scenes` listing and pagination
+	// links still do not match — they have no slug after the segment.
+	sceneLinkRe = regexp.MustCompile(`href="((?:https?://[^"]+)?/scenes/[^"?#]+)(?:[?#][^"]*)?"`)
 
-	coverIDRe = regexp.MustCompile(`/covers/(\d+)\.`)
+	// The scene id is the numeric filename of its own image. The site has
+	// moved that image between directories (`/covers/` → `/splashes/`), and
+	// with only the old spelling matched the id came out empty and every scene
+	// was dropped as a parse failure, so both are accepted.
+	coverIDRe = regexp.MustCompile(`/(?:covers|splashes)/(\d+)\.`)
 
-	// Cast: the "Starring" tab lists models as subtitle anchors to /men/{id}.
-	castLinkRe = regexp.MustCompile(`class="thumbnail-subtitle-a"\s+href="[^"]*/men/[^"]*"[^>]*>([^<]+)<`)
+	// Cast: the older template listed models as subtitle anchors to /men/{id};
+	// the 2026 rebuild renders a "Starring" strip of named cards instead.
+	// Both are read — the sub-brand hosts have not all been rebuilt.
+	castLinkRe     = regexp.MustCompile(`class="thumbnail-subtitle-a"\s+href="[^"]*/men/[^"]*"[^>]*>([^<]+)<`)
+	castStripNames = regexp.MustCompile(`class="to-caststrip__name">([^<]+)<`)
+
+	// The rebuild moved the director into a meta row of chips and added a
+	// runtime chip; neither existed in the older template.
+	metaDirectorRe = regexp.MustCompile(`(?s)to-meta__label">Directors?:</span>\s*<span class="to-meta__chips">(.*?)</span>`)
+	metaRuntimeRe  = regexp.MustCompile(`to-chip--fact">(\d+)<!-- --> min`)
+	chipTextRe     = regexp.MustCompile(`(?s)<a[^>]*class="to-chip"[^>]*>(.*?)</a>`)
 	// Director: a /directors/{slug} taxonomy link.
 	directorRe = regexp.MustCompile(`href="/directors/[^"]+"[^>]*>([^<]+)<`)
 )
@@ -213,15 +230,27 @@ func (s *Scraper) toScene(ctx context.Context, studioURL, sceneURL string, now t
 
 	if m := directorRe.FindStringSubmatch(detail); m != nil {
 		scene.Director = cleanText(m[1])
+	} else if m := metaDirectorRe.FindStringSubmatch(detail); m != nil {
+		if c := chipTextRe.FindStringSubmatch(m[1]); c != nil {
+			scene.Director = cleanText(c[1])
+		}
+	}
+
+	if m := metaRuntimeRe.FindStringSubmatch(detail); m != nil {
+		if mins, cerr := strconv.Atoi(m[1]); cerr == nil {
+			scene.Duration = mins * 60
+		}
 	}
 
 	var performers []string
 	seen := make(map[string]bool)
-	for _, m := range castLinkRe.FindAllStringSubmatch(detail, -1) {
-		name := cleanText(m[1])
-		if name != "" && !seen[name] {
-			seen[name] = true
-			performers = append(performers, name)
+	for _, re := range []*regexp.Regexp{castLinkRe, castStripNames} {
+		for _, m := range re.FindAllStringSubmatch(detail, -1) {
+			name := cleanText(m[1])
+			if name != "" && !seen[name] {
+				seen[name] = true
+				performers = append(performers, name)
+			}
 		}
 	}
 	scene.Performers = performers

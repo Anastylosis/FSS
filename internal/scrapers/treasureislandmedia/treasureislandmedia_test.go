@@ -225,3 +225,51 @@ func TestListScenes(t *testing.T) {
 		t.Errorf("siteIDs = %v", site)
 	}
 }
+
+// The 2026 rebuild changed three things at once: the grid's scene links gained
+// a query string, the scene image moved from /covers/ to /splashes/ (and the
+// id is that filename), and the cast, director and runtime moved into new
+// markup. Each one alone silently emptied the catalogue or a field.
+func TestParsesTheRebuiltMarkup(t *testing.T) {
+	const grid = `<a class="to-flip__art-link" href="/scenes/ro-d-luna-john-cortes-albert?from=grid&amp;n=1&amp;sort=released">` +
+		`<img src="/_next/image?url=x"/></a>` +
+		`<a href="/scenes?channel=All&amp;page=2">2</a>`
+
+	m := sceneLinkRe.FindAllStringSubmatch(grid, -1)
+	if len(m) != 1 {
+		t.Fatalf("got %d scene links, want 1: %v", len(m), m)
+	}
+	if m[0][1] != "/scenes/ro-d-luna-john-cortes-albert" {
+		t.Errorf("captured %q, want the path without its query", m[0][1])
+	}
+
+	if got := coverIDRe.FindStringSubmatch("https://assets.example.com/scenes/images/splashes/1280834.jpg"); got == nil || got[1] != "1280834" {
+		t.Errorf("splashes id = %v", got)
+	}
+	// The older directory still resolves.
+	if got := coverIDRe.FindStringSubmatch("https://assets.example.com/covers/99.jpg"); got == nil || got[1] != "99" {
+		t.Errorf("covers id = %v", got)
+	}
+
+	const detail = `<div class="to-caststrip"><p class="to-caststrip__label">Starring</p>` +
+		`<span class="to-caststrip__name">Ro D. Luna</span>` +
+		`<span class="to-caststrip__name">John Cortes</span></div>` +
+		`<div class="to-meta"><div class="to-meta__runtime"><span class="to-chip to-chip--fact">18<!-- --> min</span></div>` +
+		`<div class="to-meta__row"><span class="to-meta__label">Directors:</span>` +
+		`<span class="to-meta__chips"><a class="to-chip" href="/director/mecos">Mecos</a></span></div></div>`
+
+	names := castStripNames.FindAllStringSubmatch(detail, -1)
+	if len(names) != 2 || names[0][1] != "Ro D. Luna" || names[1][1] != "John Cortes" {
+		t.Errorf("cast = %v", names)
+	}
+	d := metaDirectorRe.FindStringSubmatch(detail)
+	if d == nil {
+		t.Fatal("no director row")
+	}
+	if c := chipTextRe.FindStringSubmatch(d[1]); c == nil || c[1] != "Mecos" {
+		t.Errorf("director = %v", c)
+	}
+	if r := metaRuntimeRe.FindStringSubmatch(detail); r == nil || r[1] != "18" {
+		t.Errorf("runtime = %v", r)
+	}
+}

@@ -31,4 +31,3 @@ func TestLiveTransRoommates(t *testing.T) { live(t, "transroommates") }
 // Not in the CMS's embedded sites array, but on the same platform.
 func TestLiveTransDaylight(t *testing.T) { live(t, "transdaylight") }
 func TestLiveTransMidnight(t *testing.T) { live(t, "transmidnight") }
-func TestLiveRandyPass(t *testing.T)     { live(t, "randypass") }

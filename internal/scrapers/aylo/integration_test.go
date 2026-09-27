@@ -34,16 +34,30 @@ func newTestScraper(cfg siteConfig) *siteScraper {
 	}
 }
 
+// siteByID keeps these independent of the table's order, which changes
+// whenever a site is added — an index-based lookup silently pointed
+// TestLiveRealityKings at a different scraper the moment one was.
+func siteByID(t *testing.T, id string) siteConfig {
+	t.Helper()
+	for _, c := range sites {
+		if c.SiteID == id {
+			return c
+		}
+	}
+	t.Fatalf("no site %q", id)
+	return siteConfig{}
+}
+
 func TestLiveBabes(t *testing.T) {
-	testutil.RunLiveScrape(t, newTestScraper(sites[0]), "https://www.babes.com/", 2)
+	testutil.RunLiveScrape(t, newTestScraper(siteByID(t, "babes")), "https://www.babes.com/", 2)
 }
 
 func TestLiveBrazzers(t *testing.T) {
-	testutil.RunLiveScrape(t, newTestScraper(sites[2]), "https://www.brazzers.com/", 2)
+	testutil.RunLiveScrape(t, newTestScraper(siteByID(t, "brazzers")), "https://www.brazzers.com/", 2)
 }
 
 func TestLiveRealityKings(t *testing.T) {
-	testutil.RunLiveScrape(t, newTestScraper(sites[16]), "https://www.realitykings.com/", 2)
+	testutil.RunLiveScrape(t, newTestScraper(siteByID(t, "realitykings")), "https://www.realitykings.com/", 2)
 }
 
 func TestLiveSexyHub(t *testing.T) {
@@ -94,12 +108,5 @@ func TestLiveVOYR(t *testing.T) {
 // Deviante's five StashDB studios are sub-brands of one Aylo site, reached as
 // series on the same catalogue.
 func TestLiveDeviante(t *testing.T) {
-	var cfg siteConfig
-	for _, c := range sites {
-		if c.SiteID == "deviante" {
-			cfg = c
-			break
-		}
-	}
-	testutil.RunLiveScrape(t, newTestScraper(cfg), "https://www.deviante.com/", 3)
+	testutil.RunLiveScrape(t, newTestScraper(siteByID(t, "deviante")), "https://www.deviante.com/", 3)
 }
