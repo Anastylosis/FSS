@@ -611,3 +611,23 @@ func TestCMSOutage(t *testing.T) {
 		t.Error("a normal page was reported as an outage")
 	}
 }
+
+// A run that only timed out proves nothing on its own — the deadline may be
+// ours — so the site is asked rather than the errors decided from. A host that
+// alternates between refusing and hanging used to fail on the hanging runs and
+// skip on the refusing ones.
+func TestAllTimeouts(t *testing.T) {
+	deadline := fmt.Errorf("fetch: %w", context.DeadlineExceeded)
+	notATimeout := errors.New("parse: no video block")
+
+	if !allTimeouts([]error{deadline, deadline}) {
+		t.Error("two deadlines should count as all-timeouts")
+	}
+	if allTimeouts([]error{deadline, notATimeout}) {
+		t.Error("one non-timeout must disqualify the run")
+	}
+	// No errors at all is a different case — the caller already probes there.
+	if allTimeouts(nil) {
+		t.Error("an empty error list is not all-timeouts")
+	}
+}

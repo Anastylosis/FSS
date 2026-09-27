@@ -13,6 +13,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"regexp"
 	"strings"
 	"testing"
@@ -164,13 +165,21 @@ func siteIsDown(studioURL string, errs []error) (string, bool) {
 	// The scrape's own errors are the better evidence when there are any: they
 	// name the URL the scraper actually could not fetch, which is often not the
 	// studio URL at all (a WordPress REST endpoint under it, say).
+	// A run that only timed out proves nothing by itself — the deadline may be
+	// ours — so let the site answer rather than deciding from the errors.
+	if allTimeouts(errs) {
+		if reason, ok := probeSite(studioURL); ok {
+			return reason, true
+		}
+		return "", false
+	}
 	if len(errs) > 0 {
 		first := ""
 		for _, err := range errs {
 			reason, ok := siteSideError(err)
 			if !ok {
-				// Not obviously the site's fault — a parse failure, a 4xx, or
-				// a timeout we may have set too low. Report it as a failure.
+				// Not obviously the site's fault — a parse failure or a 4xx.
+				// Report it as a failure.
 				return "", false
 			}
 			if first == "" {
@@ -204,9 +213,26 @@ func siteSideError(err error) (string, bool) {
 	if errors.As(err, &opErr) {
 		return fmt.Sprintf("the site refused the connection (%s)", opErr.Err), true
 	}
-	// A timeout is deliberately not site-side: it is as likely to be a client
-	// deadline set below the origin's own ceiling, which is our bug to fix.
+	// A timeout is deliberately not site-side *on its own*: it is as likely to
+	// be a client deadline set below the origin's own ceiling, which is our bug
+	// to fix. classifyZeroScene falls through to the probe when every error was
+	// a timeout, so the site gets to answer for itself.
 	return "", false
+}
+
+// allTimeouts reports whether every error was a deadline rather than a refusal
+// or a status. A run that only timed out proves nothing by itself, so the
+// caller probes the site instead of failing outright.
+func allTimeouts(errs []error) bool {
+	if len(errs) == 0 {
+		return false
+	}
+	for _, err := range errs {
+		if !errors.Is(err, context.DeadlineExceeded) && !os.IsTimeout(err) {
+			return false
+		}
+	}
+	return true
 }
 
 // probeSite asks the studio URL whether it is still serving this site.
@@ -274,7 +300,12 @@ func runOnce(t *testing.T, s scraper.StudioScraper, studioURL string, limit int,
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 
-	ch, err := s.ListScenes(ctx, studioURL, scraper.ListOpts{Workers: 3})
+	// Workers is deliberately left unset: every scraper now honours the flag
+	// (scraper.WorkerCount), so pinning a number here throttles the live tests
+	// below each scraper's own default and pushes the slow ones past the
+	// deadline. Zero means "use the scraper's default", which is what a plain
+	// `fss scrape` does.
+	ch, err := s.ListScenes(ctx, studioURL, scraper.ListOpts{})
 	if err != nil {
 		if tolerateErrors {
 			t.Logf("ListScenes(%s): %v (will retry)", studioURL, err)
