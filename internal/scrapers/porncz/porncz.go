@@ -18,11 +18,10 @@ import (
 )
 
 const (
-	defaultBase  = "https://www.porncz.com"
-	siteID       = "porncz"
-	studioName   = "PornCZ"
-	perPage      = 30
-	defaultDelay = 500 * time.Millisecond
+	defaultBase = "https://www.porncz.com"
+	siteID      = "porncz"
+	studioName  = "PornCZ"
+	perPage     = 30
 )
 
 var matchRe = regexp.MustCompile(`^https?://(?:www\.)?porncz\.com(?:/|$)`)
@@ -31,6 +30,11 @@ type Scraper struct {
 	client *http.Client
 	base   string
 }
+
+// RecommendedDelay is the pace this scraper was written against. It is **not**
+// silently enforced — the operator's `opts.Delay` is always honoured, including
+// `--delay 0` — but `WarnDelayBelow` surfaces a one-shot stderr warning below it.
+const RecommendedDelay = 500 * time.Millisecond
 
 func New() *Scraper {
 	return &Scraper{
@@ -77,9 +81,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 	defer close(out)
 
 	delay := opts.Delay
-	if delay == 0 {
-		delay = defaultDelay
-	}
+	scraper.WarnDelayBelow("porncz", opts.Delay, RecommendedDelay)
 	workers := opts.Workers
 	if workers <= 0 {
 		workers = 4

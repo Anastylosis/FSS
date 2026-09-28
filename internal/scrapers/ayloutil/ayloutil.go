@@ -217,10 +217,19 @@ func (s *Scraper) FetchPage(ctx context.Context, token string, filter Filter, pa
 	return result.Result, result.Meta.Total, nil
 }
 
-func (s *Scraper) fetchSeries(ctx context.Context, token string, seriesID int) ([]Release, int, error) {
+func (s *Scraper) fetchSeries(ctx context.Context, token string, seriesID int, delay time.Duration) ([]Release, int, error) {
 	for offset := 0; ; offset += HitsPerPage {
 		if err := ctx.Err(); err != nil {
 			return nil, 0, err
+		}
+		// A series can span many pages, and this walk used to issue them
+		// back to back regardless of --delay.
+		if offset > 0 && delay > 0 {
+			select {
+			case <-time.After(delay):
+			case <-ctx.Done():
+				return nil, 0, ctx.Err()
+			}
 		}
 		scraper.Debugf(1, "%s: fetching page %d", s.cfg.SiteID, offset)
 		params := url.Values{}
@@ -391,8 +400,8 @@ func (s *Scraper) Run(ctx context.Context, studioURL string, opts scraper.ListOp
 	}
 }
 
-func (s *Scraper) runSeries(ctx context.Context, studioURL string, _ scraper.ListOpts, out chan<- scraper.SceneResult, token string, seriesID int) {
-	releases, total, err := s.fetchSeries(ctx, token, seriesID)
+func (s *Scraper) runSeries(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult, token string, seriesID int) {
+	releases, total, err := s.fetchSeries(ctx, token, seriesID, opts.Delay)
 	if err != nil {
 		select {
 		case out <- scraper.Error(err):

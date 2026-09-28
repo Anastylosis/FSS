@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Anastylosis/FSS/internal/scrapers/testutil"
 	"github.com/Anastylosis/FSS/parseutil"
@@ -315,4 +316,26 @@ func TestKnownIDsStopsEarly(t *testing.T) {
 
 func TestScraperInterface(t *testing.T) {
 	var _ scraper.StudioScraper = New()
+}
+
+// The scraper used to silently raise a zero delay to its own 500ms floor, so
+// `--delay 0` cost half a second per request against an operator's own mirror.
+// Delay control belongs to the config/CLI layer; the package only recommends.
+func TestZeroDelayIsHonoured(t *testing.T) {
+	ts := newTestServer([]int{3, 2, 1})
+	defer ts.Close()
+
+	s := &Scraper{client: ts.Client(), base: ts.URL}
+
+	start := time.Now()
+	ch, err := s.ListScenes(context.Background(), ts.URL, scraper.ListOpts{Delay: 0, Workers: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n := len(testutil.CollectScenes(t, ch)); n != 3 {
+		t.Fatalf("got %d scenes, want 3", n)
+	}
+	if elapsed := time.Since(start); elapsed > time.Second {
+		t.Errorf("a zero delay took %v — the package is still applying a floor", elapsed)
+	}
 }

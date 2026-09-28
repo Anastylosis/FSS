@@ -15,7 +15,10 @@ import (
 	"github.com/Anastylosis/FSS/scraper"
 )
 
-const defaultDelay = 500 * time.Millisecond
+// RecommendedDelay is the pace this scraper was written against. It is **not**
+// silently enforced — the operator's `opts.Delay` is always honoured, including
+// `--delay 0` — but `WarnDelayBelow` surfaces a one-shot stderr warning below it.
+const RecommendedDelay = 500 * time.Millisecond
 
 type SiteConfig struct {
 	SiteID     string
@@ -63,9 +66,7 @@ var modelPageRe = regexp.MustCompile(`/models/([a-z0-9-]+)`)
 func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
 	defer close(out)
 
-	if opts.Delay == 0 {
-		opts.Delay = defaultDelay
-	}
+	scraper.WarnDelayBelow(s.cfg.SiteID, opts.Delay, RecommendedDelay)
 
 	isModel := modelPageRe.MatchString(studioURL)
 	dataKey := "tourMainPageData"

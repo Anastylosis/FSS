@@ -17,10 +17,9 @@ import (
 )
 
 const (
-	hubBase      = "https://1passforallsites.com"
-	siteID       = "1passforallsites"
-	studioName   = "1 Pass for All Sites"
-	defaultDelay = 500 * time.Millisecond
+	hubBase    = "https://1passforallsites.com"
+	siteID     = "1passforallsites"
+	studioName = "1 Pass for All Sites"
 )
 
 var childDomains = []string{
@@ -56,6 +55,11 @@ var childDomains = []string{
 }
 
 var matchRe *regexp.Regexp
+
+// RecommendedDelay is the pace this scraper was written against. It is **not**
+// silently enforced — the operator's `opts.Delay` is always honoured, including
+// `--delay 0` — but `WarnDelayBelow` surfaces a one-shot stderr warning below it.
+const RecommendedDelay = 500 * time.Millisecond
 
 func init() {
 	parts := []string{`1passforallsites\.com`}
@@ -116,9 +120,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 	defer close(out)
 
 	delay := opts.Delay
-	if delay == 0 {
-		delay = defaultDelay
-	}
+	scraper.WarnDelayBelow(siteID, opts.Delay, RecommendedDelay)
 	workers := opts.Workers
 	if workers <= 0 {
 		workers = 4

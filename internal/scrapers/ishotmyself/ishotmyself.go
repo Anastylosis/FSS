@@ -14,9 +14,8 @@ import (
 )
 
 const (
-	siteBase     = "https://ishotmyself.com"
-	pageSize     = 25
-	defaultDelay = 500 * time.Millisecond
+	siteBase = "https://ishotmyself.com"
+	pageSize = 25
 )
 
 type Scraper struct {
@@ -27,6 +26,11 @@ type Scraper struct {
 	// happened to fetch it from there.
 	base string
 }
+
+// RecommendedDelay is the pace this scraper was written against. It is **not**
+// silently enforced — the operator's `opts.Delay` is always honoured, including
+// `--delay 0` — but `WarnDelayBelow` surfaces a one-shot stderr warning below it.
+const RecommendedDelay = 500 * time.Millisecond
 
 func New() *Scraper {
 	return &Scraper{client: httpx.NewClient(30 * time.Second), base: siteBase}
@@ -61,9 +65,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 	defer close(out)
 
 	delay := opts.Delay
-	if delay == 0 {
-		delay = defaultDelay
-	}
+	scraper.WarnDelayBelow("ishotmyself", opts.Delay, RecommendedDelay)
 
 	baseURL := s.base + "/public/general.php?p=folios&content=vid&sortby=dt&order=desc&view=tmb"
 	if m := artistPageRe.FindStringSubmatch(studioURL); m != nil {
