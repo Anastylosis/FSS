@@ -246,6 +246,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 }
 
 func (s *Scraper) enqueueItems(ctx context.Context, listURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult, work chan<- string) {
+	dateSorted := newestSortRe.MatchString(listURL)
 	for page := 1; ; page++ {
 		if ctx.Err() != nil {
 			return
@@ -296,14 +297,16 @@ func (s *Scraper) enqueueItems(ctx context.Context, listURL string, opts scraper
 			}
 		}
 
+		// The listing's only date is a release *month*, so `onrls=new` orders
+		// page one as one whole month's releases in no order within it. A title
+		// added to the current month therefore sits behind stored siblings, so
+		// the page is scanned in full before stopping. An operator-supplied
+		// search URL may carry any sort at all, so there the hint is ignored.
+		hitKnown := false
 		for _, item := range items {
-			if opts.KnownIDs[item.code] {
-				scraper.Debugf(1, "waap: hit known ID %s, stopping early", item.code)
-				select {
-				case out <- scraper.StoppedEarly():
-				case <-ctx.Done():
-				}
-				return
+			if dateSorted && opts.KnownIDs[item.code] {
+				hitKnown = true
+				continue
 			}
 			select {
 			case work <- item.code:
@@ -311,8 +314,20 @@ func (s *Scraper) enqueueItems(ctx context.Context, listURL string, opts scraper
 				return
 			}
 		}
+		if hitKnown {
+			scraper.Debugf(1, "waap: page %d reached stored items, stopping", page)
+			select {
+			case out <- scraper.StoppedEarly():
+			case <-ctx.Done():
+			}
+			return
+		}
 	}
 }
+
+// newestSortRe recognises the "newest first" sort in a listing URL; any other
+// sort makes the KnownIDs early-stop meaningless.
+var newestSortRe = regexp.MustCompile(`[?&]onrls=new(&|$)`)
 
 var pgRe = regexp.MustCompile(`pg=\d+`)
 

@@ -281,13 +281,16 @@ func TestListScenesMakerPage(t *testing.T) {
 	}
 }
 
+// The /work/ listing is grouped by label, not by release date, so a stored code
+// in the middle must be skipped rather than end the walk.
 func TestListScenesKnownIDs(t *testing.T) {
 	details := map[string]string{
 		"fthtd-100": detailHTML("FTHTD-100", "New", "A", "FALENO TUBE"),
 		"fthtd-101": detailHTML("FTHTD-101", "Known", "B", "FALENO TUBE"),
 	}
+	details["fthtd-102"] = detailHTML("FTHTD-102", "Also New", "C", "FALENO TUBE")
 	listings := map[string][]string{
-		"/makers/falenotube": {"fthtd-100", "fthtd-101"},
+		"/makers/falenotube": {"fthtd-100", "fthtd-101", "fthtd-102"},
 	}
 
 	ts := newTestServer(t, listings, details, 0)
@@ -305,10 +308,11 @@ func TestListScenesKnownIDs(t *testing.T) {
 	if !stoppedEarly {
 		t.Error("expected StoppedEarly signal")
 	}
-	if len(results) != 1 {
-		t.Fatalf("got %d scenes, want 1", len(results))
+	ids := map[string]bool{}
+	for _, sc := range results {
+		ids[sc.ID] = true
 	}
-	if results[0].ID != "FTHTD-100" {
-		t.Errorf("ID = %q, want FTHTD-100", results[0].ID)
+	if len(results) != 2 || !ids["FTHTD-100"] || !ids["FTHTD-102"] {
+		t.Fatalf("scene IDs = %v, want FTHTD-100 and the code behind the stored one", ids)
 	}
 }

@@ -175,24 +175,32 @@ func (s *Scraper) runActress(ctx context.Context, pc pageConfig, studioURL strin
 		performer = titleCase(strings.ReplaceAll(m[1], "-", " "))
 	}
 
+	// The actress page arrives complete in one request — every video is in the
+	// RSC payload already — so an early stop saves no fetch at all and can only
+	// truncate a listing whose order was never verified. Known scenes are
+	// skipped instead.
 	now := time.Now().UTC()
+	skipped := 0
 	for _, v := range videos {
 		scene := v.toScene(studioURL, now)
 		if performer != "" {
 			scene.Performers = []string{performer}
 		}
 		if opts.KnownIDs[scene.ID] {
-			scraper.Debugf(1, "fakings: hit known ID, stopping early")
-			select {
-			case out <- scraper.StoppedEarly():
-			case <-ctx.Done():
-			}
-			return
+			skipped++
+			continue
 		}
 		select {
 		case out <- scraper.Scene(scene):
 		case <-ctx.Done():
 			return
+		}
+	}
+	if skipped > 0 {
+		scraper.Debugf(1, "fakings: skipped %d already-stored scene(s)", skipped)
+		select {
+		case out <- scraper.StoppedEarly():
+		case <-ctx.Done():
 		}
 	}
 }

@@ -216,20 +216,29 @@ func (s *Scraper) fetchDetails(ctx context.Context, studioURL, base string, opts
 		}()
 	}
 
+	// The /work/ listing is grouped by label, not by release date — live, its
+	// first four entries ran 2026/09/04, 2026/08/28, 2026/08/14, 2026/09/11 —
+	// so a stop at the first stored code would abort at an arbitrary position
+	// and hide the rest permanently. Every page is walked before this point
+	// anyway, so skipping known codes costs only their detail fetches.
 	go func() {
 		defer close(work)
+		skipped := 0
 		for _, u := range urls {
 			code := strings.ToUpper(codeFromURL(u))
 			if opts.KnownIDs[code] {
-				scraper.Debugf(1, "%s: hit known ID %s, stopping early", siteID, code)
-				sendResult(ctx, out, scraper.StoppedEarly())
-				return
+				skipped++
+				continue
 			}
 			select {
 			case work <- u:
 			case <-ctx.Done():
 				return
 			}
+		}
+		if skipped > 0 {
+			scraper.Debugf(1, "%s: skipped %d already-stored work(s)", siteID, skipped)
+			sendResult(ctx, out, scraper.StoppedEarly())
 		}
 	}()
 

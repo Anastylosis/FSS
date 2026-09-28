@@ -120,24 +120,16 @@ func TestParseDetailReposted(t *testing.T) {
 
 func TestResolveMode(t *testing.T) {
 	s := New()
-	tests := []struct {
-		url        string
-		wantPath   string
-		wantSorted bool
-	}{
-		{"https://www.rawfuckclub.com", "/browse/new", true},
-		{"https://www.rawfuckclub.com/browse/new", "/browse/new", true},
-		{"https://www.rawfuckclub.com/RawFuckClub", "/RawFuckClub/newest_uploads", true},
-		{"https://www.rawfuckclub.com/SomeChannel/newest_uploads", "/SomeChannel/newest_uploads", true},
-		{"https://www.rawfuckclub.com/browse/trending", "/browse/trending", false},
+	tests := []struct{ url, wantPath string }{
+		{"https://www.rawfuckclub.com", "/browse/new"},
+		{"https://www.rawfuckclub.com/browse/new", "/browse/new"},
+		{"https://www.rawfuckclub.com/RawFuckClub", "/RawFuckClub/newest_uploads"},
+		{"https://www.rawfuckclub.com/SomeChannel/newest_uploads", "/SomeChannel/newest_uploads"},
+		{"https://www.rawfuckclub.com/browse/trending", "/browse/trending"},
 	}
 	for _, tt := range tests {
-		path, sorted := s.resolveMode(tt.url)
-		if path != tt.wantPath {
+		if path := s.resolveMode(tt.url); path != tt.wantPath {
 			t.Errorf("resolveMode(%q) path = %q, want %q", tt.url, path, tt.wantPath)
-		}
-		if sorted != tt.wantSorted {
-			t.Errorf("resolveMode(%q) sorted = %v, want %v", tt.url, sorted, tt.wantSorted)
 		}
 	}
 }
@@ -261,6 +253,45 @@ func TestKnownIDsStopEarly(t *testing.T) {
 	}
 	if scenes != 1 {
 		t.Errorf("got %d scenes, want 1", scenes)
+	}
+	if stopped != 1 {
+		t.Errorf("got %d stoppedEarly, want 1", stopped)
+	}
+}
+
+// /browse/new is ordered by upload date and a repost re-uploads, so a stored
+// scene routinely sits at the top of page one — live, eight of the first ten
+// cards were reposts of 2025 videos. A stop there would end the run before
+// reaching anything new, so the known card must only be skipped.
+func TestKnownIDAtTheTopDoesNotHideTheRest(t *testing.T) {
+	ts := newTestServer(
+		map[int]string{1: fixtureListing},
+		map[string]string{
+			"/video/CD34-other-second-scene": fixtureDetail,
+		},
+	)
+	defer ts.Close()
+
+	s := &Scraper{client: ts.Client(), base: ts.URL}
+	ch, err := s.ListScenes(context.Background(), ts.URL+"/browse/new", scraper.ListOpts{
+		KnownIDs: map[string]bool{"AB12": true},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var ids []string
+	var stopped int
+	for _, r := range collect(ch) {
+		switch r.Kind {
+		case scraper.KindScene:
+			ids = append(ids, r.Scene.ID)
+		case scraper.KindStoppedEarly:
+			stopped++
+		}
+	}
+	if len(ids) != 1 || ids[0] != "CD34" {
+		t.Errorf("scene IDs = %v, want [CD34]", ids)
 	}
 	if stopped != 1 {
 		t.Errorf("got %d stoppedEarly, want 1", stopped)

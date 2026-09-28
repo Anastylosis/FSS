@@ -167,37 +167,43 @@ var reservedPaths = map[string]bool{
 	"login": true, "signup": true, "settings": true,
 }
 
-func (s *Scraper) resolveMode(studioURL string) (pathBase string, dateSorted bool) {
+func (s *Scraper) resolveMode(studioURL string) string {
 	u, err := url.Parse(studioURL)
 	if err != nil {
-		return "/browse/new", true
+		return "/browse/new"
 	}
 	path := strings.TrimRight(u.Path, "/")
 	if path == "" || path == "/browse/new" {
-		return "/browse/new", true
+		return "/browse/new"
 	}
 	if strings.HasPrefix(path, "/browse/") {
-		return path, false
+		return path
 	}
 	parts := strings.SplitN(strings.TrimLeft(path, "/"), "/", 2)
 	slug := parts[0]
 	if reservedPaths[slug] {
-		return "/browse/new", true
+		return "/browse/new"
 	}
-	return "/" + slug + "/newest_uploads", true
+	return "/" + slug + "/newest_uploads"
 }
 
 func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
 	defer close(out)
 
-	pathBase, dateSorted := s.resolveMode(studioURL)
+	pathBase := s.resolveMode(studioURL)
 	seen := make(map[string]bool)
+	skipped := 0
 
-	// Only pass KnownIDs when the listing is date-sorted.
+	// No listing on this site is ordered by publication date. /browse/new is
+	// ordered by *upload* date and a repost re-uploads: eight of the first ten
+	// cards are reposts of 2025 videos, each carrying "Originally posted on"
+	// (which is the date FSS stores). So a stored scene sits at the very top
+	// and an early stop would end the run before reaching anything new. The
+	// hint is therefore dropped everywhere and known scenes are skipped
+	// instead — cheap, since the skip happens before the detail fetch, leaving
+	// an incremental run paying for listing pages only.
 	paginateOpts := opts
-	if !dateSorted {
-		paginateOpts.KnownIDs = nil
-	}
+	paginateOpts.KnownIDs = nil
 
 	scraper.Paginate(ctx, paginateOpts, "rawfuckclub", out, func(ctx context.Context, page int) (scraper.PageResult, error) {
 		u := pathBase
@@ -231,6 +237,10 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 				continue
 			}
 			seen[e.id] = true
+			if opts.KnownIDs[e.id] {
+				skipped++
+				continue
+			}
 			work = append(work, e)
 		}
 
@@ -243,8 +253,18 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 			}
 			scenes = append(scenes, sc.Scene)
 		}
-		return scraper.PageResult{Scenes: scenes}, nil
+		// A page of nothing but stored scenes is not the end of the listing —
+		// on a repost day it is most of page one.
+		return scraper.PageResult{Scenes: scenes, Continue: true}, nil
 	})
+
+	if skipped > 0 {
+		scraper.Debugf(1, "rawfuckclub: skipped %d already-stored scene(s)", skipped)
+		select {
+		case out <- scraper.StoppedEarly():
+		case <-ctx.Done():
+		}
+	}
 }
 
 type sceneOrErr struct {

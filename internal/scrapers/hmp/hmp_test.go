@@ -176,6 +176,9 @@ func TestRun(t *testing.T) {
 	}
 }
 
+// Releases arrive in same-date batches ordered by product code, so a title
+// added to a half-stored batch sits behind a known sibling: the page is
+// finished before the stop and HODV-33333 must still be collected.
 func TestRunKnownIDs(t *testing.T) {
 	codes := []string{"HODV-11111", "HODV-22222", "HODV-33333"}
 	ts := newTestServer(codes)
@@ -194,7 +197,11 @@ func TestRunKnownIDs(t *testing.T) {
 	if !stoppedEarly {
 		t.Error("expected StoppedEarly signal")
 	}
-	if len(scenes) != 1 {
-		t.Fatalf("got %d scenes, want 1", len(scenes))
+	ids := map[string]bool{}
+	for _, sc := range scenes {
+		ids[sc.ID] = true
+	}
+	if len(scenes) != 2 || !ids["HODV-11111"] || !ids["HODV-33333"] {
+		t.Fatalf("scene IDs = %v, want HODV-11111 and HODV-33333", ids)
 	}
 }

@@ -333,3 +333,41 @@ func TestListScenesActress(t *testing.T) {
 		}
 	}
 }
+
+// The actress page arrives complete in one request, so an early stop saves no
+// fetch and can only truncate a listing whose order was never verified.
+func TestListScenesActressKnownIDsSkipRatherThanStop(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprint(w, actressHTML)
+	}))
+	defer ts.Close()
+
+	s := &Scraper{client: ts.Client()}
+	all := testutil.CollectScenes(t, mustList(t, s, ts.URL+"/actrices-porno/paula-ortiz", scraper.ListOpts{}))
+	if len(all) != 2 {
+		t.Fatalf("fixture has %d scenes, want 2", len(all))
+	}
+
+	ch, err := s.ListScenes(context.Background(), ts.URL+"/actrices-porno/paula-ortiz", scraper.ListOpts{
+		KnownIDs: map[string]bool{all[0].ID: true},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	scenes, stopped := testutil.CollectScenesWithStop(t, ch)
+	if len(scenes) != 1 || scenes[0].ID != all[1].ID {
+		t.Errorf("scenes = %v, want just %s", scenes, all[1].ID)
+	}
+	if !stopped {
+		t.Error("expected StoppedEarly to report the skipped scene")
+	}
+}
+
+func mustList(t *testing.T, s *Scraper, u string, opts scraper.ListOpts) <-chan scraper.SceneResult {
+	t.Helper()
+	ch, err := s.ListScenes(context.Background(), u, opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return ch
+}

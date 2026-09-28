@@ -216,6 +216,9 @@ func TestRun(t *testing.T) {
 	}
 }
 
+// The listing's only date is a release month, so a title added to the current
+// month sits behind stored siblings. The page is therefore finished before the
+// stop: GHI003 must still be collected.
 func TestRunKnownIDs(t *testing.T) {
 	ts := newTestServer([]string{"ABC001", "DEF002", "GHI003"})
 	defer ts.Close()
@@ -233,8 +236,36 @@ func TestRunKnownIDs(t *testing.T) {
 	if !stoppedEarly {
 		t.Error("expected StoppedEarly signal")
 	}
-	if len(results) != 1 {
-		t.Fatalf("got %d scenes, want 1", len(results))
+	ids := map[string]bool{}
+	for _, sc := range results {
+		ids[sc.ID] = true
+	}
+	if len(results) != 2 || !ids["ABC001"] || !ids["GHI003"] {
+		t.Fatalf("scene IDs = %v, want ABC001 and GHI003", ids)
+	}
+}
+
+// An operator-supplied search URL may carry any sort at all, so the early-stop
+// hint is ignored there and the whole listing is walked.
+func TestRunKnownIDsIgnoredWithoutTheNewestSort(t *testing.T) {
+	ts := newTestServer([]string{"ABC001", "DEF002", "GHI003"})
+	defer ts.Close()
+
+	s := &Scraper{client: ts.Client()}
+
+	ch, err := s.ListScenes(context.Background(), ts.URL+"/work/search.php?serch=5&onrls=pop&limit=45&pg=1", scraper.ListOpts{
+		KnownIDs: map[string]bool{"DEF002": true},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	results, stoppedEarly := testutil.CollectScenesWithStop(t, ch)
+	if stoppedEarly {
+		t.Error("an unordered sort must not report an early stop")
+	}
+	if len(results) != 3 {
+		t.Fatalf("got %d scenes, want 3", len(results))
 	}
 }
 

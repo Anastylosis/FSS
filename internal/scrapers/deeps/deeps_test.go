@@ -446,6 +446,9 @@ func TestListScenes(t *testing.T) {
 
 // ---- TestListScenesKnownIDs ----
 
+// Releases arrive in same-date batches ordered by product code, so a title
+// added to a batch already half-stored sits behind a known sibling. The stop
+// therefore waits for the end of the page: dvmm-384 must still be collected.
 func TestListScenesKnownIDs(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
@@ -456,6 +459,8 @@ func TestListScenesKnownIDs(t *testing.T) {
 			switch r.URL.RawQuery {
 			case "dvmm-382":
 				_, _ = fmt.Fprint(w, detailPageHTML("dvmm-382", "Title One", "", "2026.4.21", "90分", "", "", "", "", ""))
+			case "dvmm-384":
+				_, _ = fmt.Fprint(w, detailPageHTML("dvmm-384", "Title Three", "", "2026.4.21", "90分", "", "", "", "", ""))
 			default:
 				http.NotFound(w, r)
 			}
@@ -477,11 +482,12 @@ func TestListScenesKnownIDs(t *testing.T) {
 	if !stopped {
 		t.Error("expected StoppedEarly signal")
 	}
-	if len(scenes) != 1 {
-		t.Errorf("got %d scenes, want 1", len(scenes))
+	ids := map[string]bool{}
+	for _, sc := range scenes {
+		ids[sc.ID] = true
 	}
-	if len(scenes) > 0 && scenes[0].ID != "DVMM-382" {
-		t.Errorf("scene ID = %q, want %q", scenes[0].ID, "DVMM-382")
+	if len(scenes) != 2 || !ids["DVMM-382"] || !ids["DVMM-384"] {
+		t.Errorf("scene IDs = %v, want DVMM-382 and DVMM-384 — the page is finished before the stop", ids)
 	}
 }
 

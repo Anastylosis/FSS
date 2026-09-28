@@ -383,3 +383,85 @@ func TestRunKnownIDs(t *testing.T) {
 		t.Error("expected StoppedEarly")
 	}
 }
+
+// The model page was rebuilt as a swimlane whose cards leave data-setid empty
+// and carry the id in data-scene-id instead, and whose performer link has
+// attributes before its href. Both spellings must parse.
+const sampleSwimlaneCard = `<div data-scene-id="5414" class="rounded-xl flex-shrink-0 w-10/12 md:w-auto">
+  <div class="flex flex-col justify-between h-full p-1 mt-auto md:m-0" data-setid="">
+    <div>
+      <a data-swimlane-scene-index="1" class="swimlane-scene-thumbnail-link flex-none lg:min-h-28" title="Swimlane Scene" href="/trailers/Swimlane-Scene-Slug" >
+        <div class="video-thumbnail-link thumbnail relative latest_scene_item video_preview_div">
+          <img class="videos-preload lazyLoad" data-src="https://c7669ab0a8.mjedge.net/content/contentthumbs/91/08/49108-3x.jpg?expires=1&l=41&token=x" />
+        </div>
+      </a>
+    </div>
+    <div class="flex flex-row">
+      <span class="text-accent text-xs">
+        <a data-swimlane-scene-index="2" class="swimlane-scene-performer-title-link text-accent-hover" href="/models/jessica-starling.html">Jessica Starling</a>
+      </span>
+    </div>
+  </div>
+</div>`
+
+func TestParseListingPageSwimlaneCard(t *testing.T) {
+	scenes := ParseListingPage([]byte(sampleSwimlaneCard))
+	if len(scenes) != 1 {
+		t.Fatalf("got %d scenes, want 1", len(scenes))
+	}
+	sc := scenes[0]
+	if sc.ID != "5414" {
+		t.Errorf("ID = %q, want 5414", sc.ID)
+	}
+	if sc.Slug != "Swimlane-Scene-Slug" || sc.Title != "Swimlane Scene" {
+		t.Errorf("slug/title = %q/%q", sc.Slug, sc.Title)
+	}
+	if len(sc.Performers) != 1 || sc.Performers[0] != "Jessica Starling" {
+		t.Errorf("performers = %v", sc.Performers)
+	}
+}
+
+// A model page is one un-paginated listing in no date order at all — live,
+// Jessica Starling's ran 2026-09, 2023-12, 2022-10, 2024-11 — so a stored scene
+// must be skipped rather than end the walk.
+func TestRunModelPageKnownIDsSkipRatherThanStop(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/models/naomi.html":
+			_, _ = fmt.Fprint(w, sampleCard+sampleCard2)
+		case "/trailers/Second-Scene-Slug/":
+			_, _ = fmt.Fprint(w, sampleDetail)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer ts.Close()
+
+	s := &Scraper{
+		Client: ts.Client(),
+		cfg:    SiteConfig{SiteID: "test", SiteBase: ts.URL, StudioName: "Test"},
+	}
+
+	out := make(chan scraper.SceneResult)
+	go s.Run(context.Background(), ts.URL+"/models/naomi.html", scraper.ListOpts{
+		KnownIDs: map[string]bool{"10803": true},
+		Workers:  1,
+	}, out)
+
+	var scenes []string
+	var stoppedEarly bool
+	for r := range out {
+		switch r.Kind {
+		case scraper.KindScene:
+			scenes = append(scenes, r.Scene.ID)
+		case scraper.KindStoppedEarly:
+			stoppedEarly = true
+		}
+	}
+	if len(scenes) != 1 || scenes[0] != "11010" {
+		t.Errorf("scene IDs = %v, want [11010] — the card after the known one", scenes)
+	}
+	if !stoppedEarly {
+		t.Error("expected StoppedEarly to report the skipped scene")
+	}
+}

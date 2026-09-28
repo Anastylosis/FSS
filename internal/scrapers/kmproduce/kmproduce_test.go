@@ -527,3 +527,45 @@ func TestListScenesMainPage(t *testing.T) {
 		t.Errorf("missing expected scenes from VR+sell: got %v", got)
 	}
 }
+
+// Scraping the bare host walks /works-vr/ and /works-sell/ in turn. The two are
+// separate catalogues on disjoint label prefixes (savr-* vs mkmp-/nask-/…), each
+// strictly date-descending, so an early stop on one must end that list only —
+// not the walk.
+func TestListScenesMainPageStopsPerList(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/works-vr/":
+			_, _ = fmt.Fprint(w, listingPageHTML([]string{"savr-1132", "savr-1100"}, 2, false))
+		case "/works-sell/":
+			_, _ = fmt.Fprint(w, listingPageHTML([]string{"mkmp-728"}, 1, false))
+		case "/works/savr-1132":
+			_, _ = fmt.Fprint(w, detailPageHTML("savr-1132", "VR Title", "", []string{"A"}, "", nil, 60, "2026/1/1", 1000))
+		case "/works/mkmp-728":
+			_, _ = fmt.Fprint(w, detailPageHTML("mkmp-728", "DVD Title", "", []string{"B"}, "", nil, 120, "2026/2/1", 2000))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer ts.Close()
+
+	s := &Scraper{client: ts.Client()}
+	ch, err := s.ListScenes(context.Background(), ts.URL+"/", scraper.ListOpts{
+		KnownIDs: map[string]bool{"savr-1100": true},
+	})
+	if err != nil {
+		t.Fatalf("ListScenes error: %v", err)
+	}
+	scenes, stopped := testutil.CollectScenesWithStop(t, ch)
+
+	if !stopped {
+		t.Error("expected StoppedEarly from the VR list")
+	}
+	got := map[string]bool{}
+	for _, sc := range scenes {
+		got[sc.ID] = true
+	}
+	if !got["savr-1132"] || !got["mkmp-728"] || len(got) != 2 {
+		t.Errorf("scenes = %v, want savr-1132 plus the whole sell list", got)
+	}
+}

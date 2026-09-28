@@ -76,6 +76,7 @@ func (s *Scraper) Run(ctx context.Context, studioURL string, opts scraper.ListOp
 	go func() {
 		defer wg.Done()
 		defer close(work)
+		skipped := 0
 		for page := 1; ; page++ {
 			if ctx.Err() != nil {
 				return
@@ -128,6 +129,16 @@ func (s *Scraper) Run(ctx context.Context, studioURL string, opts scraper.ListOp
 
 			for _, sc := range scenes {
 				if opts.KnownIDs[sc.ID] {
+					// A model page is one un-paginated listing in no date order
+					// at all — live, Jessica Starling's ran 2026-09, 2023-12,
+					// 2022-10, 2024-11 — so a stop there would hide most of her
+					// catalogue. It is already fetched, so skipping costs
+					// nothing. The grid listings carry sort=most-recent and do
+					// stop.
+					if kind == filterModel {
+						skipped++
+						continue
+					}
 					scraper.Debugf(1, "%s: hit known ID, stopping early", s.cfg.SiteID)
 					select {
 					case out <- scraper.StoppedEarly():
@@ -143,6 +154,13 @@ func (s *Scraper) Run(ctx context.Context, studioURL string, opts scraper.ListOp
 			}
 
 			if kind == filterModel || !hasNextPage(body, page) {
+				if skipped > 0 {
+					scraper.Debugf(1, "%s: skipped %d already-stored scene(s)", s.cfg.SiteID, skipped)
+					select {
+					case out <- scraper.StoppedEarly():
+					case <-ctx.Done():
+					}
+				}
 				return
 			}
 		}
@@ -199,11 +217,14 @@ type listingScene struct {
 }
 
 var (
-	cardRe      = regexp.MustCompile(`data-setid="(\d+)"`)
+	// The grid listings carry the scene id in data-setid. The model page was
+	// rebuilt as a "swimlane" whose cards leave data-setid empty and put the id
+	// in data-scene-id instead, so every model page parsed to zero cards.
+	cardRe      = regexp.MustCompile(`data-(?:setid|scene-id)="(\d+)"`)
 	titleLinkRe = regexp.MustCompile(`<a[^>]*title="([^"]*)"[^>]*href="/trailers/([^"]+)"`)
 	durationRe  = regexp.MustCompile(`class="video-data">(\d+)\s*min</div>`)
 	thumbRe     = regexp.MustCompile(`data-src="(https://c[a-f0-9]+\.mjedge\.net/content/contentthumbs/[^"]+)"`)
-	performerRe = regexp.MustCompile(`<a\s+href="/models/[^"]+">([^<]+)</a>`)
+	performerRe = regexp.MustCompile(`<a[^>]*\shref="/models/[^"]+"[^>]*>([^<]+)</a>`)
 )
 
 func ParseListingPage(body []byte) []listingScene {

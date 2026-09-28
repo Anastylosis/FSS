@@ -292,15 +292,18 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 	wg.Wait()
 }
 
+// dispatchItems queues one listing page, reporting whether the walk should end.
+// Like the other Japanese DVD catalogues (deeps, waap), releases arrive in
+// same-date batches whose internal order is by product code, so a title added
+// to a batch already half-stored sits *behind* a known sibling. The page is
+// therefore scanned in full before the stop fires, which costs at most one
+// page of detail fetches and cannot truncate a batch.
 func (s *Scraper) dispatchItems(ctx context.Context, opts scraper.ListOpts, items []listingItem, work chan<- listingItem, out chan<- scraper.SceneResult) bool {
+	hitKnown := false
 	for _, item := range items {
 		if opts.KnownIDs[item.code] {
-			scraper.Debugf(1, "%s: hit known ID %s, stopping early", siteID, item.code)
-			select {
-			case out <- scraper.StoppedEarly():
-			case <-ctx.Done():
-			}
-			return true
+			hitKnown = true
+			continue
 		}
 		select {
 		case work <- item:
@@ -310,7 +313,14 @@ func (s *Scraper) dispatchItems(ctx context.Context, opts scraper.ListOpts, item
 			return false
 		}
 	}
-	return false
+	if hitKnown {
+		scraper.Debugf(1, "%s: page reached stored items, stopping", siteID)
+		select {
+		case out <- scraper.StoppedEarly():
+		case <-ctx.Done():
+		}
+	}
+	return hitKnown
 }
 
 func (s *Scraper) fetchDetail(ctx context.Context, studioURL string, item listingItem) (models.Scene, error) {

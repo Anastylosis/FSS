@@ -141,16 +141,18 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 				}
 			}
 
-			newItems := 0
+			// The listing is date-descending but releases come in same-date
+			// batches — five titles shared 2026.9.15 on page one — ordered by
+			// product code within the batch. A title added to a batch already
+			// half-stored therefore sits *behind* a known sibling, so the stop
+			// waits until the page has been scanned in full rather than firing
+			// on the first known code.
+			newItems, hitKnown := 0, false
 			for _, item := range items {
 				id := strings.ToUpper(item.code)
 				if opts.KnownIDs[id] {
-					scraper.Debugf(1, "deeps: hit known ID, stopping early")
-					select {
-					case out <- scraper.StoppedEarly():
-					case <-ctx.Done():
-					}
-					return
+					hitKnown = true
+					continue
 				}
 				if seen[id] {
 					continue
@@ -162,6 +164,14 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 				case <-ctx.Done():
 					return
 				}
+			}
+			if hitKnown {
+				scraper.Debugf(1, "deeps: page %d reached stored scenes, stopping", page)
+				select {
+				case out <- scraper.StoppedEarly():
+				case <-ctx.Done():
+				}
+				return
 			}
 			if newItems == 0 || maxNavPage(body) <= page {
 				return
