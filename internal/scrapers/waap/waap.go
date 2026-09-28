@@ -247,7 +247,12 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 
 func (s *Scraper) enqueueItems(ctx context.Context, listURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult, work chan<- string) {
 	dateSorted := newestSortRe.MatchString(listURL)
-	for page := 1; ; page++ {
+	// search.php has no end-of-listing signal beyond an empty result set, and
+	// a CloudFront edge that serves a stale cached page for an out-of-range
+	// `pg` would repeat it forever. A page listing no code the walk has not
+	// already queued ends it; maxPages is the backstop.
+	seen := map[string]bool{}
+	for page := 1; page <= maxPages; page++ {
 		if ctx.Err() != nil {
 			return
 		}
@@ -303,7 +308,13 @@ func (s *Scraper) enqueueItems(ctx context.Context, listURL string, opts scraper
 		// the page is scanned in full before stopping. An operator-supplied
 		// search URL may carry any sort at all, so there the hint is ignored.
 		hitKnown := false
+		fresh := 0
 		for _, item := range items {
+			if seen[item.code] {
+				continue
+			}
+			seen[item.code] = true
+			fresh++
 			if dateSorted && opts.KnownIDs[item.code] {
 				hitKnown = true
 				continue
@@ -313,6 +324,10 @@ func (s *Scraper) enqueueItems(ctx context.Context, listURL string, opts scraper
 			case <-ctx.Done():
 				return
 			}
+		}
+		if fresh == 0 {
+			scraper.Debugf(1, "waap: page %d repeated items already seen, stopping", page)
+			return
 		}
 		if hitKnown {
 			scraper.Debugf(1, "waap: page %d reached stored items, stopping", page)
@@ -328,6 +343,10 @@ func (s *Scraper) enqueueItems(ctx context.Context, listURL string, opts scraper
 // newestSortRe recognises the "newest first" sort in a listing URL; any other
 // sort makes the KnownIDs early-stop meaningless.
 var newestSortRe = regexp.MustCompile(`[?&]onrls=new(&|$)`)
+
+// maxPages bounds the listing walk at 45 items per page — well past the whole
+// catalogue, and a backstop against a listing that never reports an end.
+const maxPages = 500
 
 var pgRe = regexp.MustCompile(`pg=\d+`)
 

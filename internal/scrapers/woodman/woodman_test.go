@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -503,5 +504,65 @@ func TestRunGirlKnownIDsSkipsAndContinues(t *testing.T) {
 	}
 	if !stopped {
 		t.Error("expected StoppedEarly to report that something was skipped")
+	}
+}
+
+// buildFullListingPage renders a full page of distinct cards, so the walk does
+// not end on the "short page" rule.
+func buildFullListingPage(n int) string {
+	var sb strings.Builder
+	sb.WriteString(`<html><body><div id="updates" class="scenes_list flat_content designV3">`)
+	for i := 0; i < n; i++ {
+		fmt.Fprintf(&sb, `<div class="day items container_1"><div class="even day_title">June 6th, 2026</div>
+<div class="element">
+<a class="item scene " href="/casting-x/model-%d_%d.html" title="Model %d"><img class="thumb" src="https://cdn.example.com/%d_thumb.jpg" alt="Model %d" /></a>
+<p class="name"><a href="/casting-x/model-%d_%d.html">Model %d</a></p>
+<p class="details">31 mn</p>
+<div class="clear"></div>
+</div></div>`, i, 9000+i, i, 9000+i, i, i, 9000+i, i)
+	}
+	sb.WriteString(`</div></body></html>`)
+	return sb.String()
+}
+
+// The walk ends on a short page, but a CMS that clamps an out-of-range page
+// back to a real one serves a full page forever. It must end on a page that
+// adds no new id.
+func TestRunListingStopsWhenThePagerClamps(t *testing.T) {
+	page := buildFullListingPage(pageSize)
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		if r.URL.Path == "/new" {
+			_, _ = fmt.Fprint(w, page)
+			return
+		}
+		_, _ = fmt.Fprint(w, testDetailHTML)
+	}))
+	defer ts.Close()
+
+	s := &Scraper{Client: ts.Client(), base: ts.URL}
+	out := make(chan scraper.SceneResult, 4*pageSize)
+	done := make(chan int)
+	go func() {
+		s.runListing(context.Background(), ts.URL+"/", scraper.ListOpts{}, out)
+		close(out)
+	}()
+	go func() {
+		n := 0
+		for r := range out {
+			if r.Kind == scraper.KindScene {
+				n++
+			}
+		}
+		done <- n
+	}()
+
+	select {
+	case n := <-done:
+		if n != pageSize {
+			t.Errorf("got %d scenes, want %d — every page after the first repeats", n, pageSize)
+		}
+	case <-time.After(15 * time.Second):
+		t.Fatal("the walk did not terminate against a pager that clamps")
 	}
 }

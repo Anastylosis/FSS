@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"golang.org/x/text/encoding/japanese"
 
@@ -332,5 +333,53 @@ func TestDecodeShiftJIS(t *testing.T) {
 				t.Errorf("decodeShiftJIS produced replacement characters: %q", got)
 			}
 		})
+	}
+}
+
+// search.php has no end-of-listing signal beyond an empty result set, so a
+// CloudFront edge serving the same cached page for every `pg` would loop
+// forever. The walk must end on a page that adds no new code.
+func TestRunStopsWhenTheOriginIgnoresThePageParameter(t *testing.T) {
+	var items string
+	for _, code := range []string{"ABC001", "DEF002"} {
+		items += fmt.Sprintf(itemTpl, code)
+	}
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		switch r.URL.Path {
+		case "/work/search.php":
+			_, _ = fmt.Fprintf(w, listingTpl, 2, items)
+		case "/work/item.php":
+			_, _ = fmt.Fprintf(w, detailTpl, r.URL.Query().Get("itemcode"))
+		default:
+			_, _ = fmt.Fprint(w, `<div>empty</div>`)
+		}
+	}))
+	defer ts.Close()
+
+	s := &Scraper{client: ts.Client()}
+	ch, err := s.ListScenes(context.Background(), ts.URL+"/work/search.php?serch=5&onrls=new&limit=45&pg=1", scraper.ListOpts{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	done := make(chan []string)
+	go func() {
+		var ids []string
+		for r := range ch {
+			if r.Kind == scraper.KindScene {
+				ids = append(ids, r.Scene.ID)
+			}
+		}
+		done <- ids
+	}()
+
+	select {
+	case ids := <-done:
+		if len(ids) != 2 {
+			t.Errorf("got %d scenes, want 2 — every page after the first repeats", len(ids))
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("the walk did not terminate against an origin that ignores pg")
 	}
 }

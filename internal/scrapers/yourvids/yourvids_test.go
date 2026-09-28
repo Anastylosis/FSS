@@ -453,3 +453,55 @@ func TestListScenesNotACreator(t *testing.T) {
 		t.Error("a missing catalogue must count as missing data, not as absent")
 	}
 }
+
+// The API ends the walk with has_more=false, but it has been seen to return an
+// empty page while still claiming more. The walk must end on a page that adds
+// no new video rather than spin.
+func TestListScenesStopsWhenHasMoreNeverGoesFalse(t *testing.T) {
+	resp := apiResponse{
+		Success: true,
+		Data: apiData{
+			Videos: []apiVideo{
+				{ID: 100, Title: "Video One", CreatorName: "Creator", Duration: "10:00", CreatedAt: "2026-04-15 10:00:00"},
+			},
+			Pagination: apiPagination{CurrentPage: 1, PerPage: 20, Total: 1, TotalPages: 99, HasMore: true},
+		},
+	}
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/creators/testcreator/videos" {
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(resp)
+			return
+		}
+		w.Header().Set("Content-Type", "text/html")
+		_, _ = w.Write([]byte(`<html><body></body></html>`))
+	}))
+	defer ts.Close()
+
+	s := &Scraper{client: ts.Client(), apiBase: ts.URL}
+	ch, err := s.ListScenes(context.Background(), ts.URL+"/creators/testcreator", scraper.ListOpts{Workers: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	done := make(chan int)
+	go func() {
+		n := 0
+		for r := range ch {
+			if r.Kind == scraper.KindScene {
+				n++
+			}
+		}
+		done <- n
+	}()
+
+	select {
+	case n := <-done:
+		if n != 1 {
+			t.Errorf("got %d scenes, want 1 — every page after the first repeats", n)
+		}
+	case <-time.After(15 * time.Second):
+		t.Fatal("the walk did not terminate against an API that always claims more")
+	}
+}

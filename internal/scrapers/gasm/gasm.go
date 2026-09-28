@@ -166,7 +166,12 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 	}
 
 	const perPage = 100
-	for page := 1; ; page++ {
+	// The walk ends on an empty page or the reported page count, but the API
+	// does not always report one — and an endpoint that ignores `page` would
+	// then echo page 1 forever. A page yielding no id the walk has not already
+	// emitted is that echo; maxPages is the backstop.
+	seen := map[string]bool{}
+	for page := 1; page <= maxPages; page++ {
 		if ctx.Err() != nil {
 			break
 		}
@@ -197,7 +202,13 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 
 		cancelled := false
 		hitKnown := false
+		fresh := 0
 		for _, item := range items {
+			if seen[item.id] {
+				continue
+			}
+			seen[item.id] = true
+			fresh++
 			if opts.KnownIDs[item.id] {
 				hitKnown = true
 				break
@@ -221,6 +232,10 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 			}
 			break
 		}
+		if fresh == 0 {
+			scraper.Debugf(1, "gasm: page %d repeated scenes already seen, stopping", page)
+			break
+		}
 		if totalPages > 0 && page >= totalPages {
 			break
 		}
@@ -229,6 +244,11 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 	close(work)
 	wg.Wait()
 }
+
+// maxPages bounds the listing walk at 100 items per page — far beyond the
+// largest profile on the site, and a backstop against an endpoint that never
+// reports an end.
+const maxPages = 500
 
 var (
 	ajaxParamsRe = regexp.MustCompile(`data-ajax-params="([^"]+)"`)

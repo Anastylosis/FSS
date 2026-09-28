@@ -23,6 +23,11 @@ import (
 // warning when the configured delay is lower.
 const RecommendedDelay = 500 * time.Millisecond
 
+// maxListingPages bounds the scene and DVD listing walks. The largest site on
+// the network is a few thousand scenes at ~24 per page; this is a backstop
+// against a pager that clamps past-the-end instead of ending.
+const maxListingPages = 500
+
 type TemplateType int
 
 const (
@@ -179,7 +184,12 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 // --- listing pages ---
 
 func (s *Scraper) enqueueListingPages(ctx context.Context, delay time.Duration, opts scraper.ListOpts, out chan<- scraper.SceneResult, work chan<- workItem) {
-	for page := 1; ; page++ {
+	// The walk ends on an empty page, but this CMS clamps an out-of-range page
+	// back to the last real one rather than serving nothing, so it would
+	// otherwise repeat that page forever. A page yielding no slug the walk has
+	// not already emitted is that clamp; maxListingPages is the backstop.
+	seen := map[string]bool{}
+	for page := 1; page <= maxListingPages; page++ {
 		if ctx.Err() != nil {
 			return
 		}
@@ -219,7 +229,13 @@ func (s *Scraper) enqueueListingPages(ctx context.Context, delay time.Duration, 
 			}
 		}
 
+		fresh := 0
 		for _, item := range items {
+			if seen[item.slug] {
+				continue
+			}
+			seen[item.slug] = true
+			fresh++
 			if opts.KnownIDs[item.slug] {
 				scraper.Debugf(1, "%s: hit known ID %s, stopping early", s.cfg.SiteID, item.slug)
 				select {
@@ -234,7 +250,12 @@ func (s *Scraper) enqueueListingPages(ctx context.Context, delay time.Duration, 
 				return
 			}
 		}
+		if fresh == 0 {
+			scraper.Debugf(1, "%s: page %d repeated scenes already seen, stopping", s.cfg.SiteID, page)
+			return
+		}
 	}
+	scraper.Debugf(1, "%s: stopped at the %d-page cap", s.cfg.SiteID, maxListingPages)
 }
 
 // --- model page ---
@@ -282,6 +303,7 @@ func (s *Scraper) enqueueModelPage(ctx context.Context, studioURL string, opts s
 
 func (s *Scraper) enqueueDVDPages(ctx context.Context, delay time.Duration, opts scraper.ListOpts, out chan<- scraper.SceneResult, work chan<- workItem) {
 	seen := map[string]bool{}
+	seenDVDs := map[string]bool{}
 	skipped := 0
 	// The walk has several exits; report the skip once, wherever it ends.
 	defer func() {
@@ -295,7 +317,7 @@ func (s *Scraper) enqueueDVDPages(ctx context.Context, delay time.Duration, opts
 		}
 	}()
 
-	for page := 1; ; page++ {
+	for page := 1; page <= maxListingPages; page++ {
 		scraper.Debugf(1, "%s: fetching DVD page %d", s.cfg.SiteID, page)
 		if ctx.Err() != nil {
 			return
@@ -326,6 +348,19 @@ func (s *Scraper) enqueueDVDPages(ctx context.Context, delay time.Duration, opts
 
 		dvds := s.parseDVDListing(body)
 		if len(dvds) == 0 {
+			return
+		}
+		// The DVD pager clamps past-the-end back to a real page, so a page
+		// listing no DVD the walk has not already visited ends it.
+		fresh := 0
+		for _, dvd := range dvds {
+			if !seenDVDs[dvd.url] {
+				seenDVDs[dvd.url] = true
+				fresh++
+			}
+		}
+		if fresh == 0 {
+			scraper.Debugf(1, "%s: DVD page %d repeated DVDs already seen, stopping", s.cfg.SiteID, page)
 			return
 		}
 

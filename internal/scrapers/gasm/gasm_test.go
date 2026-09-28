@@ -1,9 +1,15 @@
 package gasm
 
 import (
+	"context"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/Anastylosis/FSS/scraper"
 )
 
 func TestMatchesURL(t *testing.T) {
@@ -312,5 +318,61 @@ func TestParseProfileReportsSFWGate(t *testing.T) {
 	_, _, err = parseProfile([]byte("<html><body>redesigned</body></html>"), "cosplaybabes")
 	if err == nil || !strings.Contains(err.Error(), "data-ajax-params") {
 		t.Errorf("error = %v, want the parse message", err)
+	}
+}
+
+// The paginate endpoint reports a page count only when it renders a pager, so
+// a response that omits one — or an endpoint that ignores aParams[page] — would
+// otherwise echo the first page forever. The walk must end on a page that adds
+// no new post id.
+func TestRunStopsWhenThePaginateEndpointEchoes(t *testing.T) {
+	// listingHTML's pager names a "last" page; strip it so totalPages is 0 and
+	// only the dedup guard can end the walk.
+	echoed := listingHTML[:strings.Index(listingHTML, `<div class="_pagination">`)]
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/studio/profile/"):
+			_, _ = fmt.Fprint(w, profileHTML)
+		case r.URL.Path == "/op/results/paginate":
+			_, _ = fmt.Fprint(w, echoed)
+		case strings.HasPrefix(r.URL.Path, "/post/details/"):
+			_, _ = fmt.Fprint(w, detailHTML)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	old := siteBase
+	siteBase = srv.URL
+	t.Cleanup(func() { siteBase = old })
+
+	s := New()
+	s.client = srv.Client()
+
+	ch, err := s.ListScenes(context.Background(), "https://www.gasm.com/studio/profile/teststudio", scraper.ListOpts{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	done := make(chan int)
+	go func() {
+		n := 0
+		for r := range ch {
+			if r.Kind == scraper.KindScene {
+				n++
+			}
+		}
+		done <- n
+	}()
+
+	select {
+	case n := <-done:
+		if n != 2 {
+			t.Errorf("got %d scenes, want 2 — every page after the first repeats", n)
+		}
+	case <-time.After(15 * time.Second):
+		t.Fatal("the walk did not terminate against an echoing paginate endpoint")
 	}
 }

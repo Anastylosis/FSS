@@ -627,3 +627,89 @@ func TestListScenesDVDModeKnownIDDoesNotAbortTheWalk(t *testing.T) {
 		t.Error("expected StoppedEarly to report the skipped scene")
 	}
 }
+
+// The NATS pager clamps an out-of-range page back to a real one rather than
+// serving nothing, so the walk must end on a page that repeats slugs it has
+// already emitted.
+func TestListScenesStopsWhenThePagerClamps(t *testing.T) {
+	page := buildListingPage("", []int{1, 2, 3})
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		if strings.HasPrefix(r.URL.Path, "/scenes/") {
+			_, _ = fmt.Fprint(w, detailTpl)
+			return
+		}
+		_, _ = w.Write(page)
+	}))
+	defer ts.Close()
+
+	s := newTestScraper(ts)
+	ch, err := s.ListScenes(context.Background(), ts.URL+"/categories/movies.html", scraper.ListOpts{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	done := make(chan int)
+	go func() {
+		n := 0
+		for r := range ch {
+			if r.Kind == scraper.KindScene {
+				n++
+			}
+		}
+		done <- n
+	}()
+
+	select {
+	case n := <-done:
+		if n != 3 {
+			t.Errorf("got %d scenes, want 3 — every page after the first repeats", n)
+		}
+	case <-time.After(15 * time.Second):
+		t.Fatal("the walk did not terminate against a pager that clamps")
+	}
+}
+
+// The DVD pager clamps the same way, and a repeated DVD list would re-walk the
+// same discs forever.
+func TestListScenesDVDModeStopsWhenThePagerClamps(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/scenes/"):
+			_, _ = fmt.Fprint(w, detailTpl)
+		case r.URL.Path == "/dvds/only-dvd.html":
+			_, _ = fmt.Fprint(w, `<a href="/scenes/dvd-scene-1_vids.html">Watch</a>`)
+		default:
+			_, _ = fmt.Fprint(w, `<a href="/dvds/only-dvd.html" class="dvd-listing-card">
+<div class="dvd-listing-bar"><span class="dvd-listing-name">Only DVD</span></div></a>`)
+		}
+	}))
+	defer ts.Close()
+
+	s := newTestScraper(ts)
+	ch, err := s.ListScenes(context.Background(), ts.URL+"/dvds/dvds.html", scraper.ListOpts{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	done := make(chan int)
+	go func() {
+		n := 0
+		for r := range ch {
+			if r.Kind == scraper.KindScene {
+				n++
+			}
+		}
+		done <- n
+	}()
+
+	select {
+	case n := <-done:
+		if n != 1 {
+			t.Errorf("got %d scenes, want 1 — every DVD page after the first repeats", n)
+		}
+	case <-time.After(15 * time.Second):
+		t.Fatal("the DVD walk did not terminate against a pager that clamps")
+	}
+}

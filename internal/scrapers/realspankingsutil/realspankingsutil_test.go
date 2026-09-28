@@ -352,3 +352,46 @@ func TestBuildSceneUsesTheListingPage(t *testing.T) {
 		t.Errorf("ID/Title = %q/%q", scene.ID, scene.Title)
 	}
 }
+
+// A CMS that clamps an out-of-range page back to a real one serves a full page
+// forever, so the walk must end on a page that repeats ids it already emitted.
+func TestListScenesStopsWhenThePagerClamps(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/updates.php" {
+			_, _ = fmt.Fprint(w, fixtureRSI)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer ts.Close()
+
+	s := &Scraper{
+		client: ts.Client(),
+		base:   ts.URL,
+		cfg:    SiteConfig{SiteID: "test-rsi", Domain: "test.com", StudioName: "Test RSI", Type: TypeRSI},
+	}
+	ch, err := s.ListScenes(context.Background(), ts.URL, scraper.ListOpts{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	done := make(chan int)
+	go func() {
+		n := 0
+		for r := range ch {
+			if r.Kind == scraper.KindScene {
+				n++
+			}
+		}
+		done <- n
+	}()
+
+	select {
+	case n := <-done:
+		if n != 2 {
+			t.Errorf("got %d scenes, want 2 — every page after the first repeats", n)
+		}
+	case <-time.After(15 * time.Second):
+		t.Fatal("the walk did not terminate against a pager that clamps")
+	}
+}

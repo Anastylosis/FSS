@@ -19,6 +19,10 @@ import (
 	"github.com/Anastylosis/FSS/scraper"
 )
 
+// maxPages bounds the creator walk. No creator on the site is near this many
+// pages; it is a backstop against an API that never reports an end.
+const maxPages = 500
+
 type Scraper struct {
 	client  *http.Client
 	apiBase string
@@ -168,7 +172,12 @@ func (s *Scraper) run(ctx context.Context, studioURL, slug string, opts scraper.
 	var allVideos []apiVideo
 	stoppedEarly := false
 
-	for page := 1; ; page++ {
+	// The API ends the walk with has_more=false, but it has been seen to
+	// return an empty page while still claiming more — and an endpoint that
+	// ignored `page` would echo page 1 forever. A page yielding no id the walk
+	// has not already collected ends it; maxPages is the backstop.
+	seen := map[string]bool{}
+	for page := 1; page <= maxPages; page++ {
 		if ctx.Err() != nil {
 			return
 		}
@@ -203,14 +212,24 @@ func (s *Scraper) run(ctx context.Context, studioURL, slug string, opts scraper.
 		}
 
 		hitKnown := false
+		fresh := 0
 		for _, v := range resp.Data.Videos {
 			id := strconv.Itoa(v.ID)
+			if seen[id] {
+				continue
+			}
+			seen[id] = true
+			fresh++
 			if opts.KnownIDs[id] {
 				hitKnown = true
 				stoppedEarly = true
 				break
 			}
 			allVideos = append(allVideos, v)
+		}
+		if fresh == 0 {
+			scraper.Debugf(1, "yourvids: page %d added no new video, stopping", page)
+			break
 		}
 
 		if hitKnown || !resp.Data.Pagination.HasMore {

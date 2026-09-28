@@ -25,6 +25,10 @@ const (
 	TypeBailey                       // spankingbailey.com — single page
 )
 
+// maxPages bounds a paged walk at 12-50 scenes per page — past every site on
+// the network, and a backstop against a pager that never reports an end.
+const maxPages = 500
+
 type SiteConfig struct {
 	SiteID     string
 	Domain     string
@@ -93,7 +97,11 @@ func (s *Scraper) run(ctx context.Context, opts scraper.ListOpts, out chan<- scr
 func (s *Scraper) runPaged(ctx context.Context, opts scraper.ListOpts, out chan<- scraper.SceneResult,
 	startPage int, buildURL func(int) string, parse func([]byte, string) []listingItem) {
 
-	for page := startPage; ; page++ {
+	// The walk ends on an empty page, but a CMS that clamps an out-of-range
+	// page back to a real one would repeat it forever. A page yielding no id
+	// the walk has not already emitted is that clamp; maxPages is the backstop.
+	seen := map[string]bool{}
+	for page := startPage; page < startPage+maxPages; page++ {
 		if ctx.Err() != nil {
 			return
 		}
@@ -114,7 +122,20 @@ func (s *Scraper) runPaged(ctx context.Context, opts scraper.ListOpts, out chan<
 			return
 		}
 
-		if !s.sendItems(ctx, opts, out, items, pageURL) {
+		fresh := items[:0]
+		for _, item := range items {
+			if seen[item.id] {
+				continue
+			}
+			seen[item.id] = true
+			fresh = append(fresh, item)
+		}
+		if len(fresh) == 0 {
+			scraper.Debugf(1, "%s: page %d repeated scenes already seen, stopping", s.cfg.SiteID, page)
+			return
+		}
+
+		if !s.sendItems(ctx, opts, out, fresh, pageURL) {
 			return
 		}
 

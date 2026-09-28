@@ -21,6 +21,9 @@ const (
 	siteID   = "woodman"
 	siteBase = "https://www.woodmancastingx.com"
 	pageSize = 20
+	// maxPages bounds the listing walk at 20 scenes per page — far beyond the
+	// catalogue, and a backstop against a CMS that never reports an end.
+	maxPages = 500
 )
 
 var (
@@ -122,7 +125,12 @@ func (s *Scraper) runListing(ctx context.Context, studioURL string, opts scraper
 }
 
 func (s *Scraper) enqueuePages(ctx context.Context, _ string, opts scraper.ListOpts, out chan<- scraper.SceneResult, work chan<- listingScene) {
-	for page := 1; ; page++ {
+	// The walk ends on a short or empty page, but a CMS that clamps an
+	// out-of-range `page` back to page 1 returns a full page forever. A page
+	// yielding no id the walk has not already emitted is that echo; maxPages
+	// is the backstop.
+	seen := map[string]bool{}
+	for page := 1; page <= maxPages; page++ {
 		if ctx.Err() != nil {
 			return
 		}
@@ -163,7 +171,13 @@ func (s *Scraper) enqueuePages(ctx context.Context, _ string, opts scraper.ListO
 			}
 		}
 
+		fresh := 0
 		for _, ls := range scenes {
+			if seen[ls.id] {
+				continue
+			}
+			seen[ls.id] = true
+			fresh++
 			if opts.KnownIDs != nil && opts.KnownIDs[ls.id] {
 				scraper.Debugf(1, "%s: hit known ID %s, stopping early", siteID, ls.id)
 				select {
@@ -179,10 +193,15 @@ func (s *Scraper) enqueuePages(ctx context.Context, _ string, opts scraper.ListO
 			}
 		}
 
+		if fresh == 0 {
+			scraper.Debugf(1, "%s: page %d repeated scenes already seen, stopping", siteID, page)
+			return
+		}
 		if len(scenes) < pageSize {
 			return
 		}
 	}
+	scraper.Debugf(1, "%s: stopped at the %d-page cap", siteID, maxPages)
 }
 
 // runGirl fetches a performer page and emits scenes directly (no detail fetch needed
