@@ -1,11 +1,14 @@
 package masutil
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/Anastylosis/FSS/scraper"
 )
 
 const plumperPassCard = `<!-- start_link -->
@@ -371,5 +374,69 @@ func TestPerformerInsideTheParagraph(t *testing.T) {
 	}
 	if len(card.Performers) != 1 || card.Performers[0] != "Jane Doe" {
 		t.Errorf("Performers = %v", card.Performers)
+	}
+}
+
+// End-to-end pagination: the walk must ask for `?videos&a={pageID}_{N}` in
+// order, stop at the page the pager names, and not probe past it. `ExtractMaxPage`
+// is unit-tested on its own, but nothing checked that the walk actually uses it.
+func TestListScenesWalksEveryPage(t *testing.T) {
+	const pageID = "584"
+	const lastPage = 3
+
+	var asked []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		asked = append(asked, r.URL.Query().Get("a"))
+		n := 1
+		if a := r.URL.Query().Get("a"); a != "" {
+			_, _ = fmt.Sscanf(a, pageID+"_%d", &n)
+		}
+		// A pager naming every page, the way the MAS template renders it.
+		var pager string
+		for p := 1; p <= lastPage; p++ {
+			pager += fmt.Sprintf(`<a href="show.php?a=%s_%d" class="pagenumbers">%d</a>`, pageID, p, p)
+		}
+		// One card per page, with a distinct title so the scenes are countable.
+		card := fmt.Sprintf(`<!-- start_link -->
+			<div class="itemm">
+			<a href="refstat.php?lid=%d&sid=%s" onmouseover="window.status='Scene %d'; return true"><img src="faceimages/p%d.jpg" /></a>
+			<div class="itemminfo"><p>Scene %d</p><p class="date">June 5, 2026</p></div>
+			</div>
+			<!-- end_link -->`, 1000+n, pageID, n, n, n)
+		_, _ = fmt.Fprint(w, "<html><body>"+card+pager+"</body></html>")
+	}))
+	defer srv.Close()
+
+	s := New(SiteConfig{SiteID: "plumperpass", Domain: "plumperpass.com", PageID: pageID, Base: srv.URL})
+	s.Client = srv.Client()
+
+	ch, err := s.ListScenes(context.Background(), srv.URL, scraper.ListOpts{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var scenes, total int
+	for r := range ch {
+		switch r.Kind {
+		case scraper.KindScene:
+			scenes++
+		case scraper.KindTotal:
+			total = r.Total
+		}
+	}
+	if scenes != lastPage {
+		t.Errorf("got %d scenes, want %d — one per page", scenes, lastPage)
+	}
+	want := []string{pageID + "_1", pageID + "_2", pageID + "_3"}
+	if len(asked) != len(want) {
+		t.Fatalf("asked for %v, want exactly %v — the pager names the last page", asked, want)
+	}
+	for i := range want {
+		if asked[i] != want[i] {
+			t.Errorf("request %d was %q, want %q", i, asked[i], want[i])
+		}
+	}
+	// Total is reported from page 1's pager.
+	if total != lastPage {
+		t.Errorf("total = %d, want %d", total, lastPage)
 	}
 }

@@ -1090,3 +1090,52 @@ func TestTruncateEachEmpty(t *testing.T) {
 		t.Errorf("truncateEach(nil) = %q, want empty", got)
 	}
 }
+
+// `--organized` used to be a no-op end to end: diffScene never emitted an
+// "organized" change, so an otherwise up-to-date scene produced an empty diff
+// and applyScene was skipped entirely. This walks the whole path — the change
+// that makes the scene eligible, and the update that actually carries the flag.
+func TestOrganizedEndToEnd(t *testing.T) {
+	ss := stash.Scene{ID: "1", Files: []stash.File{{Path: "/v/a.mp4"}}, Title: "T", Organized: false}
+	merged := match.MergedScene{Title: "T"}
+
+	// 1) An otherwise-identical scene is only eligible because of --organized.
+	if changes := buildChanges(ss, merged, nil, nil, false, false); len(changes) != 0 {
+		t.Fatalf("without --organized this scene has nothing to do, got %v", changes)
+	}
+	changes := buildChanges(ss, merged, nil, nil, false, true)
+	if _, ok := changes["organized"]; !ok {
+		t.Fatal("--organized did not make the scene eligible; applyScene would never run")
+	}
+
+	// 2) The update carries the flag when --fields allows it.
+	f := newFakeStash(t)
+	o := importOpts{apply: true, organized: true, allowedFields: map[string]bool{"organized": true}}
+	if _, err := applyScene(context.Background(), f.client(), ss, merged, nil, nil, "imp1", o); err != nil {
+		t.Fatalf("applyScene: %v", err)
+	}
+	f.mu.Lock()
+	vars := f.last
+	f.mu.Unlock()
+	input, _ := vars["input"].(map[string]any)
+	if input == nil {
+		t.Fatal("no sceneUpdate input was sent")
+	}
+	if got, ok := input["organized"]; !ok || got != true {
+		t.Errorf("organized = %v (present: %v), want true", got, ok)
+	}
+
+	// 3) A --fields list that omits it does not set it, even with --organized.
+	f2 := newFakeStash(t)
+	o2 := importOpts{apply: true, organized: true, allowedFields: map[string]bool{"title": true}}
+	if _, err := applyScene(context.Background(), f2.client(), ss, merged, nil, nil, "imp1", o2); err != nil {
+		t.Fatalf("applyScene: %v", err)
+	}
+	f2.mu.Lock()
+	vars2 := f2.last
+	f2.mu.Unlock()
+	input2, _ := vars2["input"].(map[string]any)
+	if _, ok := input2["organized"]; ok {
+		t.Error("organized was written although --fields did not list it")
+	}
+}

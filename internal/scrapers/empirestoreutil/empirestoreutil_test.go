@@ -295,3 +295,53 @@ func TestParseDetailPageNoSynopsis(t *testing.T) {
 		t.Errorf("Studio = %q — the other fields must still parse", d.Studio)
 	}
 }
+
+// Page 2 is a query string appended to the listing URL, and the separator has
+// to follow whichever the listing already uses. A studio-filtered listing is
+// `…?studio={id}`, so a hard-coded "?" would produce a second one and the walk
+// would silently re-fetch page 1 forever.
+func TestRunPaginatesOntoAnExistingQueryString(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		listing string
+		want    string
+	}{
+		{"bare path", "/shop-streaming-video-by-scene.html", "/shop-streaming-video-by-scene.html?page=2"},
+		{"already has a query", "/watch-streaming-video-by-scene.html?studio=427", "/watch-streaming-video-by-scene.html?studio=427&page=2"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var asked []string
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "text/html; charset=utf-8")
+				if len(r.URL.Path) > 1 && r.URL.Path[1] >= '0' && r.URL.Path[1] <= '9' {
+					_, _ = fmt.Fprint(w, detailTpl)
+					return
+				}
+				asked = append(asked, r.URL.RequestURI())
+				const pager = `<ul class="pagination"><a href="?page=2">2</a></ul>`
+				if r.URL.Query().Get("page") == "" {
+					_, _ = fmt.Fprintf(w, itemTpl, "100", "100")
+					_, _ = fmt.Fprint(w, pager)
+					return
+				}
+				_, _ = fmt.Fprint(w, `<div>empty</div>`)
+			}))
+			defer ts.Close()
+
+			s := New(SiteConfig{SiteID: "test", Domain: "test.local", StudioName: "Test Studio",
+				ListingURL: "/shop-streaming-video-by-scene.html"})
+			s.Client = ts.Client()
+
+			out := make(chan scraper.SceneResult)
+			go s.Run(context.Background(), ts.URL+tt.listing, scraper.ListOpts{}, out)
+			testutil.CollectScenes(t, out)
+
+			if len(asked) < 2 {
+				t.Fatalf("only asked for %v — page 2 was never requested", asked)
+			}
+			if asked[1] != tt.want {
+				t.Errorf("page 2 = %q, want %q", asked[1], tt.want)
+			}
+		})
+	}
+}
