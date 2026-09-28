@@ -326,13 +326,19 @@ func TestKnownIDsStopsEarly(t *testing.T) {
 	}
 
 	var stoppedEarly bool
+	var ids []string
 	for r := range ch {
 		if r.Kind == scraper.KindStoppedEarly {
 			stoppedEarly = true
 		}
 		if r.Kind == scraper.KindScene {
-			t.Error("got scene result, expected stop before any scenes")
+			ids = append(ids, r.Scene.ID)
 		}
+	}
+	// Card 100 is stored; card 200 sits behind it on the same page and must
+	// still be emitted before the walk stops.
+	if len(ids) != 1 || ids[0] != "200" {
+		t.Errorf("scene IDs = %v, want [200]", ids)
 	}
 	if !stoppedEarly {
 		t.Error("expected StoppedEarly")

@@ -134,7 +134,8 @@ func TestFidelityKnownIDsEarlyStop(t *testing.T) {
 	s.Client = srv.Client()
 	s.base = srv.URL
 
-	// Mark the first card as known → should stop immediately, no detail fetch.
+	// Mark the first card as known. It costs no detail fetch, but the rest of
+	// the page is already in hand and is emitted before the walk stops.
 	ch, err := s.ListScenes(context.Background(), srv.URL+"/", scraper.ListOpts{
 		KnownIDs: map[string]bool{"519065870": true},
 	})
@@ -142,12 +143,14 @@ func TestFidelityKnownIDsEarlyStop(t *testing.T) {
 		t.Fatal(err)
 	}
 	scenes := collect(t, ch)
-	if len(scenes) != 0 {
-		t.Fatalf("got %d scenes, want 0 (early stop at known first ID)", len(scenes))
+	if len(scenes) != 1 {
+		t.Fatalf("got %d scenes, want 1 (the other card on the page)", len(scenes))
 	}
-	// The known first card costs no detail fetch (it becomes a stub); the
-	// second, unknown card is enriched by the worker pool before Paginate
-	// reaches the first card and stops. So exactly one detail fetch happens.
+	if scenes[0].ID == "519065870" {
+		t.Error("the known card must not be emitted")
+	}
+	// The known first card costs no detail fetch (it becomes a stub); only the
+	// second, unknown card is enriched.
 	if detailHits != 1 {
 		t.Errorf("detail fetched %d times, want 1 (only the unknown card)", detailHits)
 	}

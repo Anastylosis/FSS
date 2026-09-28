@@ -429,8 +429,8 @@ func TestKnownIDsEarlyStop(t *testing.T) {
 			stoppedEarly = true
 		}
 	}
-	if sceneCount != 1 {
-		t.Errorf("got %d scenes, want 1 (only new-scene before known ID)", sceneCount)
+	if sceneCount != 2 {
+		t.Errorf("got %d scenes, want 2 — the page is finished before the stop", sceneCount)
 	}
 	if !stoppedEarly {
 		t.Error("expected StoppedEarly signal")

@@ -168,7 +168,8 @@ func TestKnownIDsStopEarly(t *testing.T) {
 	srv := newTestServer(t)
 	s := newTestScraper(t, srv)
 
-	// canceled-party is newest (first emitted). Marking it known stops at once.
+	// canceled-party is newest. Marking it known skips it; the rest of the
+	// page is already in hand and is emitted before the walk stops.
 	opts := scraper.ListOpts{KnownIDs: map[string]bool{"canceled-party": true}}
 	ch, err := s.ListScenes(context.Background(), srv.URL, opts)
 	if err != nil {
@@ -178,8 +179,13 @@ func TestKnownIDsStopEarly(t *testing.T) {
 	if !stopped {
 		t.Error("expected StoppedEarly")
 	}
-	if len(scenes) != 0 {
-		t.Errorf("expected 0 scenes before known ID, got %d", len(scenes))
+	if len(scenes) == 0 {
+		t.Error("the rest of the page must still be emitted")
+	}
+	for _, sc := range scenes {
+		if sc.ID == "canceled-party" {
+			t.Error("the known scene must not be emitted")
+		}
 	}
 }
 

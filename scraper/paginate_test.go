@@ -220,8 +220,10 @@ func TestPaginate_knownIDsStopsEarly(t *testing.T) {
 	if !stoppedEarly {
 		t.Error("expected StoppedEarly")
 	}
-	if len(scenes) != 1 || scenes[0] != "new1" {
-		t.Errorf("scenes = %v, want [new1]", scenes)
+	// The page in hand is already paid for: the stored scene is skipped, the
+	// rest of the page is emitted, and the walk stops at the end of the page.
+	if len(scenes) != 2 || scenes[0] != "new1" || scenes[1] != "new2" {
+		t.Errorf("scenes = %v, want [new1 new2]", scenes)
 	}
 }
 

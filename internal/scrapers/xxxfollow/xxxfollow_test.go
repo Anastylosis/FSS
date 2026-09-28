@@ -237,8 +237,8 @@ func TestListScenesKnownIDs(t *testing.T) {
 	if !stoppedEarly {
 		t.Error("expected StoppedEarly signal")
 	}
-	if len(scenes) != 2 {
-		t.Fatalf("got %d scenes, want 2 (early stop at known ID)", len(scenes))
+	if len(scenes) != 4 {
+		t.Fatalf("got %d scenes, want 4 — the page is finished before the stop", len(scenes))
 	}
 }
 

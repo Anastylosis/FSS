@@ -127,20 +127,31 @@ func Paginate(ctx context.Context, opts ListOpts, siteID string, out chan<- Scen
 			}
 		}
 
+		// The page in hand is already paid for, so a stored scene ends the
+		// *walk*, not the page: listings routinely pin a featured scene at the
+		// top or bump a re-published one, and stopping at the first known ID
+		// hid every new scene behind it. Skipping known scenes and stopping at
+		// the end of the page costs at most one page of sends and cannot
+		// truncate a page.
+		hitKnown := false
 		for _, sc := range result.Scenes {
 			if opts.KnownIDs[sc.ID] {
-				Debugf(1, "%s: hit known ID, stopping early", siteID)
-				select {
-				case out <- StoppedEarly():
-				case <-ctx.Done():
-				}
-				return
+				hitKnown = true
+				continue
 			}
 			select {
 			case out <- Scene(sc):
 			case <-ctx.Done():
 				return
 			}
+		}
+		if hitKnown {
+			Debugf(1, "%s: page %d reached stored scenes, stopping", siteID, page)
+			select {
+			case out <- StoppedEarly():
+			case <-ctx.Done():
+			}
+			return
 		}
 
 		if result.Done {

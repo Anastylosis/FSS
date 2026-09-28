@@ -277,8 +277,8 @@ func TestRunKnownIDs(t *testing.T) {
 			stoppedEarly = true
 		}
 	}
-	if len(scenes) != 1 {
-		t.Errorf("expected 1 scene before known ID, got %d: %v", len(scenes), scenes)
+	if len(scenes) != 2 {
+		t.Errorf("expected 2 scenes — the page is finished before the stop — got %d: %v", len(scenes), scenes)
 	}
 	if !stoppedEarly {
 		t.Error("expected StoppedEarly")

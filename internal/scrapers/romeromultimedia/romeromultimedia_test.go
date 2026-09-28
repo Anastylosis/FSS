@@ -271,7 +271,8 @@ func TestListScenes_knownIDsStopsEarly(t *testing.T) {
 	defer ts.Close()
 
 	s := New(testConfig(ts.URL))
-	// Second post — first should pass through, then stop.
+	// The second post is stored: it is skipped, the rest of the page is still
+	// emitted, and the walk stops at the end of the page.
 	ch, err := s.ListScenes(context.Background(), ts.URL+"/", scraper.ListOpts{
 		KnownIDs: map[string]bool{"16502": true},
 	})
@@ -290,8 +291,8 @@ func TestListScenes_knownIDsStopsEarly(t *testing.T) {
 			t.Errorf("unexpected error: %v", r.Err)
 		}
 	}
-	if scenes != 1 {
-		t.Errorf("got %d scenes, want 1 (stop before known)", scenes)
+	if scenes != 2 {
+		t.Errorf("got %d scenes, want 2 — the page is finished before the stop", scenes)
 	}
 	if !stoppedEarly {
 		t.Error("expected StoppedEarly signal")

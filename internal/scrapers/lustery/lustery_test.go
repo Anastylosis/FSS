@@ -155,7 +155,8 @@ func TestScrapeKnownIDsEarlyStop(t *testing.T) {
 	s.base = ts.URL
 	s.client = ts.Client()
 
-	// First listed permalink is known -> stop immediately.
+	// The first listed permalink is known: it is skipped, the rest of the page
+	// is emitted, and the walk stops at the end of the page.
 	results, err := collect(t, s, scraper.ListOpts{
 		KnownIDs: map[string]bool{"quick-suck": true},
 	})
@@ -176,8 +177,8 @@ func TestScrapeKnownIDsEarlyStop(t *testing.T) {
 	if !stopped {
 		t.Error("expected StoppedEarly")
 	}
-	if sceneCount != 0 {
-		t.Errorf("got %d scenes before stop, want 0", sceneCount)
+	if sceneCount == 0 {
+		t.Error("the rest of the page must still be emitted")
 	}
 }
 

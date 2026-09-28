@@ -195,8 +195,10 @@ func TestListScenesKnownIDEarlyStop(t *testing.T) {
 			stopped = true
 		}
 	}
-	if scenes != 0 {
-		t.Errorf("got %d scenes before early stop, want 0", scenes)
+	// The known card is first, but the rest of the page is already fetched
+	// and is emitted before the walk stops.
+	if scenes == 0 {
+		t.Error("the rest of the page must still be emitted")
 	}
 	if !stopped {
 		t.Error("expected StoppedEarly")

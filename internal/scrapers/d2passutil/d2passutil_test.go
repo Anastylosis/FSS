@@ -305,10 +305,10 @@ func TestRunKnownIDsStopsEarly(t *testing.T) {
 	if !stopped {
 		t.Error("expected a StoppedEarly signal")
 	}
-	// Rows are newest-first, so only the two scenes ahead of the known one
-	// should come back.
-	if len(scenes) != 2 {
-		t.Errorf("got %d scenes, want 2", len(scenes))
+	// Rows are newest-first, so the walk stops at the end of the page holding
+	// the known row — every other row on that page still comes back.
+	if len(scenes) != 49 {
+		t.Errorf("got %d scenes, want 49 (page one minus the known row)", len(scenes))
 	}
 }
 

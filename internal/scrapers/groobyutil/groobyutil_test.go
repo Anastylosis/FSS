@@ -289,8 +289,8 @@ func TestKnownIDs(t *testing.T) {
 	}
 
 	got, stopped := testutil.CollectScenesWithStop(t, ch)
-	if len(got) != 2 {
-		t.Fatalf("got %d scenes, want 2", len(got))
+	if len(got) != 3 {
+		t.Fatalf("got %d scenes, want 3 — the page is finished before the stop", len(got))
 	}
 	if !stopped {
 		t.Error("expected StoppedEarly")

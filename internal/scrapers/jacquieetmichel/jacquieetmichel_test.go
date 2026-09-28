@@ -210,7 +210,8 @@ func TestScrapeKnownIDsEarlyStop(t *testing.T) {
 	s := New()
 	s.base = ts.URL
 
-	// First scene on page 1 is known → immediate early stop, no scenes.
+	// The first scene on page 1 is known. The page is already fetched, so the
+	// rest of it is emitted and the walk stops at the end of the page.
 	opts := scraper.ListOpts{
 		Workers:  2,
 		KnownIDs: map[string]bool{"6a3053774456cf816fbae3c0": true},
@@ -218,13 +219,20 @@ func TestScrapeKnownIDsEarlyStop(t *testing.T) {
 	results := collect(t, s, opts)
 
 	stopped := false
+	scenes := 0
 	for _, r := range results {
 		switch r.Kind {
 		case scraper.KindStoppedEarly:
 			stopped = true
 		case scraper.KindScene:
-			t.Errorf("unexpected scene before early stop: %s", r.Scene.ID)
+			if r.Scene.ID == "6a3053774456cf816fbae3c0" {
+				t.Error("the known scene must not be emitted")
+			}
+			scenes++
 		}
+	}
+	if scenes == 0 {
+		t.Error("the rest of page 1 must still be emitted")
 	}
 	if !stopped {
 		t.Error("expected StoppedEarly result")

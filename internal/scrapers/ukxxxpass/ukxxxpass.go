@@ -177,13 +177,12 @@ func (s *Scraper) enrichPage(ctx context.Context, items []listItem, studioURL st
 		workers = 4
 	}
 
-	// Paginate stops at the first known ID without emitting it or anything
-	// after it, so their detail pages would be fetched for nothing.
-	fetchN := len(items)
+	// Paginate skips a stored scene and stops at the end of the page, so only
+	// the stored cards' own detail pages would be fetched for nothing.
+	fetch := make([]int, 0, len(items))
 	for i, item := range items {
-		if opts.KnownIDs[item.id] {
-			fetchN = i
-			break
+		if !opts.KnownIDs[item.id] {
+			fetch = append(fetch, i)
 		}
 	}
 
@@ -191,8 +190,8 @@ func (s *Scraper) enrichPage(ctx context.Context, items []listItem, studioURL st
 	sem := make(chan struct{}, workers)
 	errs := make([]error, len(items))
 
-	scraper.Debugf(1, "%s: fetching %d details with %d workers", s.cfg.SiteID, fetchN, workers)
-	for i := range items[:fetchN] {
+	scraper.Debugf(1, "%s: fetching %d details with %d workers", s.cfg.SiteID, len(fetch), workers)
+	for _, i := range fetch {
 		if ctx.Err() != nil {
 			break
 		}

@@ -201,10 +201,10 @@ func TestKnownIDsEarlyStop(t *testing.T) {
 	if !stoppedEarly {
 		t.Error("expected StoppedEarly when first ID is known")
 	}
-	// The known first scene is emitted as a stub (no detail fetch), so no
-	// scenes are emitted before the early stop fires on it.
-	if scenes != 0 {
-		t.Errorf("expected 0 scenes before early stop, got %d", scenes)
+	// The known first scene is skipped, but the rest of the page is already in
+	// hand and is emitted before the walk stops.
+	if scenes != len(items)-1 {
+		t.Errorf("expected the other %d scenes on the page, got %d", len(items)-1, scenes)
 	}
 	// The known first ID skips its own detail fetch; the remaining items on the
 	// page are fetched concurrently before Paginate reaches the known one.

@@ -147,8 +147,10 @@ func TestKnownIDsEarlyStop(t *testing.T) {
 	scenes := collect(t, s, ts.URL+"/", scraper.ListOpts{
 		KnownIDs: map[string]bool{"1756413": true},
 	})
-	if len(scenes) != 0 {
-		t.Fatalf("expected early stop at first known ID, got %d scenes", len(scenes))
+	// The known ID is first on the page, but the rest of that page is already
+	// fetched and is emitted before the walk stops.
+	if len(scenes) != 1 {
+		t.Fatalf("expected the rest of the page (1 scene), got %d", len(scenes))
 	}
 }
 

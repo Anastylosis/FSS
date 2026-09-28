@@ -268,11 +268,16 @@ func TestKnownIDsStopEarly(t *testing.T) {
 
 	scenes, _ := collect(t, s, srv.URL+"/store_view.php?id=1054",
 		scraper.ListOpts{KnownIDs: map[string]bool{"214937": true}})
-	if len(scenes) != 1 {
-		t.Fatalf("got %d scenes, want 1 before the known id", len(scenes))
+	if len(scenes) != 2 {
+		t.Fatalf("got %d scenes, want 2 — the page is finished before the stop", len(scenes))
 	}
 	if scenes[0].ID != "216466" {
 		t.Errorf("ID = %q", scenes[0].ID)
+	}
+	for _, sc := range scenes {
+		if sc.ID == "214937" {
+			t.Error("the known scene must not be emitted")
+		}
 	}
 }
 

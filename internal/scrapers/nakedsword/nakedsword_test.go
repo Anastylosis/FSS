@@ -435,9 +435,15 @@ func TestRunStopsEarlyOnKnownID(t *testing.T) {
 	if len(errs) != 0 {
 		t.Fatalf("errors: %v", errs)
 	}
-	// Page 1 yields ids 10,11; page 2 starts with the known id 20.
-	if len(scenes) != 2 {
-		t.Errorf("got %d scenes, want 2 before the known id", len(scenes))
+	// Page 1 yields ids 10,11; page 2 starts with the known id 20, which is
+	// skipped while the rest of page 2 is still emitted.
+	if len(scenes) != 3 {
+		t.Errorf("got %d scenes, want 3 — page 2 is finished before the stop", len(scenes))
+	}
+	for _, sc := range scenes {
+		if sc.ID == "20" {
+			t.Error("the known scene must not be emitted")
+		}
 	}
 }
 

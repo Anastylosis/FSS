@@ -285,8 +285,8 @@ func TestListScenesKnownIDs(t *testing.T) {
 			scenesOnly = append(scenesOnly, r)
 		}
 	}
-	if len(scenesOnly) != 1 {
-		t.Errorf("got %d scenes, want 1 (early stop at known ID)", len(scenesOnly))
+	if len(scenesOnly) != 2 {
+		t.Errorf("got %d scenes, want 2 — the page is finished before the stop", len(scenesOnly))
 	}
 	if !sawStoppedEarly {
 		t.Error("expected StoppedEarly signal, got none")

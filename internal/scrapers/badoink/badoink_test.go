@@ -180,8 +180,8 @@ func TestKnownIDsEarlyStop(t *testing.T) {
 
 	s, _ := newTestScraper(t, handler)
 
-	// Mark the 3rd listing scene as known: Paginate should stop early and
-	// emit only the first two scenes.
+	// Mark the 3rd listing scene as known: Paginate finishes the page — the
+	// known scene itself is skipped — and stops before the next one.
 	opts := scraper.ListOpts{KnownIDs: map[string]bool{"327633": true}}
 	ch, err := s.ListScenes(context.Background(), s.base, opts)
 	if err != nil {
@@ -206,8 +206,8 @@ func TestKnownIDsEarlyStop(t *testing.T) {
 	if !stopped {
 		t.Error("expected StoppedEarly signal")
 	}
-	if count != 2 {
-		t.Errorf("emitted %d scenes before stop, want 2", count)
+	if count != 4 {
+		t.Errorf("emitted %d scenes before stop, want 4 — every card but the known one", count)
 	}
 }
 

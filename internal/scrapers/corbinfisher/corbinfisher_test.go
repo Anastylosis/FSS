@@ -144,9 +144,10 @@ func TestScrapeStopsOnKnownID(t *testing.T) {
 
 	opts := scraper.ListOpts{KnownIDs: map[string]bool{"Fucking-Charlie": true}}
 	scenes := collect(t, ts.URL+"/", opts, ts.URL)
-	// First scene in document order is the known ID -> immediate early stop.
-	if len(scenes) != 0 {
-		t.Fatalf("expected 0 scenes (early stop), got %d", len(scenes))
+	// The known ID is first in document order, but the rest of the page is
+	// already in hand and is emitted before the walk stops.
+	if len(scenes) != 2 {
+		t.Fatalf("expected the other 2 scenes on the page, got %d", len(scenes))
 	}
 }
 

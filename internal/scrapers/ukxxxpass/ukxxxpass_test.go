@@ -283,12 +283,12 @@ func TestListScenesStopsAtKnownID(t *testing.T) {
 	if !stopped {
 		t.Error("expected a StoppedEarly result")
 	}
-	if scenes != 1 {
-		t.Errorf("scenes = %d, want 1", scenes)
+	if scenes != 2 {
+		t.Errorf("scenes = %d, want 2 — the page is finished before the stop", scenes)
 	}
-	// Nothing from the known card on is emitted, so its detail is not fetched.
-	if n := details.Load(); n != 1 {
-		t.Errorf("detail fetches = %d, want 1", n)
+	// The known card itself is skipped, so its detail is never fetched.
+	if n := details.Load(); n != 2 {
+		t.Errorf("detail fetches = %d, want 2 (every card but the known one)", n)
 	}
 }
 
