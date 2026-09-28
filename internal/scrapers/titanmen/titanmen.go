@@ -173,19 +173,28 @@ func (s *Scraper) runSinglePage(ctx context.Context, studioURL string, opts scra
 		wg.Wait()
 	}()
 
+	// A model page and a DVD page are both a single listing that is already in
+	// hand, and neither is date-ordered — a DVD lists its scenes by disc
+	// position, so a bonus scene appended to a disc sits behind scenes that
+	// shipped with it. Stopping at the first stored scene hid those forever,
+	// so known scenes are skipped and the rest of the page is still queued.
+	skipped := 0
 	for _, e := range entries {
 		if opts.KnownIDs[e.sceneID] {
-			scraper.Debugf(1, "titanmen: hit known ID, stopping early")
-			select {
-			case out <- scraper.StoppedEarly():
-			case <-ctx.Done():
-			}
-			break
+			skipped++
+			continue
 		}
 		select {
 		case work <- e:
 		case <-ctx.Done():
 			return
+		}
+	}
+	if skipped > 0 {
+		scraper.Debugf(1, "titanmen: skipped %d already-stored scene(s)", skipped)
+		select {
+		case out <- scraper.StoppedEarly():
+		case <-ctx.Done():
 		}
 	}
 }

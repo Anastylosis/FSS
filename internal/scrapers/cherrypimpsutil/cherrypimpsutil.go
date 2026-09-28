@@ -397,7 +397,19 @@ func (s *Scraper) scrapeDVDListing(ctx context.Context, opts scraper.ListOpts, o
 	}
 
 	scraper.Debugf(1, "%s: fetching %d DVD detail pages", s.cfg.ID, len(allDVDs))
-	scraper.Paginate(ctx, opts, s.cfg.ID, out, func(ctx context.Context, page int) (scraper.PageResult, error) {
+
+	// The DVD list is ordered by release, but its *scenes* are not: a
+	// compilation reissues scenes that shipped on earlier discs, so the first
+	// stored scene can turn up on the very first DVD. Paginate's early stop
+	// would end the walk there and every later DVD would stay undiscovered, so
+	// the hint is dropped and known scenes are skipped instead. The cost is
+	// that an incremental DVD run always walks the whole list.
+	walkOpts := opts
+	walkOpts.KnownIDs = nil
+	seen := make(map[string]bool)
+	skipped := 0
+
+	scraper.Paginate(ctx, walkOpts, s.cfg.ID, out, func(ctx context.Context, page int) (scraper.PageResult, error) {
 		idx := page - 1
 		if idx >= len(allDVDs) {
 			return scraper.PageResult{}, nil
@@ -415,20 +427,38 @@ func (s *Scraper) scrapeDVDListing(ctx context.Context, opts scraper.ListOpts, o
 			total = len(items) * len(allDVDs)
 		}
 
-		scenes := make([]models.Scene, len(items))
-		for i, item := range items {
-			scenes[i] = item.toScene(s.cfg.ID, s.cfg.SiteBase, s.cfg.Studio, now)
+		scenes := make([]models.Scene, 0, len(items))
+		for _, item := range items {
+			if seen[item.id] {
+				continue
+			}
+			if opts.KnownIDs[item.id] {
+				seen[item.id] = true
+				skipped++
+				continue
+			}
+			seen[item.id] = true
+			scenes = append(scenes, item.toScene(s.cfg.ID, s.cfg.SiteBase, s.cfg.Studio, now))
 		}
 
 		return scraper.PageResult{
 			Scenes: scenes,
 			Total:  total,
-			// Fixed walk over the DVD list: an empty or photo-only DVD must not
-			// abort the walk — only exhausting the list (Done) ends it.
+			// Fixed walk over the DVD list: an empty, photo-only or
+			// wholly-known DVD must not abort the walk — only exhausting the
+			// list (Done) ends it.
 			Continue: true,
 			Done:     idx >= len(allDVDs)-1,
 		}, nil
 	})
+
+	if skipped > 0 {
+		scraper.Debugf(1, "%s: skipped %d already-stored DVD scene(s)", s.cfg.ID, skipped)
+		select {
+		case out <- scraper.StoppedEarly():
+		case <-ctx.Done():
+		}
+	}
 }
 
 func (item sceneItem) toScene(siteID, siteBase, studio string, now time.Time) models.Scene {

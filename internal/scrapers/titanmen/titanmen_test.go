@@ -342,3 +342,53 @@ func TestModelPage(t *testing.T) {
 		t.Errorf("got %d scenes, want 1", scenes)
 	}
 }
+
+// A DVD page lists its scenes by disc position, so a bonus scene appended to a
+// disc sits behind scenes that shipped with it. Stopping at the first stored
+// scene hid those forever; the walk must skip and carry on.
+func TestDVDPageKnownIDSkipsRatherThanTruncates(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		switch r.URL.Path {
+		case "/dvds.php":
+			if r.URL.Query().Get("sceneid") != "" {
+				_, _ = fmt.Fprint(w, detailHTML)
+				return
+			}
+			_, _ = fmt.Fprint(w, listingHTML)
+		default:
+			t.Errorf("unexpected fetch %s", r.URL)
+		}
+	}))
+	defer ts.Close()
+
+	s := &Scraper{client: ts.Client(), baseOverride: ts.URL}
+
+	// 3321 is the first of the two entries; the second must still be reached.
+	ch, err := s.ListScenes(context.Background(), ts.URL+"/dvds.php?id=244", scraper.ListOpts{
+		Workers:  1,
+		KnownIDs: map[string]bool{"3321": true},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var ids []string
+	var stoppedEarly bool
+	for r := range ch {
+		switch r.Kind {
+		case scraper.KindScene:
+			ids = append(ids, r.Scene.ID)
+		case scraper.KindStoppedEarly:
+			stoppedEarly = true
+		case scraper.KindError:
+			t.Errorf("unexpected error: %v", r.Err)
+		}
+	}
+	if len(ids) != 1 || ids[0] != "3143" {
+		t.Errorf("scene IDs = %v, want [3143]", ids)
+	}
+	if !stoppedEarly {
+		t.Error("expected StoppedEarly to report the skipped scene")
+	}
+}

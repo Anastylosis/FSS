@@ -282,6 +282,18 @@ func (s *Scraper) enqueueModelPage(ctx context.Context, studioURL string, opts s
 
 func (s *Scraper) enqueueDVDPages(ctx context.Context, delay time.Duration, opts scraper.ListOpts, out chan<- scraper.SceneResult, work chan<- workItem) {
 	seen := map[string]bool{}
+	skipped := 0
+	// The walk has several exits; report the skip once, wherever it ends.
+	defer func() {
+		if skipped == 0 {
+			return
+		}
+		scraper.Debugf(1, "%s: skipped %d already-stored DVD scene(s)", s.cfg.SiteID, skipped)
+		select {
+		case out <- scraper.StoppedEarly():
+		case <-ctx.Done():
+		}
+	}()
 
 	for page := 1; ; page++ {
 		scraper.Debugf(1, "%s: fetching DVD page %d", s.cfg.SiteID, page)
@@ -360,13 +372,14 @@ func (s *Scraper) enqueueDVDPages(ctx context.Context, delay time.Duration, opts
 				}
 				seen[slug] = true
 
+				// A DVD is a compilation: it reissues scenes that shipped on
+				// earlier discs, so a stored scene turns up long before the
+				// newest disc is reached. Stopping here would leave every
+				// later DVD undiscovered, so a known scene is skipped and the
+				// walk continues.
 				if opts.KnownIDs[slug] {
-					scraper.Debugf(1, "%s: hit known ID %s, stopping early", s.cfg.SiteID, slug)
-					select {
-					case out <- scraper.StoppedEarly():
-					case <-ctx.Done():
-					}
-					return
+					skipped++
+					continue
 				}
 
 				select {

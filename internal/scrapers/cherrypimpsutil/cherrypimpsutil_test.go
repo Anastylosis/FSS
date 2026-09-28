@@ -501,7 +501,9 @@ func TestDVDListing(t *testing.T) {
 	}
 }
 
-func TestDVDListingKnownIDs(t *testing.T) {
+// A DVD is a compilation, so a stored scene sits in the middle of a disc that
+// also carries new ones. The walk must skip it rather than stop.
+func TestDVDListingKnownIDsSkipsWithoutTruncating(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
 		base := "http://" + r.Host
@@ -533,11 +535,14 @@ func TestDVDListingKnownIDs(t *testing.T) {
 	}
 
 	got, stopped := testutil.CollectScenesWithStop(t, ch)
-	if len(got) != 1 {
-		t.Fatalf("got %d scenes, want 1", len(got))
+	if len(got) != 2 {
+		t.Fatalf("got %d scenes, want 2 — the known scene is skipped, not a stop", len(got))
+	}
+	if got[0].ID != "1" || got[1].ID != "3" {
+		t.Errorf("scene IDs = [%s, %s], want [1, 3]", got[0].ID, got[1].ID)
 	}
 	if !stopped {
-		t.Error("expected StoppedEarly")
+		t.Error("expected StoppedEarly to report the skipped scene")
 	}
 }
 
@@ -562,5 +567,51 @@ func TestSeriesPage(t *testing.T) {
 	got := testutil.CollectScenes(t, ch)
 	if len(got) != 3 {
 		t.Fatalf("got %d scenes, want 3", len(got))
+	}
+}
+
+// A wholly-known DVD sits in front of the discs that carry new scenes, so it
+// must not end the walk — only exhausting the DVD list does.
+func TestDVDListingKnownDVDDoesNotAbortTheWalk(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		base := "http://" + r.Host
+		switch r.URL.Path {
+		case "/dvds/dvds.html":
+			for _, name := range []string{"old", "new"} {
+				_, _ = fmt.Fprintf(w, `
+					<div class="item-update no-overlay item-model col">
+						<div class="item-thumb"><a href="%s/dvds/%s.html" title="%s"><img class="dvd_cover_placeholder" /></a></div>
+						<div class="item-footer"><div class="item-row"><div class="item-title"><a href="%s/dvds/%s.html" title="%s">%s</a></div></div></div>
+					</div><!--//item-update-->`, base, name, name, base, name, name, name)
+			}
+		case "/dvds/old.html":
+			_, _ = w.Write(buildTestPage([]int{1, 2}, 1))
+		case "/dvds/new.html":
+			_, _ = w.Write(buildTestPage([]int{3}, 1))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer ts.Close()
+
+	cfg := testCfg
+	cfg.SiteBase = ts.URL
+
+	s := New(cfg)
+	ch, err := s.ListScenes(context.Background(), ts.URL+"/dvds/dvds.html", scraper.ListOpts{
+		KnownIDs: map[string]bool{"1": true, "2": true},
+		Delay:    time.Millisecond,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got, stopped := testutil.CollectScenesWithStop(t, ch)
+	if len(got) != 1 || got[0].ID != "3" {
+		t.Fatalf("scenes = %+v, want just the new DVD's scene 3", got)
+	}
+	if !stopped {
+		t.Error("expected StoppedEarly to report the skipped scenes")
 	}
 }

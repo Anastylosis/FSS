@@ -578,3 +578,52 @@ func TestBasePath(t *testing.T) {
 		})
 	}
 }
+
+// A DVD is a compilation: it reissues scenes that shipped on earlier discs, so
+// the first stored scene turns up long before the newest disc is reached. The
+// walk must skip it and keep discovering later DVDs.
+func TestListScenesDVDModeKnownIDDoesNotAbortTheWalk(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		switch r.URL.Path {
+		case "/dvds/dvds.html":
+			_, _ = fmt.Fprint(w, `<a href="/dvds/old.html" class="dvd-listing-card">
+<div class="dvd-listing-bar"><span class="dvd-listing-name">Old DVD</span></div></a>
+<a href="/dvds/new.html" class="dvd-listing-card">
+<div class="dvd-listing-bar"><span class="dvd-listing-name">New DVD</span></div></a>`)
+		case "/dvds/old.html":
+			_, _ = fmt.Fprint(w, `<a href="/scenes/stored-scene_vids.html">Watch</a>`)
+		case "/dvds/new.html":
+			_, _ = fmt.Fprint(w, `<a href="/scenes/fresh-scene_vids.html">Watch</a>`)
+		case "/dvds/dvds_page_2.html":
+			_, _ = fmt.Fprint(w, `<div>empty</div>`)
+		default:
+			if strings.HasPrefix(r.URL.Path, "/scenes/") {
+				_, _ = fmt.Fprint(w, detailTpl)
+				return
+			}
+			t.Errorf("unexpected fetch %s", r.URL)
+		}
+	}))
+	defer ts.Close()
+
+	s := newTestScraper(ts)
+	ch, err := s.ListScenes(context.Background(), ts.URL+"/dvds/dvds.html", scraper.ListOpts{
+		KnownIDs: map[string]bool{"stored-scene": true},
+		Delay:    time.Millisecond,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	results, stoppedEarly := testutil.CollectScenesWithStop(t, ch)
+	if len(results) != 1 {
+		t.Fatalf("got %d scenes, want 1 — the later DVD must still be walked", len(results))
+	}
+	if results[0].ID != "fresh-scene" {
+		t.Errorf("scene ID = %q, want fresh-scene", results[0].ID)
+	}
+	if !stoppedEarly {
+		t.Error("expected StoppedEarly to report the skipped scene")
+	}
+}
