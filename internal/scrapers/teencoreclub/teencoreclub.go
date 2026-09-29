@@ -257,12 +257,8 @@ func (s *Scraper) enrichAndCollect(ctx context.Context, items []videoItem, studi
 			sem <- struct{}{}
 			defer func() { <-sem }()
 
-			if opts.Delay > 0 {
-				select {
-				case <-time.After(opts.Delay):
-				case <-ctx.Done():
-					return
-				}
+			if !scraper.Pace(ctx, opts.Delay) {
+				return
 			}
 
 			detail, err := s.fetchVideoDetail(ctx, item.ID)

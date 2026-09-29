@@ -207,12 +207,8 @@ func (s *Scraper) runModel(ctx context.Context, studioURL string, opts scraper.L
 			}
 			return
 		}
-		if opts.Delay > 0 {
-			select {
-			case <-time.After(opts.Delay):
-			case <-ctx.Done():
-				return
-			}
+		if !scraper.Pace(ctx, opts.Delay) {
+			return
 		}
 		scene := s.processEntry(ctx, studioURL, now, e)
 		select {
@@ -235,12 +231,8 @@ func (s *Scraper) runPaginated(ctx context.Context, studioURL string, opts scrap
 		go func() {
 			defer wg.Done()
 			for entry := range work {
-				if opts.Delay > 0 {
-					select {
-					case <-time.After(opts.Delay):
-					case <-ctx.Done():
-						return
-					}
+				if !scraper.Pace(ctx, opts.Delay) {
+					return
 				}
 				scene := s.processEntry(ctx, studioURL, now, entry)
 				select {
@@ -257,14 +249,8 @@ func (s *Scraper) runPaginated(ctx context.Context, studioURL string, opts scrap
 		if ctx.Err() != nil {
 			break
 		}
-		if page > 1 && opts.Delay > 0 {
-			select {
-			case <-time.After(opts.Delay):
-			case <-ctx.Done():
-			}
-			if ctx.Err() != nil {
-				break
-			}
+		if page > 1 && !scraper.Pace(ctx, opts.Delay) {
+			break
 		}
 
 		scraper.Debugf(1, "%s: fetching page %d", s.cfg.id, page)

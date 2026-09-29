@@ -168,12 +168,8 @@ func (s *Scraper) fetchBatch(ctx context.Context, studioURL string, start, end i
 			case <-ctx.Done():
 				return
 			}
-			if delay > 0 {
-				select {
-				case <-time.After(delay):
-				case <-ctx.Done():
-					return
-				}
+			if !scraper.Pace(ctx, delay) {
+				return
 			}
 			scenes[i], found[i] = s.fetchScene(ctx, studioURL, start+i, now)
 		}(i)

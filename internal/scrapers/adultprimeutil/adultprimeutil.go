@@ -181,9 +181,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 				return
 			}
 
-			select {
-			case <-time.After(opts.Delay):
-			case <-ctx.Done():
+			if !scraper.Pace(ctx, opts.Delay) {
 				return
 			}
 		}
@@ -276,12 +274,8 @@ var (
 )
 
 func (s *Scraper) fetchDetail(ctx context.Context, item listingItem, delay time.Duration) (models.Scene, error) {
-	if delay > 0 {
-		select {
-		case <-time.After(delay):
-		case <-ctx.Done():
-			return models.Scene{}, ctx.Err()
-		}
+	if !scraper.Pace(ctx, delay) {
+		return models.Scene{}, ctx.Err()
 	}
 
 	url := fmt.Sprintf("%s/studios/video/%s?site=%s", s.base, item.id, s.cfg.Slug)

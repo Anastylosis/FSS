@@ -181,12 +181,8 @@ func (s *Scraper) run(ctx context.Context, studioURL, slug string, opts scraper.
 		if ctx.Err() != nil {
 			return
 		}
-		if page > 1 && opts.Delay > 0 {
-			select {
-			case <-time.After(opts.Delay):
-			case <-ctx.Done():
-				return
-			}
+		if page > 1 && !scraper.Pace(ctx, opts.Delay) {
+			return
 		}
 		scraper.Debugf(1, "yourvids: fetching page %d", page)
 
@@ -255,12 +251,8 @@ func (s *Scraper) run(ctx context.Context, studioURL, slug string, opts scraper.
 				if ctx.Err() != nil {
 					return
 				}
-				if opts.Delay > 0 {
-					select {
-					case <-time.After(opts.Delay):
-					case <-ctx.Done():
-						return
-					}
+				if !scraper.Pace(ctx, opts.Delay) {
+					return
 				}
 				desc, tags := s.fetchDetail(ctx, v.VideoURL)
 				select {

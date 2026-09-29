@@ -139,12 +139,8 @@ func (s *Scraper) walkListing(ctx context.Context, opts scraper.ListOpts) ([]car
 		if ctx.Err() != nil {
 			return cards, nil
 		}
-		if page > 1 && opts.Delay > 0 {
-			select {
-			case <-time.After(opts.Delay):
-			case <-ctx.Done():
-				return cards, nil
-			}
+		if page > 1 && !scraper.Pace(ctx, opts.Delay) {
+			return cards, nil
 		}
 		body, err := s.fetchPage(ctx, fmt.Sprintf("%s/EN/vod/1/page%d", s.base, page))
 		if err != nil {

@@ -133,9 +133,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 		go func() {
 			defer wg.Done()
 			for item := range work {
-				select {
-				case <-time.After(delay):
-				case <-ctx.Done():
+				if !scraper.Pace(ctx, delay) {
 					return
 				}
 				scene, err := s.fetchDetail(ctx, item, studioURL)
@@ -198,12 +196,8 @@ func (s *Scraper) scrapePaginated(ctx context.Context, base string, opts scraper
 			return
 		}
 
-		if page > 1 {
-			select {
-			case <-time.After(delay):
-			case <-ctx.Done():
-				return
-			}
+		if page > 1 && !scraper.Pace(ctx, delay) {
+			return
 		}
 		scraper.Debugf(1, "1passforallsites: fetching page %d", page)
 

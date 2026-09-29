@@ -143,12 +143,8 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 		pageSize := 0
 
 		for page := 1; ; page++ {
-			if page > 1 {
-				select {
-				case <-time.After(delay):
-				case <-ctx.Done():
-					return
-				}
+			if page > 1 && !scraper.Pace(ctx, delay) {
+				return
 			}
 			scraper.Debugf(1, "r18dev: fetching page %d", page)
 
@@ -252,12 +248,8 @@ func itemID(item listItem) string {
 // ---- detail fetching ----
 
 func (s *Scraper) fetchDetail(ctx context.Context, studioURL string, item listItem, delay time.Duration) (models.Scene, error) {
-	if delay > 0 {
-		select {
-		case <-time.After(delay):
-		case <-ctx.Done():
-			return models.Scene{}, ctx.Err()
-		}
+	if !scraper.Pace(ctx, delay) {
+		return models.Scene{}, ctx.Err()
 	}
 
 	var dr detailResponse

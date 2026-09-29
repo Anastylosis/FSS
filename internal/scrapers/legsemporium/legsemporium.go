@@ -173,12 +173,8 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 				if ctx.Err() != nil {
 					return
 				}
-				if opts.Delay > 0 {
-					select {
-					case <-time.After(opts.Delay):
-					case <-ctx.Done():
-						return
-					}
+				if !scraper.Pace(ctx, opts.Delay) {
+					return
 				}
 				scene, err := fetchDetail(ctx, sess, entries[i], studioURL)
 				results <- detailResult{idx: i, scene: scene, err: err}
@@ -464,12 +460,8 @@ func paginateLeaf(ctx context.Context, sess *session, slug, tab string, opts scr
 			break
 		}
 
-		if opts.Delay > 0 {
-			select {
-			case <-time.After(opts.Delay):
-			case <-ctx.Done():
-				return all, ctx.Err()
-			}
+		if !scraper.Pace(ctx, opts.Delay) {
+			return all, ctx.Err()
 		}
 	}
 

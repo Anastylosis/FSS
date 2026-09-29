@@ -172,12 +172,8 @@ func (s *Scraper) paginateCategory(ctx context.Context, category, sort string, o
 			return
 		}
 
-		if page > 1 {
-			select {
-			case <-time.After(delay):
-			case <-ctx.Done():
-				return
-			}
+		if page > 1 && !scraper.Pace(ctx, delay) {
+			return
 		}
 		scraper.Debugf(1, "%s: fetching page %d", s.cfg.SiteID, page)
 
@@ -358,9 +354,7 @@ var (
 )
 
 func (s *Scraper) fetchDetail(ctx context.Context, item workItem, studioURL string, delay time.Duration) (models.Scene, error) {
-	select {
-	case <-time.After(delay):
-	case <-ctx.Done():
+	if !scraper.Pace(ctx, delay) {
 		return models.Scene{}, ctx.Err()
 	}
 

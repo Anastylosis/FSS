@@ -116,12 +116,8 @@ func (s *Scraper) run(ctx context.Context, studioURL, slug string, opts scraper.
 			}
 
 			if c.detailPath != "" {
-				if opts.Delay > 0 {
-					select {
-					case <-time.After(opts.Delay):
-					case <-ctx.Done():
-						return scraper.PageResult{}, ctx.Err()
-					}
+				if !scraper.Pace(ctx, opts.Delay) {
+					return scraper.PageResult{}, ctx.Err()
 				}
 				detailBody, detailErr := s.fetchPage(ctx, s.base+c.detailPath)
 				if detailErr == nil {

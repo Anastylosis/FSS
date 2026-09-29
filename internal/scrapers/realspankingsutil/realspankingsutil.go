@@ -139,9 +139,7 @@ func (s *Scraper) runPaged(ctx context.Context, opts scraper.ListOpts, out chan<
 			return
 		}
 
-		select {
-		case <-time.After(opts.Delay):
-		case <-ctx.Done():
+		if !scraper.Pace(ctx, opts.Delay) {
 			return
 		}
 		scraper.Debugf(1, "%s: fetching page %d", s.cfg.SiteID, page)
@@ -175,9 +173,7 @@ func (s *Scraper) runYears(ctx context.Context, opts scraper.ListOpts, out chan<
 			return
 		}
 
-		select {
-		case <-time.After(opts.Delay):
-		case <-ctx.Done():
+		if !scraper.Pace(ctx, opts.Delay) {
 			return
 		}
 	}

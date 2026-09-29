@@ -256,12 +256,8 @@ func (s *Scraper) enqueueItems(ctx context.Context, listURL string, opts scraper
 		if ctx.Err() != nil {
 			return
 		}
-		if page > 1 && opts.Delay > 0 {
-			select {
-			case <-time.After(opts.Delay):
-			case <-ctx.Done():
-				return
-			}
+		if page > 1 && !scraper.Pace(ctx, opts.Delay) {
+			return
 		}
 
 		u := setPageParam(listURL, page)
@@ -361,12 +357,8 @@ func setPageParam(u string, page int) string {
 }
 
 func (s *Scraper) fetchDetail(ctx context.Context, base, code, studioURL string, delay time.Duration) (models.Scene, error) {
-	if delay > 0 {
-		select {
-		case <-time.After(delay):
-		case <-ctx.Done():
-			return models.Scene{}, ctx.Err()
-		}
+	if !scraper.Pace(ctx, delay) {
+		return models.Scene{}, ctx.Err()
 	}
 
 	u := base + "/work/item.php?itemcode=" + code

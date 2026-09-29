@@ -166,12 +166,8 @@ func (s *Scraper) walkListing(ctx context.Context, listing string, opts scraper.
 		if ctx.Err() != nil {
 			return refs, ctx.Err()
 		}
-		if page > 1 && opts.Delay > 0 {
-			select {
-			case <-time.After(opts.Delay):
-			case <-ctx.Done():
-				return refs, ctx.Err()
-			}
+		if page > 1 && !scraper.Pace(ctx, opts.Delay) {
+			return refs, ctx.Err()
 		}
 
 		pageURL := listing
@@ -250,12 +246,8 @@ func (s *Scraper) fetchDetails(ctx context.Context, refs []sceneRef, studioURL s
 		go func() {
 			defer wg.Done()
 			for ref := range jobs {
-				if opts.Delay > 0 {
-					select {
-					case <-time.After(opts.Delay):
-					case <-ctx.Done():
-						return
-					}
+				if !scraper.Pace(ctx, opts.Delay) {
+					return
 				}
 				scene, err := s.fetchScene(ctx, ref, studioURL)
 				if err != nil {

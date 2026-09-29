@@ -234,12 +234,8 @@ func (s *Scraper) paginateAJAX(ctx context.Context, basePath, sorting string, op
 			return
 		}
 
-		if page > 1 {
-			select {
-			case <-time.After(delay):
-			case <-ctx.Done():
-				return
-			}
+		if page > 1 && !scraper.Pace(ctx, delay) {
+			return
 		}
 		scraper.Debugf(1, "dorcelclub: fetching page %d", page)
 
@@ -387,9 +383,7 @@ var (
 )
 
 func (s *Scraper) fetchDetail(ctx context.Context, item workItem, studioURL string, delay time.Duration, language string) (models.Scene, error) {
-	select {
-	case <-time.After(delay):
-	case <-ctx.Done():
+	if !scraper.Pace(ctx, delay) {
 		return models.Scene{}, ctx.Err()
 	}
 

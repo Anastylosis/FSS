@@ -113,12 +113,8 @@ func (s *Scraper) Run(ctx context.Context, studioURL string, opts scraper.ListOp
 		go func() {
 			defer wg.Done()
 			for vid := range work {
-				if opts.Delay > 0 {
-					select {
-					case <-time.After(opts.Delay):
-					case <-ctx.Done():
-						return
-					}
+				if !scraper.Pace(ctx, opts.Delay) {
+					return
 				}
 				scene, err := s.BuildScene(ctx, studioURL, vid)
 				if err != nil {
@@ -142,15 +138,8 @@ func (s *Scraper) Run(ctx context.Context, studioURL string, opts scraper.ListOp
 		if ctx.Err() != nil {
 			break
 		}
-		if page > 1 && opts.Delay > 0 {
-			select {
-			case <-time.After(opts.Delay):
-			case <-ctx.Done():
-				break
-			}
-			if ctx.Err() != nil {
-				break
-			}
+		if page > 1 && !scraper.Pace(ctx, opts.Delay) {
+			break
 		}
 		scraper.Debugf(1, "%s: fetching page %d", s.cfg.SiteID, page)
 

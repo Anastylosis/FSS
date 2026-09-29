@@ -68,12 +68,8 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 			return
 		}
 
-		if offset > 0 {
-			select {
-			case <-time.After(delay):
-			case <-ctx.Done():
-				return
-			}
+		if offset > 0 && !scraper.Pace(ctx, delay) {
+			return
 		}
 		scraper.Debugf(1, "beautifulagony: fetching page %d", offset)
 

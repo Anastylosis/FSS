@@ -332,12 +332,8 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 		seen := map[string]bool{}
 
 		for page := 1; ; page++ {
-			if page > 1 {
-				select {
-				case <-time.After(opts.Delay):
-				case <-ctx.Done():
-					return
-				}
+			if page > 1 && !scraper.Pace(ctx, opts.Delay) {
+				return
 			}
 			scraper.Debugf(1, "prestige: fetching page %d", page)
 
@@ -445,12 +441,8 @@ func (s *Scraper) thumbnailURL(path string) string {
 // ---- detail fetching ----
 
 func (s *Scraper) fetchDetail(ctx context.Context, studioURL, productUUID string, delay time.Duration) (models.Scene, error) {
-	if delay > 0 {
-		select {
-		case <-time.After(delay):
-		case <-ctx.Done():
-			return models.Scene{}, ctx.Err()
-		}
+	if !scraper.Pace(ctx, delay) {
+		return models.Scene{}, ctx.Err()
 	}
 
 	var p product

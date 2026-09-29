@@ -228,12 +228,8 @@ func (s *Scraper) enrich(ctx context.Context, workers int, studioURL string, ite
 			case <-ctx.Done():
 				return
 			}
-			if delay > 0 {
-				select {
-				case <-time.After(delay):
-				case <-ctx.Done():
-					return
-				}
+			if !scraper.Pace(ctx, delay) {
+				return
 			}
 			scenes[i] = s.toScene(ctx, studioURL, it, performers, now)
 		}(i, it)

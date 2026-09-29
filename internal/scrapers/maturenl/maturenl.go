@@ -111,12 +111,8 @@ func (s *Scraper) runPaginated(ctx context.Context, studioURL string, opts scrap
 		if ctx.Err() != nil {
 			return
 		}
-		if page > 1 && opts.Delay > 0 {
-			select {
-			case <-time.After(opts.Delay):
-			case <-ctx.Done():
-				return
-			}
+		if page > 1 && !scraper.Pace(ctx, opts.Delay) {
+			return
 		}
 		scraper.Debugf(1, "maturenl: fetching page %d", page)
 
@@ -228,12 +224,8 @@ func (s *Scraper) runModel(ctx context.Context, studioURL string, modelID string
 		go func() {
 			defer wg.Done()
 			for updateID := range work {
-				if opts.Delay > 0 {
-					select {
-					case <-time.After(opts.Delay):
-					case <-ctx.Done():
-						return
-					}
+				if !scraper.Pace(ctx, opts.Delay) {
+					return
 				}
 
 				if opts.KnownIDs[updateID] {

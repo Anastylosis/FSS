@@ -90,12 +90,8 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 				scenes = append(scenes, models.Scene{ID: slug})
 				break
 			}
-			if i > 0 && opts.Delay > 0 {
-				select {
-				case <-time.After(opts.Delay):
-				case <-ctx.Done():
-					return scraper.PageResult{}, ctx.Err()
-				}
+			if i > 0 && !scraper.Pace(ctx, opts.Delay) {
+				return scraper.PageResult{}, ctx.Err()
 			}
 			scene, err := s.fetchDetail(ctx, slug, studioURL)
 			if err != nil {

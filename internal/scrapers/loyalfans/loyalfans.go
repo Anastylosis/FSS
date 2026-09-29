@@ -136,12 +136,8 @@ func (s *Scraper) run(ctx context.Context, studioURL, slug string, opts scraper.
 		}
 		pageToken = nextToken
 
-		if opts.Delay > 0 {
-			select {
-			case <-time.After(opts.Delay):
-			case <-ctx.Done():
-				return
-			}
+		if !scraper.Pace(ctx, opts.Delay) {
+			return
 		}
 	}
 }

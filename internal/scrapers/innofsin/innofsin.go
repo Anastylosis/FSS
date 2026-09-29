@@ -193,12 +193,8 @@ func (s *siteScraper) fetchAllPosts(ctx context.Context, base string, opts scrap
 		if len(posts) < postsPerPage || (totalPages > 0 && page >= totalPages) {
 			break
 		}
-		if opts.Delay > 0 {
-			select {
-			case <-time.After(opts.Delay):
-			case <-ctx.Done():
-				return all, ctx.Err()
-			}
+		if !scraper.Pace(ctx, opts.Delay) {
+			return all, ctx.Err()
 		}
 		page++
 	}
@@ -275,12 +271,8 @@ func (s *siteScraper) fetchDetailsAndEmit(ctx context.Context, _ string, posts [
 		go func() {
 			defer wg.Done()
 			for post := range work {
-				if opts.Delay > 0 {
-					select {
-					case <-time.After(opts.Delay):
-					case <-ctx.Done():
-						return
-					}
+				if !scraper.Pace(ctx, opts.Delay) {
+					return
 				}
 				performers, ferr := s.fetchPerformers(ctx, post.Link)
 				if ferr != nil {

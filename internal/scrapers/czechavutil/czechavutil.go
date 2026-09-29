@@ -218,12 +218,8 @@ func (s *Scraper) scrapePerformerSearch(ctx context.Context, studioURL string, o
 		go func() {
 			defer wg.Done()
 			for slug := range work {
-				if opts.Delay > 0 {
-					select {
-					case <-time.After(opts.Delay):
-					case <-ctx.Done():
-						return
-					}
+				if !scraper.Pace(ctx, opts.Delay) {
+					return
 				}
 				scene, ferr := s.fetchSceneBySlug(ctx, slug, studioURL)
 				if ferr != nil {
@@ -392,12 +388,8 @@ func (s *Scraper) scrapeSitemap(ctx context.Context, studioURL string, opts scra
 		go func() {
 			defer wg.Done()
 			for entry := range work {
-				if opts.Delay > 0 {
-					select {
-					case <-time.After(opts.Delay):
-					case <-ctx.Done():
-						return
-					}
+				if !scraper.Pace(ctx, opts.Delay) {
+					return
 				}
 				scene, ferr := s.fetchScene(ctx, entry.slug, entry.url, studioURL)
 				if ferr != nil {

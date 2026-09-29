@@ -277,12 +277,8 @@ func (s *Scraper) fetchSeries(ctx context.Context, token string, seriesID int, d
 		}
 		// A series can span many pages, and this walk used to issue them
 		// back to back regardless of --delay.
-		if offset > 0 && delay > 0 {
-			select {
-			case <-time.After(delay):
-			case <-ctx.Done():
-				return nil, 0, ctx.Err()
-			}
+		if offset > 0 && !scraper.Pace(ctx, delay) {
+			return nil, 0, ctx.Err()
 		}
 		scraper.Debugf(1, "%s: fetching page %d", s.cfg.SiteID, offset)
 		params := url.Values{}
@@ -396,12 +392,8 @@ func (s *Scraper) Run(ctx context.Context, studioURL string, opts scraper.ListOp
 			return
 		}
 
-		if page > 0 && opts.Delay > 0 {
-			select {
-			case <-time.After(opts.Delay):
-			case <-ctx.Done():
-				return
-			}
+		if page > 0 && !scraper.Pace(ctx, opts.Delay) {
+			return
 		}
 		scraper.Debugf(1, "%s: fetching page %d", s.cfg.SiteID, page)
 

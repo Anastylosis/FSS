@@ -359,12 +359,8 @@ func (s *Scraper) collectListing(ctx context.Context, lc listConfig, opts scrape
 		if ctx.Err() != nil {
 			return items, sentTotal
 		}
-		if page > 1 && opts.Delay > 0 {
-			select {
-			case <-time.After(opts.Delay):
-			case <-ctx.Done():
-				return items, sentTotal
-			}
+		if page > 1 && !scraper.Pace(ctx, opts.Delay) {
+			return items, sentTotal
 		}
 
 		pageURL := lc.pageURL(s.cfg.SiteBase, s.cfg.TourPrefix, page)
@@ -443,12 +439,8 @@ func (s *Scraper) fetchDetails(ctx context.Context, items []sceneItem, opts scra
 		go func() {
 			defer wg.Done()
 			for item := range work {
-				if opts.Delay > 0 {
-					select {
-					case <-time.After(opts.Delay):
-					case <-ctx.Done():
-						return
-					}
+				if !scraper.Pace(ctx, opts.Delay) {
+					return
 				}
 				body, err := s.fetchPage(ctx, item.url)
 				if err != nil {

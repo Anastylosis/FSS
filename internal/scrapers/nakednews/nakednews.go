@@ -235,12 +235,8 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 		seen := make(map[int]bool)
 
 		for page := 0; ; page++ {
-			if page > 0 {
-				select {
-				case <-time.After(delay):
-				case <-ctx.Done():
-					return
-				}
+			if page > 0 && !scraper.Pace(ctx, delay) {
+				return
 			}
 			scraper.Debugf(1, "nakednews: fetching page %d", page)
 
@@ -310,12 +306,8 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 // ---- detail fetching ----
 
 func (s *Scraper) fetchDetail(ctx context.Context, studioURL, base string, item listItem, delay time.Duration) (models.Scene, error) {
-	if delay > 0 {
-		select {
-		case <-time.After(delay):
-		case <-ctx.Done():
-			return models.Scene{}, ctx.Err()
-		}
+	if !scraper.Pace(ctx, delay) {
+		return models.Scene{}, ctx.Err()
 	}
 
 	var d detail

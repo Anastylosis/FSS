@@ -63,12 +63,8 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 		if ctx.Err() != nil {
 			return
 		}
-		if page > 1 && opts.Delay > 0 {
-			select {
-			case <-time.After(opts.Delay):
-			case <-ctx.Done():
-				return
-			}
+		if page > 1 && !scraper.Pace(ctx, opts.Delay) {
+			return
 		}
 
 		scraper.Debugf(1, "portagloryhole: fetching page %d", page)

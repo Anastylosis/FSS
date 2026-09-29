@@ -260,16 +260,12 @@ func (s *Scraper) fidelityScenes(ctx context.Context, items []fidelityItem, opts
 			sem <- struct{}{}
 			defer func() { <-sem }()
 
-			if opts.Delay > 0 {
-				select {
-				case <-time.After(opts.Delay):
-				case <-ctx.Done():
-					// Leaving results[idx] unwritten is deliberate: the zero value has an
-					// empty ID and the consumer below skips those, so a cancelled fetch
-					// contributes no scene. Do not "fix" this by writing a stub here —
-					// a populated slot is emitted as a real scene with no title or URL.
-					return
-				}
+			if !scraper.Pace(ctx, opts.Delay) {
+				// Leaving results[idx] unwritten is deliberate: the zero value has an
+				// empty ID and the consumer below skips those, so a cancelled fetch
+				// contributes no scene. Do not "fix" this by writing a stub here —
+				// a populated slot is emitted as a real scene with no title or URL.
+				return
 			}
 
 			detailURL := fmt.Sprintf("%s/episodes/%s", s.base, item.id)
@@ -373,12 +369,8 @@ func (s *Scraper) runUltra(ctx context.Context, opts scraper.ListOpts, out chan<
 		if ctx.Err() != nil {
 			return
 		}
-		if page > 1 && opts.Delay > 0 {
-			select {
-			case <-time.After(opts.Delay):
-			case <-ctx.Done():
-				return
-			}
+		if page > 1 && !scraper.Pace(ctx, opts.Delay) {
+			return
 		}
 		scraper.Debugf(1, "%s: fetching catalogue page %d", s.cfg.SiteID, page)
 
@@ -528,16 +520,12 @@ func (s *Scraper) fetchUltraScenes(ctx context.Context, items []ultraItem, opts 
 			sem <- struct{}{}
 			defer func() { <-sem }()
 
-			if opts.Delay > 0 {
-				select {
-				case <-time.After(opts.Delay):
-				case <-ctx.Done():
-					// Leaving results[idx] unwritten is deliberate: the zero value has an
-					// empty ID and the consumer below skips those, so a cancelled fetch
-					// contributes no scene. Do not "fix" this by writing a stub here —
-					// a populated slot is emitted as a real scene with no title or URL.
-					return
-				}
+			if !scraper.Pace(ctx, opts.Delay) {
+				// Leaving results[idx] unwritten is deliberate: the zero value has an
+				// empty ID and the consumer below skips those, so a cancelled fetch
+				// contributes no scene. Do not "fix" this by writing a stub here —
+				// a populated slot is emitted as a real scene with no title or URL.
+				return
 			}
 
 			detailURL := fmt.Sprintf("%s/episodes/%s", s.base, item.id)

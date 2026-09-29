@@ -167,12 +167,8 @@ func (s *Scraper) runListingFrom(ctx context.Context, studioURL string, opts scr
 
 		before = page[len(page)-1].Datetime
 
-		if opts.Delay > 0 {
-			select {
-			case <-time.After(opts.Delay):
-			case <-ctx.Done():
-				return
-			}
+		if !scraper.Pace(ctx, opts.Delay) {
+			return
 		}
 	}
 }

@@ -105,12 +105,8 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 		go func() {
 			defer wg.Done()
 			for entry := range work {
-				if opts.Delay > 0 {
-					select {
-					case <-time.After(opts.Delay):
-					case <-ctx.Done():
-						return
-					}
+				if !scraper.Pace(ctx, opts.Delay) {
+					return
 				}
 				scene, err := s.fetchDetail(ctx, entry, siteID, studioBase)
 				if err != nil {
@@ -135,16 +131,8 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 		if ctx.Err() != nil {
 			break
 		}
-		if page > 1 && opts.Delay > 0 {
-			cancelled := false
-			select {
-			case <-time.After(opts.Delay):
-			case <-ctx.Done():
-				cancelled = true
-			}
-			if cancelled {
-				break
-			}
+		if page > 1 && !scraper.Pace(ctx, opts.Delay) {
+			break
 		}
 		scraper.Debugf(1, "kink: fetching page %d", page)
 
@@ -253,12 +241,8 @@ func (s *Scraper) runSeries(ctx context.Context, lc listingConfig, siteID, studi
 			}
 			return
 		}
-		if i > 0 && opts.Delay > 0 {
-			select {
-			case <-time.After(opts.Delay):
-			case <-ctx.Done():
-				return
-			}
+		if i > 0 && !scraper.Pace(ctx, opts.Delay) {
+			return
 		}
 		entry := listEntry{
 			id:  id,

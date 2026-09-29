@@ -239,12 +239,8 @@ func (s *Scraper) run(ctx context.Context, opts scraper.ListOpts, out chan<- scr
 			return
 		}
 
-		if opts.Delay > 0 {
-			select {
-			case <-time.After(opts.Delay):
-			case <-ctx.Done():
-				return
-			}
+		if !scraper.Pace(ctx, opts.Delay) {
+			return
 		}
 
 		scene := s.buildScene(ctx, ep, now)

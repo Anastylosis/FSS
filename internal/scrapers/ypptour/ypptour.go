@@ -263,12 +263,8 @@ func (s *Scraper) fetchChunk(ctx context.Context, refs []sceneRef, studioURL, mo
 		go func() {
 			defer wg.Done()
 			for i := range jobs {
-				if delay > 0 {
-					select {
-					case <-time.After(delay):
-					case <-ctx.Done():
-						return
-					}
+				if !scraper.Pace(ctx, delay) {
+					return
 				}
 				results[i], errs[i] = s.fetchScene(ctx, refs[i], studioURL, modelID)
 			}

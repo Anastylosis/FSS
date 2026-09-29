@@ -329,9 +329,7 @@ var (
 )
 
 func (s *siteScraper) fetchDetail(ctx context.Context, item workItem, studioURL string, delay time.Duration) (models.Scene, error) {
-	select {
-	case <-time.After(delay):
-	case <-ctx.Done():
+	if !scraper.Pace(ctx, delay) {
 		return models.Scene{}, ctx.Err()
 	}
 

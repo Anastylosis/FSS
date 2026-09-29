@@ -278,12 +278,8 @@ func (s *Scraper) Run(ctx context.Context, studioURL string, opts scraper.ListOp
 }
 
 func (s *Scraper) fetchScene(ctx context.Context, id int, studioURL string, enrichment map[string]ListingEntry, delay time.Duration) (models.Scene, error) {
-	if delay > 0 {
-		select {
-		case <-time.After(delay):
-		case <-ctx.Done():
-			return models.Scene{}, ctx.Err()
-		}
+	if !scraper.Pace(ctx, delay) {
+		return models.Scene{}, ctx.Err()
 	}
 
 	idStr := strconv.Itoa(id)

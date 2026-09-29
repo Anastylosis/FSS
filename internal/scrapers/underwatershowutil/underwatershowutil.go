@@ -81,12 +81,8 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 		if ctx.Err() != nil {
 			return
 		}
-		if skip > 0 && opts.Delay > 0 {
-			select {
-			case <-time.After(opts.Delay):
-			case <-ctx.Done():
-				return
-			}
+		if skip > 0 && !scraper.Pace(ctx, opts.Delay) {
+			return
 		}
 
 		pageURL := fmt.Sprintf("%s/%s?skip=%d", s.cfg.SiteBase, s.cfg.LoadPath, skip)

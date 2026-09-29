@@ -225,12 +225,8 @@ func (s *Scraper) enrich(ctx context.Context, studioURL string, entries []entry,
 			case <-ctx.Done():
 				return
 			}
-			if opts.Delay > 0 {
-				select {
-				case <-time.After(opts.Delay):
-				case <-ctx.Done():
-					return
-				}
+			if !scraper.Pace(ctx, opts.Delay) {
+				return
 			}
 			body, err := s.fetch(ctx, scenes[i].URL)
 			if err != nil {

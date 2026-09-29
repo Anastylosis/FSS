@@ -100,12 +100,8 @@ func (s *Scraper) runPaginated(ctx context.Context, studioURL string, delay time
 			return
 		}
 
-		if offset > 0 {
-			select {
-			case <-time.After(delay):
-			case <-ctx.Done():
-				return
-			}
+		if offset > 0 && !scraper.Pace(ctx, delay) {
+			return
 		}
 		scraper.Debugf(1, "ifeelmyself: fetching page %d", offset)
 
@@ -179,12 +175,8 @@ func (s *Scraper) resolveArtistName(ctx context.Context, artistID string, delay 
 		if ctx.Err() != nil {
 			return "", ctx.Err()
 		}
-		if page > 0 {
-			select {
-			case <-time.After(delay):
-			case <-ctx.Done():
-				return "", ctx.Err()
-			}
+		if page > 0 && !scraper.Pace(ctx, delay) {
+			return "", ctx.Err()
 		}
 		scraper.Debugf(1, "ifeelmyself: fetching page %d", page)
 

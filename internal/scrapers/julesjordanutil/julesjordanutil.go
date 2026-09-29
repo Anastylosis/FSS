@@ -193,12 +193,8 @@ func (s *Scraper) enqueueListingPages(ctx context.Context, delay time.Duration, 
 		if ctx.Err() != nil {
 			return
 		}
-		if page > 1 && delay > 0 {
-			select {
-			case <-time.After(delay):
-			case <-ctx.Done():
-				return
-			}
+		if page > 1 && !scraper.Pace(ctx, delay) {
+			return
 		}
 
 		scraper.Debugf(1, "%s: fetching page %d", s.cfg.SiteID, page)
@@ -322,12 +318,8 @@ func (s *Scraper) enqueueDVDPages(ctx context.Context, delay time.Duration, opts
 		if ctx.Err() != nil {
 			return
 		}
-		if page > 1 && delay > 0 {
-			select {
-			case <-time.After(delay):
-			case <-ctx.Done():
-				return
-			}
+		if page > 1 && !scraper.Pace(ctx, delay) {
+			return
 		}
 
 		var pageURL string
@@ -368,12 +360,8 @@ func (s *Scraper) enqueueDVDPages(ctx context.Context, delay time.Duration, opts
 			if ctx.Err() != nil {
 				return
 			}
-			if delay > 0 {
-				select {
-				case <-time.After(delay):
-				case <-ctx.Done():
-					return
-				}
+			if !scraper.Pace(ctx, delay) {
+				return
 			}
 
 			dvdURL := dvd.url
@@ -483,12 +471,8 @@ func (s *Scraper) parseDVDListing(body []byte) []dvdEntry {
 // --- fetchDetail ---
 
 func (s *Scraper) fetchDetail(ctx context.Context, item workItem, studioURL string, delay time.Duration) (models.Scene, error) {
-	if delay > 0 {
-		select {
-		case <-time.After(delay):
-		case <-ctx.Done():
-			return models.Scene{}, ctx.Err()
-		}
+	if !scraper.Pace(ctx, delay) {
+		return models.Scene{}, ctx.Err()
 	}
 
 	scene := models.Scene{

@@ -599,6 +599,12 @@ func scrapeRefresh(ctx context.Context, sc scraper.StudioScraper, st store.Store
 // --refresh) can fall back to non-destructive merge semantics instead of
 // treating a partial run as the studio's full state.
 func collectScenes(ctx context.Context, sc scraper.StudioScraper, studioURL string, opts scraper.ListOpts, ov sceneOverrides) ([]models.Scene, traversal, error) {
+	// One rate limiter for the whole run, shared by every goroutine the scraper
+	// starts. Without it a pool of N workers each waited `--delay` between its
+	// own requests, so the site saw bursts of N at a time — eight workers at the
+	// 500ms default meant ~16 requests a second, not two.
+	ctx = scraper.WithPacer(ctx, scraper.NewPacer(opts.Delay))
+
 	ch, err := sc.ListScenes(ctx, studioURL, opts)
 	if err != nil {
 		return nil, traversal{incomplete: true}, fmt.Errorf("starting scrape: %w", err)

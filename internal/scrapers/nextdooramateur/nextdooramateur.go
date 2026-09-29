@@ -265,12 +265,8 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 	func() {
 		defer close(jobs)
 		for _, ref := range refs {
-			if opts.Delay > 0 {
-				select {
-				case <-time.After(opts.Delay):
-				case <-ctx.Done():
-					return
-				}
+			if !scraper.Pace(ctx, opts.Delay) {
+				return
 			}
 			select {
 			case jobs <- ref:

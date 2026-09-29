@@ -176,12 +176,8 @@ func (s *Scraper) fetchDetails(ctx context.Context, items []listItem, studioURL 
 		go func() {
 			defer wg.Done()
 			for item := range work {
-				if opts.Delay > 0 {
-					select {
-					case <-time.After(opts.Delay):
-					case <-ctx.Done():
-						return
-					}
+				if !scraper.Pace(ctx, opts.Delay) {
+					return
 				}
 				body, err := s.fetchPage(ctx, s.base+"/"+item.path)
 				if err != nil {

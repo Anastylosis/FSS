@@ -180,12 +180,13 @@ opts := scraper.ListOpts{
     // detail pages). Zero uses the scraper's default (usually 4).
     Workers: 2,
 
-    // Delay between page fetches. Useful for rate-limiting.
+    // Delay between requests. On its own this paces each goroutine
+    // separately — see scraper.Pacer below to pace the whole run.
     Delay: 500 * time.Millisecond,
 
-    // Incremental mode: stop as soon as any of these IDs are encountered.
-    // Scrapers that sort newest-first will stop at the first known scene,
-    // skipping older pages that are already in your store.
+    // Incremental mode: stop once these IDs are reached. A scraper that
+    // sorts newest-first finishes the page holding the first known scene
+    // (skipping it) and then stops, leaving older pages unfetched.
     KnownIDs: map[string]bool{
         "existing-scene-id": true,
     },
@@ -211,6 +212,21 @@ if err != nil {
 A scraper advertises its set by implementing `scraper.MultiLingual`
 (`Languages() []string`, default first); `scraper.NormalizeLanguage` lowercases
 and shape-checks a tag.
+
+### Pacing the whole run
+
+`Delay` alone is honoured by each goroutine separately, so a scraper running a
+pool of N detail workers issues bursts of N requests every `Delay`. Attach a
+`scraper.Pacer` to the context to give the entire run one schedule — this is
+what `fss scrape` does:
+
+```go
+ctx = scraper.WithPacer(ctx, scraper.NewPacer(opts.Delay))
+ch, err := s.ListScenes(ctx, studioURL, opts)
+```
+
+With that in place `Delay` is the run's request spacing regardless of
+`Workers`. A zero delay yields a `Pacer` that never blocks.
 
 ## Reading Results
 

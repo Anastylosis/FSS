@@ -82,12 +82,8 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 		if ctx.Err() != nil {
 			return
 		}
-		if page > 1 && opts.Delay > 0 {
-			select {
-			case <-time.After(opts.Delay):
-			case <-ctx.Done():
-				return
-			}
+		if page > 1 && !scraper.Pace(ctx, opts.Delay) {
+			return
 		}
 		scraper.Debugf(1, "oopsfamily: fetching page %d", page)
 
@@ -309,12 +305,8 @@ func (s *Scraper) fetchDetails(ctx context.Context, cards []listingCard, delay t
 				if ctx.Err() != nil {
 					return
 				}
-				if delay > 0 {
-					select {
-					case <-time.After(delay):
-					case <-ctx.Done():
-						return
-					}
+				if !scraper.Pace(ctx, delay) {
+					return
 				}
 				body, err := s.fetchHTML(ctx, c.url)
 				if err != nil {

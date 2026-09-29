@@ -193,16 +193,12 @@ func (s *Scraper) fetchDetails(ctx context.Context, items []apiVideo, opts scrap
 			sem <- struct{}{}
 			defer func() { <-sem }()
 
-			if opts.Delay > 0 {
-				select {
-				case <-time.After(opts.Delay):
-				case <-ctx.Done():
-					// Leaving results[idx] unwritten is deliberate: the zero value has an
-					// empty ID and the consumer below skips those, so a cancelled fetch
-					// contributes no scene. Do not "fix" this by writing a stub here —
-					// a populated slot is emitted as a real scene with no title or URL.
-					return
-				}
+			if !scraper.Pace(ctx, opts.Delay) {
+				// Leaving results[idx] unwritten is deliberate: the zero value has an
+				// empty ID and the consumer below skips those, so a cancelled fetch
+				// contributes no scene. Do not "fix" this by writing a stub here —
+				// a populated slot is emitted as a real scene with no title or URL.
+				return
 			}
 
 			detail, err := s.fetchDetail(ctx, item.Slug)

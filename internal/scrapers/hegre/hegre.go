@@ -174,12 +174,8 @@ func (s *Scraper) produceFilmSlugs(ctx context.Context, modelSlugs []string, slu
 			case <-ctx.Done():
 				return
 			}
-			if delay > 0 {
-				select {
-				case <-time.After(delay):
-				case <-ctx.Done():
-					return
-				}
+			if !scraper.Pace(ctx, delay) {
+				return
 			}
 			for _, f := range s.fetchModelFilms(ctx, ms) {
 				select {
@@ -246,12 +242,8 @@ func (s *Scraper) emitFromChan(ctx context.Context, studioURL string, slugCh <-c
 				if dup {
 					continue
 				}
-				if opts.Delay > 0 {
-					select {
-					case <-time.After(opts.Delay):
-					case <-ctx.Done():
-						return
-					}
+				if !scraper.Pace(ctx, opts.Delay) {
+					return
 				}
 				scene, ok := s.fetchFilm(ctx, studioURL, slug, now)
 				if !ok {

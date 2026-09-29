@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/Anastylosis/FSS/models"
 )
@@ -77,12 +76,8 @@ func Paginate(ctx context.Context, opts ListOpts, siteID string, out chan<- Scen
 			Debugf(1, "%s: reached %d-page safety cap, stopping", siteID, paginateSafetyCap)
 			return
 		}
-		if page > 1 && opts.Delay > 0 {
-			select {
-			case <-time.After(opts.Delay):
-			case <-ctx.Done():
-				return
-			}
+		if page > 1 && !Pace(ctx, opts.Delay) {
+			return
 		}
 		Debugf(1, "%s: fetching page %d", siteID, page)
 

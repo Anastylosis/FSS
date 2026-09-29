@@ -202,12 +202,8 @@ func (s *Scraper) runSubspaceland(ctx context.Context, studioURL string, opts sc
 		go func() {
 			defer wg.Done()
 			for u := range jobCh {
-				if opts.Delay > 0 {
-					select {
-					case <-time.After(opts.Delay):
-					case <-ctx.Done():
-						return
-					}
+				if !scraper.Pace(ctx, opts.Delay) {
+					return
 				}
 				sc, ok := s.scrapeSubspacelandDetail(ctx, studioURL, u, now)
 				if !ok {

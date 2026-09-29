@@ -110,12 +110,8 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 			case <-ctx.Done():
 				return
 			}
-			if opts.Delay > 0 {
-				select {
-				case <-time.After(opts.Delay):
-				case <-ctx.Done():
-					return
-				}
+			if !scraper.Pace(ctx, opts.Delay) {
+				return
 			}
 			scene := s.toScene(ctx, studioURL, st, now)
 			if scene.ID == "" {
@@ -176,12 +172,8 @@ func (s *Scraper) collectScenes(ctx context.Context, workers int, modelURLs []st
 			case <-ctx.Done():
 				return
 			}
-			if delay > 0 {
-				select {
-				case <-time.After(delay):
-				case <-ctx.Done():
-					return
-				}
+			if !scraper.Pace(ctx, delay) {
+				return
 			}
 			body, err := s.get(ctx, modelURL)
 			if err != nil {

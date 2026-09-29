@@ -205,12 +205,8 @@ func (s *Scraper) expandSeriesChannel(ctx context.Context, seriesSlug string, op
 		if len(slugs) == 0 || (lastPage > 0 && page >= lastPage) {
 			break
 		}
-		if opts.Delay > 0 {
-			select {
-			case <-time.After(opts.Delay):
-			case <-ctx.Done():
-				return paths
-			}
+		if !scraper.Pace(ctx, opts.Delay) {
+			return paths
 		}
 		page++
 	}
@@ -248,12 +244,8 @@ func (s *Scraper) collectItems(ctx context.Context, basePath string, opts scrape
 		if lastPage > 0 && page >= lastPage {
 			break
 		}
-		if opts.Delay > 0 {
-			select {
-			case <-time.After(opts.Delay):
-			case <-ctx.Done():
-				return items
-			}
+		if !scraper.Pace(ctx, opts.Delay) {
+			return items
 		}
 		page++
 	}
@@ -457,12 +449,8 @@ func (s *Scraper) fetchDetails(ctx context.Context, items []listingItem, studioU
 		go func() {
 			defer wg.Done()
 			for item := range work {
-				if opts.Delay > 0 {
-					select {
-					case <-time.After(opts.Delay):
-					case <-ctx.Done():
-						return
-					}
+				if !scraper.Pace(ctx, opts.Delay) {
+					return
 				}
 				detail, ferr := s.fetchDetail(ctx, item.path)
 				if ferr != nil {

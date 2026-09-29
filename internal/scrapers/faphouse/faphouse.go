@@ -116,12 +116,8 @@ func (s *Scraper) run(ctx context.Context, studioURL, typePath, slug string, opt
 		for i := range cards {
 			c := &cards[i]
 			if c.detailPath != "" {
-				if opts.Delay > 0 {
-					select {
-					case <-time.After(opts.Delay):
-					case <-ctx.Done():
-						return scraper.PageResult{}, ctx.Err()
-					}
+				if !scraper.Pace(ctx, opts.Delay) {
+					return scraper.PageResult{}, ctx.Err()
 				}
 				detailBody, err := s.fetchPage(ctx, s.base+c.detailPath)
 				if err == nil {

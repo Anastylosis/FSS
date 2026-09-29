@@ -144,12 +144,8 @@ func (s *Scraper) runSinglePage(ctx context.Context, studioURL string, opts scra
 		go func() {
 			defer wg.Done()
 			for entry := range work {
-				if opts.Delay > 0 {
-					select {
-					case <-time.After(opts.Delay):
-					case <-ctx.Done():
-						return
-					}
+				if !scraper.Pace(ctx, opts.Delay) {
+					return
 				}
 				scene, err := s.fetchDetail(ctx, entry)
 				if err != nil {
@@ -209,12 +205,8 @@ func (s *Scraper) runPaginated(ctx context.Context, studioURL string, opts scrap
 		go func() {
 			defer wg.Done()
 			for entry := range work {
-				if opts.Delay > 0 {
-					select {
-					case <-time.After(opts.Delay):
-					case <-ctx.Done():
-						return
-					}
+				if !scraper.Pace(ctx, opts.Delay) {
+					return
 				}
 				scene, err := s.fetchDetail(ctx, entry)
 				if err != nil {
@@ -239,16 +231,8 @@ func (s *Scraper) runPaginated(ctx context.Context, studioURL string, opts scrap
 		if ctx.Err() != nil {
 			break
 		}
-		if page > 1 && opts.Delay > 0 {
-			cancelled := false
-			select {
-			case <-time.After(opts.Delay):
-			case <-ctx.Done():
-				cancelled = true
-			}
-			if cancelled {
-				break
-			}
+		if page > 1 && !scraper.Pace(ctx, opts.Delay) {
+			break
 		}
 		scraper.Debugf(1, "titanmen: fetching page %d", page)
 

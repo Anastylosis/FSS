@@ -403,12 +403,8 @@ func (s *Scraper) loadRoster(ctx context.Context, delay time.Duration) map[strin
 			if ctx.Err() != nil {
 				break
 			}
-			if page > 1 && delay > 0 {
-				select {
-				case <-time.After(delay):
-				case <-ctx.Done():
-					return
-				}
+			if page > 1 && !scraper.Pace(ctx, delay) {
+				return
 			}
 			pageURL := s.origin() + "/models.aspx"
 			if page > 1 {

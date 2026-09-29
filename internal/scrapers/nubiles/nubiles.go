@@ -204,12 +204,8 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 		go func() {
 			defer wg.Done()
 			for entry := range work {
-				if opts.Delay > 0 {
-					select {
-					case <-time.After(opts.Delay):
-					case <-ctx.Done():
-						return
-					}
+				if !scraper.Pace(ctx, opts.Delay) {
+					return
 				}
 				scene, err := s.fetchDetail(ctx, studioURL, entry)
 				if err != nil {
@@ -282,15 +278,8 @@ func (s *Scraper) runPaginated(ctx context.Context, base string, f filter, opts 
 		if ctx.Err() != nil {
 			break
 		}
-		if offset > 0 && opts.Delay > 0 {
-			select {
-			case <-time.After(opts.Delay):
-			case <-ctx.Done():
-				break
-			}
-			if ctx.Err() != nil {
-				break
-			}
+		if offset > 0 && !scraper.Pace(ctx, opts.Delay) {
+			break
 		}
 		scraper.Debugf(1, "nubiles: fetching page %d", offset)
 

@@ -376,12 +376,8 @@ func (s *Scraper) modelPaths(ctx context.Context, opts scraper.ListOpts) []strin
 		if ctx.Err() != nil {
 			return paths
 		}
-		if page > 1 && opts.Delay > 0 {
-			select {
-			case <-time.After(opts.Delay):
-			case <-ctx.Done():
-				return paths
-			}
+		if page > 1 && !scraper.Pace(ctx, opts.Delay) {
+			return paths
 		}
 		body, err := s.fetch(ctx, fmt.Sprintf("%s/models/page%d.html", s.base, page))
 		if err != nil {
@@ -426,12 +422,8 @@ func (s *Scraper) pool(ctx context.Context, workers int, n int, delay time.Durat
 			case <-ctx.Done():
 				return
 			}
-			if delay > 0 {
-				select {
-				case <-time.After(delay):
-				case <-ctx.Done():
-					return
-				}
+			if !scraper.Pace(ctx, delay) {
+				return
 			}
 			fn(i)
 		}(i)

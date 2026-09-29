@@ -117,12 +117,8 @@ func (s *Scraper) walkListing(ctx context.Context, opts scraper.ListOpts) ([]car
 		if ctx.Err() != nil {
 			return cards, nil
 		}
-		if page > 1 && opts.Delay > 0 {
-			select {
-			case <-time.After(opts.Delay):
-			case <-ctx.Done():
-				return cards, nil
-			}
+		if page > 1 && !scraper.Pace(ctx, opts.Delay) {
+			return cards, nil
 		}
 		pageURL := fmt.Sprintf("%s/tour/categories/movies/%d/latest/", s.base, page)
 		scraper.Debugf(1, "rawcitytwinks: fetching page %d", page)
@@ -182,12 +178,8 @@ func (s *Scraper) modelSlugs(ctx context.Context, opts scraper.ListOpts) []strin
 		if ctx.Err() != nil {
 			break
 		}
-		if page > 1 && opts.Delay > 0 {
-			select {
-			case <-time.After(opts.Delay):
-			case <-ctx.Done():
-				return slugs
-			}
+		if page > 1 && !scraper.Pace(ctx, opts.Delay) {
+			return slugs
 		}
 		body, err := s.fetchPage(ctx, fmt.Sprintf("%s/tour/models/%d/popular/", s.base, page))
 		if err != nil {

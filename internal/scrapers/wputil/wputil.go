@@ -316,12 +316,8 @@ func RunWorkerPool(ctx context.Context, client *http.Client, headers map[string]
 				if ctx.Err() != nil {
 					return
 				}
-				if opts.Delay > 0 {
-					select {
-					case <-time.After(opts.Delay):
-					case <-ctx.Done():
-						return
-					}
+				if !scraper.Pace(ctx, opts.Delay) {
+					return
 				}
 
 				body, fetchErr := FetchPage(ctx, client, entry.Loc, headers)

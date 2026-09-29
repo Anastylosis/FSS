@@ -40,7 +40,7 @@ For choosing a store, inspecting a database, and moving between the two, see [st
 | `--output`, `-o` | string | `json` | Export format(s): `json`, `csv`, or `json,csv` |
 | `--out-dir` | string | `.` | Output directory |
 | `--db` | string | _(from config)_ | Store selector. `--db` alone uses the database named in `db:`, or `~/.local/share/fss/fss.db`; `--db=/path` uses a specific file; `--db=""` forces the flat JSON store even when `db:` is set. Note the `=` — a space-separated value is not parsed |
-| `--delay` | int | `500` | Milliseconds to sleep between page requests (default from config; `--delay 0` disables) |
+| `--delay` | int | `500` | Milliseconds between requests, across the whole run rather than per worker (default from config; `--delay 0` disables) |
 | `--site-delay` | []string | _(none)_ | Per-scraper delay overrides as `name=ms` pairs, e.g. `--site-delay manyvids=0,pornhub=2000` |
 | `--site-cookie` | []string | _(none)_ | Per-scraper `Cookie` header as `name=cookies` pairs, e.g. `--site-cookie mydirtyhobby="KEY=abc; other=1"` |
 | `--name` | string | _(none)_ | Human-readable label for this studio (stored when `--db` is set) |
@@ -523,7 +523,7 @@ Each scene is a JSON object with the fields listed in the [Data model](#data-mod
 
 JSON is **always written** by the flat store — it is the backing format for incremental updates. Even if you request `--output csv` only, a JSON file is also created alongside it.
 
-**Important:** all scenes are collected in memory first, then the entire JSON file is written at the end of the scrape. If you cancel mid-scrape (Ctrl+C), no output file is produced. For large sites (e.g. ~1750 pages), a scrape can take several minutes — use `--delay` to throttle requests and avoid being blocked. The progress line (`fetching: N / total scenes`) and the final `Done:` / `Partial save complete:` line both include elapsed wall-clock time. Note that `--delay` paces each worker individually, not the aggregate request rate — a high `--workers` count can still overwhelm a rate-limited site even with a non-zero delay, so lower `--workers` first if a site starts timing out mid-scrape.
+**Important:** all scenes are collected in memory first, then the entire JSON file is written at the end of the scrape. If you cancel mid-scrape (Ctrl+C), no output file is produced. For large sites (e.g. ~1750 pages), a scrape can take several minutes — use `--delay` to throttle requests and avoid being blocked. The progress line (`fetching: N / total scenes`) and the final `Done:` / `Partial save complete:` line both include elapsed wall-clock time. **`--delay` is the whole run's request spacing, not each worker's.** One shared limiter hands out one slot per delay to whichever goroutine asks next, so `--delay 500` means two requests a second no matter what `--workers` is set to. It used to be per worker, which meant eight workers at the 500ms default hit a site ~16 times a second — the shape of traffic a rate limit exists to stop. Raising `--workers` therefore no longer raises the request rate; it only decides how many requests may be in flight while the limiter allows them. If a site is slow rather than rate-limited, lower `--delay`.
 
 ### CSV
 

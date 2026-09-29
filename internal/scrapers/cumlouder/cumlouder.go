@@ -108,12 +108,8 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 		if ctx.Err() != nil {
 			return
 		}
-		if opts.Delay > 0 {
-			select {
-			case <-time.After(opts.Delay):
-			case <-ctx.Done():
-				return
-			}
+		if !scraper.Pace(ctx, opts.Delay) {
+			return
 		}
 		scraper.Debugf(1, "cumlouder: fetching page %d", page)
 
@@ -167,12 +163,8 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 				if ctx.Err() != nil {
 					return
 				}
-				if opts.Delay > 0 {
-					select {
-					case <-time.After(opts.Delay):
-					case <-ctx.Done():
-						return
-					}
+				if !scraper.Pace(ctx, opts.Delay) {
+					return
 				}
 				scene, err := s.fetchDetail(ctx, items[i], studioURL)
 				results <- detailResult{scene: scene, err: err}

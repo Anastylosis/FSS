@@ -273,12 +273,8 @@ func (s *Scraper) fetchDetails(ctx context.Context, entries []listEntry, delay t
 			defer wg.Done()
 			defer func() { <-sem }()
 
-			if delay > 0 {
-				select {
-				case <-time.After(delay):
-				case <-ctx.Done():
-					return
-				}
+			if !scraper.Pace(ctx, delay) {
+				return
 			}
 
 			body, err := s.fetch(ctx, entry.url)

@@ -86,12 +86,8 @@ func (s *Scraper) runListing(ctx context.Context, studioURL string, opts scraper
 		go func() {
 			defer wg.Done()
 			for ls := range work {
-				if opts.Delay > 0 {
-					select {
-					case <-time.After(opts.Delay):
-					case <-ctx.Done():
-						return
-					}
+				if !scraper.Pace(ctx, opts.Delay) {
+					return
 				}
 				scene, err := s.fetchDetail(ctx, ls, studioURL)
 				if err != nil {
@@ -124,12 +120,8 @@ func (s *Scraper) enqueuePages(ctx context.Context, _ string, opts scraper.ListO
 		if ctx.Err() != nil {
 			return
 		}
-		if page > 1 && opts.Delay > 0 {
-			select {
-			case <-time.After(opts.Delay):
-			case <-ctx.Done():
-				return
-			}
+		if page > 1 && !scraper.Pace(ctx, opts.Delay) {
+			return
 		}
 		scraper.Debugf(1, "%s: fetching page %d", siteID, page)
 

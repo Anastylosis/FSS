@@ -217,12 +217,8 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 		go func() {
 			defer wg.Done()
 			for ep := range work {
-				if opts.Delay > 0 {
-					select {
-					case <-time.After(opts.Delay):
-					case <-ctx.Done():
-						return
-					}
+				if !scraper.Pace(ctx, opts.Delay) {
+					return
 				}
 				scene, ferr := s.fetchScene(ctx, ep, studioURL, enrichment)
 				if ferr != nil {
@@ -281,12 +277,8 @@ func (s *Scraper) discoverChain(ctx context.Context, homepageEps []episode, opts
 	lastPath := homepageEps[len(homepageEps)-1].path
 
 	for ctx.Err() == nil {
-		if opts.Delay > 0 {
-			select {
-			case <-time.After(opts.Delay):
-			case <-ctx.Done():
-				return all
-			}
+		if !scraper.Pace(ctx, opts.Delay) {
+			return all
 		}
 
 		body, err := s.fetch(ctx, s.base+lastPath)

@@ -117,12 +117,8 @@ func (s *Scraper) runDateArchive(ctx context.Context, opts scraper.ListOpts, out
 		if ctx.Err() != nil {
 			return
 		}
-		if i > 0 && opts.Delay > 0 {
-			select {
-			case <-time.After(opts.Delay):
-			case <-ctx.Done():
-				return
-			}
+		if i > 0 && !scraper.Pace(ctx, opts.Delay) {
+			return
 		}
 
 		stopped := s.runPaginatedInner(ctx, datePath, opts, out, &progressSent)
@@ -261,18 +257,14 @@ func (s *Scraper) fetchDetails(ctx context.Context, slugs []string, delay time.D
 		go func(idx int, sl string) {
 			defer wg.Done()
 			defer func() { <-sem }()
-			if delay > 0 {
-				select {
-				case <-time.After(delay):
-				case <-ctx.Done():
-					// Record the cancellation rather than returning silently.
-					// results is index-addressed, so an unwritten slot stays a
-					// zero value — and the consumer treats `err == nil` as
-					// success, appending an empty models.Scene as if it were a
-					// real scrape result.
-					results[idx] = sceneResult{err: ctx.Err()}
-					return
-				}
+			if !scraper.Pace(ctx, delay) {
+				// Record the cancellation rather than returning silently.
+				// results is index-addressed, so an unwritten slot stays a
+				// zero value — and the consumer treats `err == nil` as
+				// success, appending an empty models.Scene as if it were a
+				// real scrape result.
+				results[idx] = sceneResult{err: ctx.Err()}
+				return
 			}
 			scene, err := s.fetchDetail(ctx, sl)
 			if err != nil {

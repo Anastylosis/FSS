@@ -233,12 +233,8 @@ func parseDetailPage(body []byte) detailData {
 }
 
 func (s *Scraper) fetchDetail(ctx context.Context, _ string, entry homepageEntry, studioURL string, delay time.Duration) (models.Scene, error) {
-	if delay > 0 {
-		select {
-		case <-time.After(delay):
-		case <-ctx.Done():
-			return models.Scene{}, ctx.Err()
-		}
+	if !scraper.Pace(ctx, delay) {
+		return models.Scene{}, ctx.Err()
 	}
 
 	now := time.Now().UTC()

@@ -122,12 +122,8 @@ func (s *Scraper) fetchDetails(ctx context.Context, slugs []string, studioURL st
 		go func() {
 			defer wg.Done()
 			for idx := range work {
-				if delay > 0 {
-					select {
-					case <-time.After(delay):
-					case <-ctx.Done():
-						return
-					}
+				if !scraper.Pace(ctx, delay) {
+					return
 				}
 				scene, err := s.fetchScene(ctx, slugs[idx], studioURL, now)
 				if err != nil {

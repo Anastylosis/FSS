@@ -125,12 +125,8 @@ func (s *Scraper) collectListing(ctx context.Context, opts scraper.ListOpts, out
 		if ctx.Err() != nil {
 			return items, false
 		}
-		if page > 1 && opts.Delay > 0 {
-			select {
-			case <-time.After(opts.Delay):
-			case <-ctx.Done():
-				return items, false
-			}
+		if page > 1 && !scraper.Pace(ctx, opts.Delay) {
+			return items, false
 		}
 
 		// media=video keeps photo sets out of the catalogue.
@@ -202,12 +198,8 @@ func (s *Scraper) fetchDetails(ctx context.Context, studioURL string, items []li
 		go func() {
 			defer wg.Done()
 			for item := range work {
-				if opts.Delay > 0 {
-					select {
-					case <-time.After(opts.Delay):
-					case <-ctx.Done():
-						return
-					}
+				if !scraper.Pace(ctx, opts.Delay) {
+					return
 				}
 				body, err := s.fetchPage(ctx, s.base+item.path)
 				if err != nil {

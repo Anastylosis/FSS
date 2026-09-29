@@ -68,12 +68,8 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 				break
 			}
 
-			if opts.Delay > 0 {
-				select {
-				case <-time.After(opts.Delay):
-				case <-ctx.Done():
-					return scraper.PageResult{}, ctx.Err()
-				}
+			if !scraper.Pace(ctx, opts.Delay) {
+				return scraper.PageResult{}, ctx.Err()
 			}
 
 			detail, detailErr := s.fetchDetail(ctx, item.href)

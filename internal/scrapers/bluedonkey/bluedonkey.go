@@ -208,12 +208,8 @@ func (s *Scraper) fetchDetails(ctx context.Context, items []listItem, opts scrap
 			defer wg.Done()
 			sem <- struct{}{}
 			defer func() { <-sem }()
-			if opts.Delay > 0 {
-				select {
-				case <-time.After(opts.Delay):
-				case <-ctx.Done():
-					return
-				}
+			if !scraper.Pace(ctx, opts.Delay) {
+				return
 			}
 			body, err := s.fetchPage(ctx, items[idx].url)
 			if err != nil {

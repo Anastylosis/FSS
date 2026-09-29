@@ -284,12 +284,8 @@ func (s *Scraper) fetchDetails(ctx context.Context, items []listItem, base, stud
 			sem <- struct{}{}
 			defer func() { <-sem }()
 
-			if opts.Delay > 0 {
-				select {
-				case <-time.After(opts.Delay):
-				case <-ctx.Done():
-					return
-				}
+			if !scraper.Pace(ctx, opts.Delay) {
+				return
 			}
 
 			detail, err := s.fetchDetail(ctx, base, item.id)

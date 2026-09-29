@@ -214,12 +214,8 @@ func (s *Scraper) walkSerial(ctx context.Context, mode filterMode, filterID stri
 		if ctx.Err() != nil {
 			return
 		}
-		if page > 1 && opts.Delay > 0 {
-			select {
-			case <-time.After(opts.Delay):
-			case <-ctx.Done():
-				return
-			}
+		if page > 1 && !scraper.Pace(ctx, opts.Delay) {
+			return
 		}
 		scraper.Debugf(1, "sexlikereal: fetching page %d", page)
 
@@ -343,12 +339,8 @@ func (s *Scraper) walkParallel(ctx context.Context, mode filterMode, filterID st
 				if ctx.Err() != nil {
 					return
 				}
-				if opts.Delay > 0 {
-					select {
-					case <-time.After(opts.Delay):
-					case <-ctx.Done():
-						return
-					}
+				if !scraper.Pace(ctx, opts.Delay) {
+					return
 				}
 				scraper.Debugf(1, "sexlikereal: fetching page %d", page)
 
@@ -385,12 +377,8 @@ func (s *Scraper) walkParallel(ctx context.Context, mode filterMode, filterID st
 }
 
 func (s *Scraper) fetchAndBuild(ctx context.Context, item apiScene, studioURL string, delay time.Duration) (models.Scene, error) {
-	if delay > 0 {
-		select {
-		case <-time.After(delay):
-		case <-ctx.Done():
-			return models.Scene{}, ctx.Err()
-		}
+	if !scraper.Pace(ctx, delay) {
+		return models.Scene{}, ctx.Err()
 	}
 
 	apiURL := s.apiBaseURL + "/v3/scenes/" + strconv.Itoa(item.ID)

@@ -154,12 +154,8 @@ func (s *Scraper) collectListing(ctx context.Context, studioURL string, kind url
 		if ctx.Err() != nil {
 			return items, sentTotal, false
 		}
-		if page > 1 && opts.Delay > 0 {
-			select {
-			case <-time.After(opts.Delay):
-			case <-ctx.Done():
-				return items, sentTotal, false
-			}
+		if page > 1 && !scraper.Pace(ctx, opts.Delay) {
+			return items, sentTotal, false
 		}
 		if kind == kindModel && page > 1 && modelID == "" {
 			return items, sentTotal, true
@@ -236,12 +232,8 @@ func (s *Scraper) fetchDetails(ctx context.Context, studioURL string, items []li
 		go func() {
 			defer wg.Done()
 			for item := range work {
-				if opts.Delay > 0 {
-					select {
-					case <-time.After(opts.Delay):
-					case <-ctx.Done():
-						return
-					}
+				if !scraper.Pace(ctx, opts.Delay) {
+					return
 				}
 				body, err := s.fetchPage(ctx, absURL(s.base, item.url))
 				if err != nil {

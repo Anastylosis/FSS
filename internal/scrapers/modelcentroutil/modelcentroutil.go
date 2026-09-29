@@ -58,12 +58,8 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 			return
 		}
 
-		if offset > 0 && opts.Delay > 0 {
-			select {
-			case <-time.After(opts.Delay):
-			case <-ctx.Done():
-				return
-			}
+		if offset > 0 && !scraper.Pace(ctx, opts.Delay) {
+			return
 		}
 		scraper.Debugf(1, "%s: fetching page %d", s.cfg.SiteID, offset)
 
@@ -92,12 +88,8 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 				return
 			}
 
-			if opts.Delay > 0 {
-				select {
-				case <-time.After(opts.Delay):
-				case <-ctx.Done():
-					return
-				}
+			if !scraper.Pace(ctx, opts.Delay) {
+				return
 			}
 
 			// The listing already carries the id, title, duration and date;

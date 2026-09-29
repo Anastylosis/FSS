@@ -112,12 +112,8 @@ func (s *Scraper) scrapeListing(ctx context.Context, studioURL, base string, opt
 			return
 		}
 
-		if page > 1 && opts.Delay > 0 {
-			select {
-			case <-time.After(opts.Delay):
-			case <-ctx.Done():
-				return
-			}
+		if page > 1 && !scraper.Pace(ctx, opts.Delay) {
+			return
 		}
 
 		pageURL := base + "/work/"
@@ -194,12 +190,8 @@ func (s *Scraper) fetchDetails(ctx context.Context, studioURL, base string, opts
 					return
 				}
 
-				if opts.Delay > 0 {
-					select {
-					case <-time.After(opts.Delay):
-					case <-ctx.Done():
-						return
-					}
+				if !scraper.Pace(ctx, opts.Delay) {
+					return
 				}
 
 				scene, err := s.fetchAndParseDetail(ctx, detailURL, studioURL, base, now)

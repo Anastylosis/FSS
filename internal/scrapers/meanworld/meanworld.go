@@ -139,12 +139,8 @@ func (s *Scraper) enqueueListing(ctx context.Context, base string, opts scraper.
 		if ctx.Err() != nil {
 			return
 		}
-		if page > 1 && opts.Delay > 0 {
-			select {
-			case <-time.After(opts.Delay):
-			case <-ctx.Done():
-				return
-			}
+		if page > 1 && !scraper.Pace(ctx, opts.Delay) {
+			return
 		}
 		scraper.Debugf(1, "meanworld: fetching page %d", page)
 		pageURL := fmt.Sprintf("%s/categories/movies_%d_d.html", base, page)
@@ -294,12 +290,8 @@ func parseDetail(body []byte) detailData {
 }
 
 func (s *Scraper) fetchDetail(ctx context.Context, ls listingScene, studioURL string, delay time.Duration) (models.Scene, error) {
-	if delay > 0 {
-		select {
-		case <-time.After(delay):
-		case <-ctx.Done():
-			return models.Scene{}, ctx.Err()
-		}
+	if !scraper.Pace(ctx, delay) {
+		return models.Scene{}, ctx.Err()
 	}
 
 	now := time.Now().UTC()

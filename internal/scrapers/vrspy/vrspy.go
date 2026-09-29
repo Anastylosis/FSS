@@ -172,12 +172,8 @@ func (s *Scraper) collect(ctx context.Context, actor string, opts scraper.ListOp
 		if ctx.Err() != nil {
 			return items, false
 		}
-		if page > 0 && opts.Delay > 0 {
-			select {
-			case <-time.After(opts.Delay):
-			case <-ctx.Done():
-				return items, false
-			}
+		if page > 0 && !scraper.Pace(ctx, opts.Delay) {
+			return items, false
 		}
 		scraper.Debugf(1, "%s: fetching page %d", siteID, page+1)
 
@@ -254,12 +250,8 @@ func (s *Scraper) fetchDetails(ctx context.Context, studioURL string, items []gq
 		go func() {
 			defer wg.Done()
 			for v := range work {
-				if opts.Delay > 0 {
-					select {
-					case <-time.After(opts.Delay):
-					case <-ctx.Done():
-						return
-					}
+				if !scraper.Pace(ctx, opts.Delay) {
+					return
 				}
 				// The listing projection returns tags and price as null; only
 				// the per-scene query fills them in. Losing that costs two

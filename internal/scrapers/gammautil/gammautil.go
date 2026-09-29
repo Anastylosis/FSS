@@ -118,12 +118,8 @@ func (s *Scraper) Run(ctx context.Context, studioURL string, opts scraper.ListOp
 			return
 		}
 
-		if page > 0 && opts.Delay > 0 {
-			select {
-			case <-time.After(opts.Delay):
-			case <-ctx.Done():
-				return
-			}
+		if page > 0 && !scraper.Pace(ctx, opts.Delay) {
+			return
 		}
 		scraper.Debugf(1, "%s: fetching page %d", s.cfg.SiteID, page)
 

@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -1379,5 +1381,68 @@ func TestScrapeOneIgnoresLanguageForMonolingualSite(t *testing.T) {
 	if err := scrapeOne(context.Background(), st, scrapeTarget{url: url}, "", "", "", []string{"json"},
 		false, false, false, true, 1, ss, sceneOverrides{}); err != nil {
 		t.Fatalf("scrapeOne: %v", err)
+	}
+}
+
+// pacedScraper starts a pool of goroutines that each call scraper.Pace before
+// "fetching", and records when each call was allowed through.
+type pacedScraper struct {
+	workers int
+	stamps  []time.Time
+	mu      sync.Mutex
+}
+
+func (p *pacedScraper) ID() string             { return "paced" }
+func (p *pacedScraper) Patterns() []string     { return nil }
+func (p *pacedScraper) MatchesURL(string) bool { return true }
+
+func (p *pacedScraper) ListScenes(ctx context.Context, _ string, opts scraper.ListOpts) (<-chan scraper.SceneResult, error) {
+	ch := make(chan scraper.SceneResult)
+	go func() {
+		defer close(ch)
+		var wg sync.WaitGroup
+		for i := 0; i < p.workers; i++ {
+			wg.Add(1)
+			go func(i int) {
+				defer wg.Done()
+				if !scraper.Pace(ctx, opts.Delay) {
+					return
+				}
+				p.mu.Lock()
+				p.stamps = append(p.stamps, time.Now())
+				p.mu.Unlock()
+				select {
+				case ch <- scraper.Scene(models.Scene{ID: strconv.Itoa(i), SiteID: "paced", Title: "S"}):
+				case <-ctx.Done():
+				}
+			}(i)
+		}
+		wg.Wait()
+	}()
+	return ch, nil
+}
+
+// A pool where each worker slept --delay on its own issued N near-simultaneous
+// requests every delay. collectScenes installs one shared limiter for the run,
+// so the workers interleave at the delay the operator asked for.
+func TestCollectScenesPacesTheWholeRun(t *testing.T) {
+	const (
+		delay   = 20 * time.Millisecond
+		workers = 6
+	)
+	sc := &pacedScraper{workers: workers}
+
+	start := time.Now()
+	scenes, _, err := collectScenes(context.Background(), sc, "https://example.com",
+		scraper.ListOpts{Delay: delay, Workers: workers}, sceneOverrides{})
+	if err != nil {
+		t.Fatalf("collectScenes: %v", err)
+	}
+	if len(scenes) != workers {
+		t.Fatalf("got %d scenes, want %d", len(scenes), workers)
+	}
+	if span, want := time.Since(start), time.Duration(workers-1)*delay; span < want {
+		t.Errorf("%d workers finished in %v, want at least %v — they are not sharing one limiter",
+			workers, span, want)
 	}
 }

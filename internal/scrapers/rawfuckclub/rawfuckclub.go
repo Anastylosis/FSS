@@ -291,18 +291,14 @@ func (s *Scraper) fetchDetails(ctx context.Context, entries []listEntry, delay t
 		go func(idx int, entry listEntry) {
 			defer wg.Done()
 			defer func() { <-sem }()
-			if delay > 0 {
-				select {
-				case <-time.After(delay):
-				case <-ctx.Done():
-					// Record the cancellation rather than returning silently.
-					// results is index-addressed, so an unwritten slot stays a
-					// zero value — and the consumer treats `Err == nil` as
-					// success, appending an empty models.Scene with no ID or
-					// title as if it were a real scrape result.
-					results[idx] = sceneOrErr{Err: ctx.Err()}
-					return
-				}
+			if !scraper.Pace(ctx, delay) {
+				// Record the cancellation rather than returning silently.
+				// results is index-addressed, so an unwritten slot stays a
+				// zero value — and the consumer treats `Err == nil` as
+				// success, appending an empty models.Scene with no ID or
+				// title as if it were a real scrape result.
+				results[idx] = sceneOrErr{Err: ctx.Err()}
+				return
 			}
 			body, err := s.fetch(ctx, entry.url)
 			if err != nil {

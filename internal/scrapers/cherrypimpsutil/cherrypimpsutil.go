@@ -349,12 +349,8 @@ func (s *Scraper) collectDVDURLs(ctx context.Context, opts scraper.ListOpts) ([]
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
-		if page > 1 && opts.Delay > 0 {
-			select {
-			case <-time.After(opts.Delay):
-			case <-ctx.Done():
-				return nil, ctx.Err()
-			}
+		if page > 1 && !scraper.Pace(ctx, opts.Delay) {
+			return nil, ctx.Err()
 		}
 
 		var pageURL string
