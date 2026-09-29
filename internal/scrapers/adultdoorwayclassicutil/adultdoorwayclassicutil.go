@@ -347,6 +347,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 }
 
 func (s *Scraper) collectListing(ctx context.Context, lc listConfig, opts scraper.ListOpts, out chan<- scraper.SceneResult) (items []sceneItem, sentTotal bool) {
+	reported := 0
 	// The listing has no page count to end on, and parseListing only
 	// deduplicates within a single page. An origin that clamps `?page=N` back
 	// to page 1 — or a tour that repeats its last page rather than 404ing —
@@ -383,15 +384,17 @@ func (s *Scraper) collectListing(ctx context.Context, lc listConfig, opts scrape
 			return items, sentTotal
 		}
 
-		if !sentTotal {
-			total := estimateTotal(body, len(scenes))
+		// The pager is windowed, so its highest page number is a floor rather
+		// than the last page. Re-reading it on every page raises the estimate
+		// as the walk goes; a later KindTotal replaces the earlier one at the
+		// consumer, so progress corrects itself instead of staying wrong.
+		if total := estimateTotal(body, len(scenes)); total > reported {
+			reported = total
 			scraper.Debugf(1, "%s: %d total scenes (estimated)", s.cfg.ID, total)
-			if total > 0 {
-				select {
-				case out <- scraper.Progress(total):
-				case <-ctx.Done():
-					return items, sentTotal
-				}
+			select {
+			case out <- scraper.Progress(total):
+			case <-ctx.Done():
+				return items, true
 			}
 			sentTotal = true
 		}

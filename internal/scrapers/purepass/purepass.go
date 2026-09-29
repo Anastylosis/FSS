@@ -72,7 +72,7 @@ func extractSlug(studioURL string) string {
 
 func (s *Scraper) scrapeListingPages(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult, now time.Time) {
 	slug := extractSlug(studioURL)
-	firstPage := true
+	reported := 0
 
 	scraper.Paginate(ctx, opts, s.cfg.ID, out, func(ctx context.Context, page int) (scraper.PageResult, error) {
 		pageURL := fmt.Sprintf("%s/categories/%s_%d_d.html", s.cfg.SiteBase, slug, page)
@@ -81,10 +81,15 @@ func (s *Scraper) scrapeListingPages(ctx context.Context, studioURL string, opts
 			return scraper.PageResult{}, err
 		}
 		items := parseListingPage(body, s.cfg.SiteBase)
+		// The pager is windowed, so page 1 links only as far as its window
+		// reaches and its highest page number is a floor, not the last page.
+		// Re-reading it on every page raises the estimate as the walk goes, and
+		// a later KindTotal replaces the earlier one at the consumer, so
+		// progress corrects itself instead of staying wrong.
 		var total int
-		if firstPage {
-			total = estimateTotal(body, len(items))
-			firstPage = false
+		if seen := estimateTotal(body, len(items)); seen > reported {
+			reported = seen
+			total = seen
 		}
 		scenes := make([]models.Scene, len(items))
 		for i, item := range items {

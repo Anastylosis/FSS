@@ -100,17 +100,23 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 	sec := detectSection(studioURL)
 	if sec != nil {
 		scraper.Debugf(1, "belamionline: scraping section %s", sec.name)
-		s.runSection(ctx, studioURL, opts, out, *sec)
+		s.runSection(ctx, studioURL, opts, out, *sec, nil)
 		return
 	}
 
 	scraper.Debugf(1, "belamionline: scraping all sections")
+	// Each section is its own paginated listing, so letting Paginate announce
+	// each section's own total made the last one overwrite the rest and report
+	// a fraction of the catalogue. The sections are summed here instead and
+	// re-announced as the running total grows, which the consumer keeps
+	// because a later KindTotal replaces the earlier one.
+	running := 0
 	for _, sec := range sections {
 		if ctx.Err() != nil {
 			return
 		}
 		scraper.Debugf(1, "belamionline: starting section %s", sec.name)
-		s.runSection(ctx, studioURL, opts, out, sec)
+		s.runSection(ctx, studioURL, opts, out, sec, &running)
 	}
 }
 
@@ -124,7 +130,10 @@ func detectSection(u string) *section {
 	return nil
 }
 
-func (s *Scraper) runSection(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult, sec section) {
+// runSection walks one section's listing. When running is non-nil the section's
+// own total is added to it and the sum is reported, rather than each section
+// announcing a total that replaces the previous section's.
+func (s *Scraper) runSection(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult, sec section, running *int) {
 	now := time.Now().UTC()
 	roster := s.loadRoster(ctx, opts.Delay)
 	maxPage := 0
@@ -146,6 +155,10 @@ func (s *Scraper) runSection(ctx context.Context, studioURL string, opts scraper
 		}
 		if page == 1 {
 			total = maxPage * perPage
+			if running != nil {
+				*running += total
+				total = *running
+			}
 		}
 		scenes := make([]models.Scene, len(items))
 		for i, item := range items {

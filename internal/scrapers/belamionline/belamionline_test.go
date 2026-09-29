@@ -525,7 +525,7 @@ func TestWindowedPagerDoesNotStopTheWalkOnPageOne(t *testing.T) {
 	s.base = ts.URL
 
 	out := make(chan scraper.SceneResult, perPage*(lastPage+2))
-	s.runSection(context.Background(), ts.URL, scraper.ListOpts{}, out, sections[0])
+	s.runSection(context.Background(), ts.URL, scraper.ListOpts{}, out, sections[0], nil)
 	close(out)
 
 	var scenes int
@@ -539,5 +539,40 @@ func TestWindowedPagerDoesNotStopTheWalkOnPageOne(t *testing.T) {
 	}
 	if len(pagesSeen) < lastPage {
 		t.Errorf("fetched pages %v — page 1's window must not be read as the last page", pagesSeen)
+	}
+}
+
+// Each section is its own paginated listing, so letting Paginate announce each
+// section's own total made the last one replace the rest and report a fraction
+// of the catalogue. The totals must accumulate.
+func TestAllSectionsProgressSumsTheSections(t *testing.T) {
+	// Every section serves the same listing fixture, whose pager claims 38
+	// pages, so each section contributes 38*perPage to the total. Paginate's
+	// repeat-page detection ends each section on page 2.
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "models.aspx") {
+			_, _ = fmt.Fprint(w, `<html></html>`)
+			return
+		}
+		_, _ = fmt.Fprint(w, listingHTML)
+	}))
+	defer ts.Close()
+
+	s := New()
+	s.Client = ts.Client()
+	s.base = ts.URL
+
+	out := make(chan scraper.SceneResult, 500)
+	s.run(context.Background(), ts.URL+"/", scraper.ListOpts{}, out)
+
+	last := 0
+	for r := range out {
+		if r.Kind == scraper.KindTotal {
+			last = r.Total
+		}
+	}
+	want := len(sections) * parseMaxPage([]byte(listingHTML)) * perPage
+	if last != want {
+		t.Errorf("final total = %d, want %d (every section summed)", last, want)
 	}
 }

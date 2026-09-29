@@ -89,11 +89,20 @@ func (s *Scraper) Run(ctx context.Context, studioURL string, opts scraper.ListOp
 			return
 		}
 
+		// A "gte" relation means Elasticsearch hit its count ceiling, so the
+		// number is a floor and reporting it would have progress claim the
+		// scrape finished at 10,000 of a larger catalogue. An unknown total is
+		// the honest answer there.
 		if page == 0 && result.Hits.Total.Value > 0 {
-			select {
-			case out <- scraper.Progress(result.Hits.Total.Value):
-			case <-ctx.Done():
-				return
+			if result.Hits.Total.Relation == "gte" {
+				scraper.Debugf(1, "%s: total is a floor (>=%d), reporting it as unknown",
+					s.cfg.SiteID, result.Hits.Total.Value)
+			} else {
+				select {
+				case out <- scraper.Progress(result.Hits.Total.Value):
+				case <-ctx.Done():
+					return
+				}
 			}
 		}
 
@@ -226,6 +235,10 @@ type esResponse struct {
 	Hits struct {
 		Total struct {
 			Value int `json:"value"`
+			// Relation is "eq" when Value is the real count and "gte" when it
+			// is only a floor — Elasticsearch stops counting at 10,000 by
+			// default, and the network's larger catalogues are past that.
+			Relation string `json:"relation"`
 		} `json:"total"`
 		Hits []esHit `json:"hits"`
 	} `json:"hits"`
