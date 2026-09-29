@@ -464,3 +464,53 @@ func TestFetchDetail_titleStripsPrefix(t *testing.T) {
 		})
 	}
 }
+
+// A model page paginates by item offset (`?&next=19`) and renders no pager at
+// all when the performer fits on one page. The walk used to fetch exactly one
+// page: live, Alexis Crystal's 41 scenes arrive 24 then 17.
+func TestScrapeModelPageFollowsThePager(t *testing.T) {
+	card := func(id, title string) string {
+		return fmt.Sprintf(`<a name="post%s"></a><div class="card">
+  <a href="./detail-%s-%s">
+  <h2><a href="./detail-%s-%s">%s</a></h2>
+  <span class="datum">March 15, 2024</span><
+</div>`, id, id, title, id, title, title)
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.RawQuery {
+		case "":
+			_, _ = fmt.Fprint(w, "<html>"+card("1", "one")+card("2", "two")+
+				`<a class="next" href="./model-alice?&amp;next=3" text=""></a></html>`)
+		case "&next=3":
+			// The last page: three more scenes and no pager.
+			_, _ = fmt.Fprint(w, "<html>"+card("3", "three")+"</html>")
+		default:
+			t.Errorf("unexpected fetch %s", r.URL)
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	s := newSiteScraper(sites[0])
+	s.client = srv.Client()
+
+	out := make(chan scraper.SceneResult, 16)
+	work := make(chan workItem, 16)
+	s.scrapeModelPage(context.Background(), srv.URL+"/model-alice", scraper.ListOpts{}, out, work)
+	close(work)
+	close(out)
+
+	var ids []string
+	for it := range work {
+		ids = append(ids, it.id)
+	}
+	if len(ids) != 3 {
+		t.Fatalf("queued %v, want all three scenes across both pages", ids)
+	}
+	for r := range out {
+		if r.Kind == scraper.KindError {
+			t.Errorf("unexpected error: %v", r.Err)
+		}
+	}
+}

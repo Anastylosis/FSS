@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"html"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -126,6 +127,10 @@ func (s *siteScraper) run(ctx context.Context, studioURL string, opts scraper.Li
 
 var modelPageRe = regexp.MustCompile(`/model-([a-zA-Z0-9-]+)`)
 
+// maxModelPages bounds the model pager walk; no performer on the network is
+// near this many pages.
+const maxModelPages = 200
+
 func (s *siteScraper) produceListing(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult, work chan<- workItem) {
 	if modelPageRe.MatchString(studioURL) {
 		s.scrapeModelPage(ctx, studioURL, opts, out, work)
@@ -203,39 +208,90 @@ var (
 	cardVideoRe  = regexp.MustCompile(`<source src="([^"]+\.mp4[^"]*)"`)
 )
 
-func (s *siteScraper) scrapeModelPage(ctx context.Context, pageURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult, work chan<- workItem) {
-	body, err := s.fetchPage(ctx, pageURL)
-	if err != nil {
-		select {
-		case out <- scraper.Error(err):
-		case <-ctx.Done():
-		}
-		return
-	}
+// modelNextRe finds the model pager's "next" link. The pager is an item offset
+// (`?&next=19`), not a page number, so the link is followed rather than
+// computed. A model whose scenes fit on one page renders no pager at all.
+var modelNextRe = regexp.MustCompile(`class="next" href="\./([^"]+)"`)
 
-	items := s.parseListingCards(body)
-	if len(items) > 0 {
-		select {
-		case out <- scraper.Progress(len(items)):
-		case <-ctx.Done():
+// scrapeModelPage walks a model's listing. It used to fetch exactly one page:
+// live, Alexis Crystal's 41 scenes on czechvrnetwork arrive 24 then 17, so 41%
+// of her catalogue was never seen.
+func (s *siteScraper) scrapeModelPage(ctx context.Context, pageURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult, work chan<- workItem) {
+	seen := make(map[string]bool)
+	sentTotal := false
+
+	for page := 1; page <= maxModelPages; page++ {
+		if page > 1 && !scraper.Pace(ctx, opts.Delay) {
 			return
 		}
-	}
+		scraper.Debugf(1, "%s: fetching model page %d (%s)", s.config.SiteID, page, pageURL)
 
-	for _, item := range items {
-		if opts.KnownIDs[item.id] {
-			scraper.Debugf(1, "%s: hit known ID, stopping early", s.config.SiteID)
+		body, err := s.fetchPage(ctx, pageURL)
+		if err != nil {
+			select {
+			case out <- scraper.Error(err):
+			case <-ctx.Done():
+			}
+			return
+		}
+
+		items := s.parseListingCards(body)
+		fresh := items[:0]
+		for _, item := range items {
+			if seen[item.id] {
+				continue
+			}
+			seen[item.id] = true
+			fresh = append(fresh, item)
+		}
+		if len(fresh) == 0 {
+			return
+		}
+		if !sentTotal {
+			sentTotal = true
+			select {
+			case out <- scraper.Progress(len(fresh)):
+			case <-ctx.Done():
+				return
+			}
+		}
+
+		hitKnown := false
+		for _, item := range fresh {
+			if opts.KnownIDs[item.id] {
+				hitKnown = true
+				continue
+			}
+			select {
+			case work <- item:
+			case <-ctx.Done():
+				return
+			}
+		}
+		if hitKnown {
+			scraper.Debugf(1, "%s: model page %d reached stored scenes, stopping", s.config.SiteID, page)
 			select {
 			case out <- scraper.StoppedEarly():
 			case <-ctx.Done():
 			}
 			return
 		}
-		select {
-		case work <- item:
-		case <-ctx.Done():
+
+		m := modelNextRe.FindStringSubmatch(body)
+		if m == nil {
 			return
 		}
+		// Resolved against the page it was found on, not the configured
+		// origin, so the walk is exercisable offline.
+		next, err := url.Parse(html.UnescapeString(m[1]))
+		if err != nil {
+			return
+		}
+		base, err := url.Parse(pageURL)
+		if err != nil {
+			return
+		}
+		pageURL = base.ResolveReference(next).String()
 	}
 }
 

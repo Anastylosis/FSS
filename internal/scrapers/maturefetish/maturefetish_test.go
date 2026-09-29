@@ -320,3 +320,52 @@ func TestParseDetailPageIgnoresDatesOutsideTheInfoLine(t *testing.T) {
 		t.Errorf("duration = %d, want 902", d.duration)
 	}
 }
+
+// A model URL carries its page number between the id and the slug
+// (/en/model/{id}/{page}/{slug}) and the page the site renders links only to
+// itself, so later pages have to be built. The walk used to fetch exactly one.
+func TestModelPageWalksEveryPage(t *testing.T) {
+	page := func(ids ...string) string {
+		var b strings.Builder
+		b.WriteString(`<html><body>`)
+		for _, id := range ids {
+			fmt.Fprintf(&b, `<a href="/en/update/%s">x</a>`, id)
+		}
+		b.WriteString(`</body></html>`)
+		return b.String()
+	}
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/en/model/3818/1/gertruda":
+			_, _ = fmt.Fprint(w, page("1001", "1002"))
+		case "/en/model/3818/2/gertruda":
+			_, _ = fmt.Fprint(w, page("1003"))
+		case "/en/model/3818/3/gertruda":
+			// Past the last page the site answers 404 with its shell.
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = fmt.Fprint(w, `<html><title>Resource not found</title></html>`)
+		default:
+			if strings.HasPrefix(r.URL.Path, "/en/update/") {
+				_, _ = fmt.Fprint(w, detailHTML)
+				return
+			}
+			t.Errorf("unexpected fetch %s", r.URL)
+		}
+	}))
+	defer ts.Close()
+
+	s := &Scraper{client: ts.Client(), base: ts.URL}
+	modelURL := ts.URL + "/en/model/3818/1/gertruda"
+
+	out := make(chan scraper.SceneResult)
+	go func() {
+		defer close(out)
+		s.runIDList(context.Background(), modelURL, modelURL, scraper.ListOpts{Workers: 2}, out)
+	}()
+
+	scenes := testutil.CollectScenes(t, out)
+	if len(scenes) != 3 {
+		t.Fatalf("got %d scenes, want 3 — both pages must be walked", len(scenes))
+	}
+}

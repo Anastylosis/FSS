@@ -2,6 +2,7 @@ package maturefetish
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"html"
 	"net/http"
@@ -210,19 +211,81 @@ func (s *Scraper) runPaginated(ctx context.Context, studioURL string, opts scrap
 	wg.Wait()
 }
 
-// runIDList fetches a single page (model page), extracts all update IDs,
-// and fetches detail pages via a worker pool.
+// modelPagePathRe splits a model URL into its id and slug. The canonical form
+// carries the page number *between* them — `/en/model/{id}/{page}/{slug}` — so
+// an operator's URL names page 1 and later pages have to be built, not
+// followed: the page the site renders links only to itself.
+var modelPagePathRe = regexp.MustCompile(`/en/model/(\d+)(?:/(\d+))?(?:/([^/?#]+))?`)
+
+// modelPageURL rebuilds a model URL for a given page, or returns "" when the
+// URL is not a model page.
+func (s *Scraper) modelPageURL(studioURL string, page int) string {
+	m := modelPagePathRe.FindStringSubmatch(studioURL)
+	if m == nil {
+		return ""
+	}
+	if m[3] == "" {
+		return fmt.Sprintf("%s/en/model/%s/%d", s.base, m[1], page)
+	}
+	return fmt.Sprintf("%s/en/model/%s/%d/%s", s.base, m[1], page, m[3])
+}
+
+// maxModelPages bounds the model walk. No performer on the site is near this.
+const maxModelPages = 100
+
+// runIDList walks a model's listing pages, extracts all update IDs, and fetches
+// detail pages via a worker pool. It used to fetch exactly one page, so a
+// performer with more scenes than a page holds lost the remainder.
 func (s *Scraper) runIDList(ctx context.Context, studioURL string, pageURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
-	body, err := s.fetch(ctx, pageURL)
-	if err != nil {
-		select {
-		case out <- scraper.Error(err):
-		case <-ctx.Done():
+	var ids []string
+	seen := make(map[string]bool)
+	for page := 1; page <= maxModelPages; page++ {
+		u := pageURL
+		if page > 1 {
+			if u = s.modelPageURL(studioURL, page); u == "" {
+				break
+			}
+			if !scraper.Pace(ctx, opts.Delay) {
+				return
+			}
 		}
-		return
+		scraper.Debugf(1, "maturefetish: fetching model page %d (%s)", page, u)
+
+		body, err := s.fetch(ctx, u)
+		if err != nil {
+			if page == 1 {
+				select {
+				case out <- scraper.Error(err):
+				case <-ctx.Done():
+				}
+				return
+			}
+			// Past the last page the site answers 404 with its "Resource not
+			// found" shell, which ends the listing rather than failing it.
+			var se *httpx.StatusError
+			if !errors.As(err, &se) || se.StatusCode != http.StatusNotFound {
+				select {
+				case out <- scraper.Error(err):
+				case <-ctx.Done():
+				}
+			}
+			break
+		}
+
+		fresh := 0
+		for _, id := range parseListingIDs(body) {
+			if seen[id] {
+				continue
+			}
+			seen[id] = true
+			fresh++
+			ids = append(ids, id)
+		}
+		if fresh == 0 {
+			break
+		}
 	}
 
-	ids := parseListingIDs(body)
 	if len(ids) == 0 {
 		return
 	}
