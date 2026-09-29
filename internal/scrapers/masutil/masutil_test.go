@@ -440,3 +440,26 @@ func TestListScenesWalksEveryPage(t *testing.T) {
 		t.Errorf("total = %d, want %d", total, lastPage)
 	}
 }
+
+// Some tours ship the card's date inside an HTML comment. A second
+// comment-anchored pattern used to follow the plain one and could never fire,
+// because the plain one already matched the commented-out element — so the only
+// thing keeping commented dates working was that match, and it must keep it.
+func TestParseCardDateInsideAnHTMLComment(t *testing.T) {
+	for _, tc := range []struct{ name, block string }{
+		{"plain", `<div class="item"><a href="refstat.php?lid=42"></a><p class="date">January 2, 2026</p></div>`},
+		{"commented", `<div class="item"><a href="refstat.php?lid=42"></a><!-- <p class="date">January 2, 2026</p> --></div>`},
+		{"commented across lines", "<div class=\"item\"><a href=\"refstat.php?lid=42\"></a><!--\n<p class=\"date\">January 2, 2026</p>\n--></div>"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := parseCard(tc.block)
+			if got == nil || got.Date == "" {
+				t.Fatal("no date parsed")
+			}
+			sc := toScene(SiteConfig{SiteID: "x", Base: "https://x.test"}, *got, "https://x.test", time.Now().UTC())
+			if sc.Date.Format("2006-01-02") != "2026-01-02" {
+				t.Errorf("Date = %v", sc.Date)
+			}
+		})
+	}
+}

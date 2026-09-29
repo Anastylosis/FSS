@@ -11,6 +11,7 @@ import (
 
 	"github.com/Anastylosis/FSS/internal/httpx"
 	"github.com/Anastylosis/FSS/models"
+	"github.com/Anastylosis/FSS/parseutil"
 	"github.com/Anastylosis/FSS/scraper"
 )
 
@@ -137,8 +138,11 @@ var (
 	h3PerformerRe = regexp.MustCompile(`(?s)<h3><a[^>]*>(.*?)</a></h3>`)
 	plainTitleRe  = regexp.MustCompile(`(?s)<div class="itemminfo">(?:.*?<h3>.*?</h3>)?.*?<p>([^<]+)</p>`)
 
-	dateRe      = regexp.MustCompile(`<p class="date">(.*?)</p>`)
-	dateInnerRe = regexp.MustCompile(`(?s)<!--\s*<p class="date">(.*?)</p>\s*-->`)
+	// Some tours ship the date inside an HTML comment, so this deliberately
+	// matches the inner element wherever it sits and spans newlines. A second
+	// comment-anchored pattern used to follow it and could never fire, since
+	// this one already matches the commented-out element.
+	dateRe = regexp.MustCompile(`(?s)<p class="date">(.*?)</p>`)
 
 	thumbRe = regexp.MustCompile(`<img[^>]+src="([^"]*faceimages/[^"]*)"`)
 
@@ -200,8 +204,6 @@ func parseCard(block string) *CardData {
 	}
 
 	if m := dateRe.FindStringSubmatch(block); m != nil {
-		card.Date = extractDateText(m[1])
-	} else if m := dateInnerRe.FindStringSubmatch(block); m != nil {
 		card.Date = extractDateText(m[1])
 	}
 
@@ -278,11 +280,8 @@ func toScene(cfg SiteConfig, card CardData, studioURL string, now time.Time) mod
 
 	sc.Performers = card.Performers
 
-	for _, layout := range dateLayouts {
-		if t, err := time.Parse(layout, card.Date); err == nil {
-			sc.Date = t
-			break
-		}
+	if t, err := parseutil.TryParseDate(card.Date, dateLayouts...); err == nil {
+		sc.Date = t
 	}
 
 	return sc

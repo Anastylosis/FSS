@@ -195,15 +195,19 @@ type listingScene struct {
 }
 
 var (
-	widgetRe     = regexp.MustCompile(`(?s)<article class="scene-widget[^"]*"\s*data-scene-id="(\d+)".*?</article>`)
-	sceneLinkRe  = regexp.MustCompile(`<a class="scene-title"\s+href="([^"]+)"`)
-	titleRe      = regexp.MustCompile(`<a class="scene-title"[^>]*>\s*<h6>\s*(.*?)\s*</h6>`)
-	performerRe  = regexp.MustCompile(`<p class="scene-performer-names">\s*(.*?)\s*</p>`)
-	durationRe   = regexp.MustCompile(`<p class="scene-length">\s*(\d+)\s*min`)
-	thumbRe      = regexp.MustCompile(`data-src="(https://caps1cdn[^"]+)"`)
-	totalRe      = regexp.MustCompile(`(?:<h4>|font-weight-bold">)([\d,]+)(?:\s+Results</h4>|</span>\s*Results)`)
-	paginationRe = regexp.MustCompile(`class="pagination`)
-	pageNumRe    = regexp.MustCompile(`[?&]page=(\d+)`)
+	widgetRe    = regexp.MustCompile(`(?s)<article class="scene-widget[^"]*"\s*data-scene-id="(\d+)".*?</article>`)
+	sceneLinkRe = regexp.MustCompile(`<a class="scene-title"\s+href="([^"]+)"`)
+	titleRe     = regexp.MustCompile(`<a class="scene-title"[^>]*>\s*<h6>\s*(.*?)\s*</h6>`)
+	performerRe = regexp.MustCompile(`<p class="scene-performer-names">\s*(.*?)\s*</p>`)
+	durationRe  = regexp.MustCompile(`<p class="scene-length">\s*(\d+)\s*min`)
+	thumbRe     = regexp.MustCompile(`data-src="(https://caps1cdn[^"]+)"`)
+	// The two storefront templates render the result count differently, and one
+	// alternation covering both could pair the opening of either with the
+	// closing of the other. They are matched separately, newest template first.
+	totalHeadingRe = regexp.MustCompile(`<h4>([\d,]+)\s+Results</h4>`)
+	totalBoldRe    = regexp.MustCompile(`font-weight-bold">([\d,]+)</span>\s*Results`)
+	paginationRe   = regexp.MustCompile(`class="pagination`)
+	pageNumRe      = regexp.MustCompile(`[?&]page=(\d+)`)
 )
 
 func ParseListingPage(body []byte, base string) []listingScene {
@@ -253,7 +257,11 @@ func ParseListingPage(body []byte, base string) []listingScene {
 }
 
 func ExtractTotal(body []byte) int {
-	if m := totalRe.FindSubmatch(body); m != nil {
+	m := totalHeadingRe.FindSubmatch(body)
+	if m == nil {
+		m = totalBoldRe.FindSubmatch(body)
+	}
+	if m != nil {
 		s := strings.ReplaceAll(string(m[1]), ",", "")
 		n, _ := strconv.Atoi(s)
 		return n
