@@ -132,6 +132,11 @@ type nextData struct {
 		PageProps struct {
 			Contents contentResponse `json:"contents"`
 			Model    *modelData      `json:"model"`
+			// ModelContents is the current model-page shape: a bare array
+			// beside `model`, rather than the paged object that used to sit
+			// under `model.contents`. Both are read — not every tour on the
+			// template has been rebuilt.
+			ModelContents []contentItem `json:"model_contents"`
 		} `json:"pageProps"`
 	} `json:"props"`
 }
@@ -258,11 +263,24 @@ func (s *Scraper) scrapeModelPage(ctx context.Context, studioURL string, _ scrap
 	}
 
 	var items []contentItem
-	if nd.Props.PageProps.Model != nil {
+	if len(nd.Props.PageProps.ModelContents) > 0 {
+		items = nd.Props.PageProps.ModelContents
+	} else if nd.Props.PageProps.Model != nil {
 		items = nd.Props.PageProps.Model.Contents.Data
 	}
 	if len(items) == 0 {
 		items = nd.Props.PageProps.Contents.Data
+	}
+	if len(items) == 0 {
+		// A model with no scenes is possible, but so is a template change that
+		// moved the array again — and a silent zero here is indistinguishable
+		// from an empty catalogue, so say which page could not be read.
+		select {
+		case out <- scraper.Error(scraper.ParseError(studioURL,
+			fmt.Errorf("no scenes in the model page's __NEXT_DATA__"))):
+		case <-ctx.Done():
+		}
+		return
 	}
 
 	scraper.Debugf(1, "%s: model page has %d scenes", s.cfg.SiteID, len(items))

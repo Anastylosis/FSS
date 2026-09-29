@@ -300,3 +300,62 @@ func TestDurationAndThumbnailSpellings(t *testing.T) {
 		})
 	}
 }
+
+// The model page moved its scene array from the paged `model.contents` object
+// to a bare `model_contents` array beside `model`, so every model page had been
+// parsing to zero scenes. Both spellings must work, and neither yielding a
+// scene must be reported rather than passing as an empty catalogue.
+func TestModelPageShapes(t *testing.T) {
+	const scene = `{"id":100,"title":"Test Scene","slug":"test-scene","publish_date":"2026/05/15 12:00:00","seconds_duration":872,"thumb":"https://cdn.example.com/t.jpg","site":"Test Site"}`
+
+	pageFor := func(props string) string {
+		return `<html><head><script id="__NEXT_DATA__" type="application/json">
+{"props":{"pageProps":` + props + `}}
+</script></head><body></body></html>`
+	}
+
+	for _, tc := range []struct {
+		name  string
+		props string
+		want  int
+		err   bool
+	}{
+		{"model_contents array", `{"model":{"name":"Jane"},"model_contents":[` + scene + `]}`, 1, false},
+		{"model.contents object", `{"model":{"name":"Jane","contents":{"total":1,"data":[` + scene + `]}}}`, 1, false},
+		{"top-level contents", `{"contents":{"total":1,"data":[` + scene + `]}}`, 1, false},
+		{"nothing readable", `{"model":{"name":"Jane"}}`, 0, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				_, _ = fmt.Fprint(w, pageFor(tc.props))
+			}))
+			defer ts.Close()
+
+			s := New(SiteConfig{SiteID: "test", Domain: "test.local", StudioName: "Test"})
+			s.client = ts.Client()
+
+			out := make(chan scraper.SceneResult, 8)
+			s.scrapeModelPage(context.Background(), ts.URL+"/models/jane", scraper.ListOpts{}, out, time.Now().UTC())
+			close(out)
+
+			scenes, errs := 0, 0
+			for r := range out {
+				switch r.Kind {
+				case scraper.KindScene:
+					scenes++
+				case scraper.KindError:
+					errs++
+				}
+			}
+			if scenes != tc.want {
+				t.Errorf("scenes = %d, want %d", scenes, tc.want)
+			}
+			if tc.err && errs == 0 {
+				t.Error("an unreadable model page must report an error, not an empty catalogue")
+			}
+			if !tc.err && errs != 0 {
+				t.Errorf("unexpected errors: %d", errs)
+			}
+		})
+	}
+}

@@ -2,9 +2,9 @@ package cumlouder
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"html"
-	"math"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -50,6 +50,11 @@ func (s *Scraper) ListScenes(ctx context.Context, studioURL string, opts scraper
 	return out, nil
 }
 
+// maxPages bounds the pager walk. The largest listing on the site is a few
+// hundred scenes at 15-30 a page; this is a backstop against a pager that never
+// ends.
+const maxPages = 500
+
 var (
 	cardRe       = regexp.MustCompile(`(?s)<a\s+class="muestra-escena"\s+href="([^"]+)"[^>]*>(.*?)</a>`)
 	imgSrcRe     = regexp.MustCompile(`data-src="([^"]+)"`)
@@ -83,8 +88,6 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 
 	studioURL = strings.TrimRight(studioURL, "/")
 
-	isGirl := strings.Contains(studioURL, "/girl/")
-
 	body, err := s.fetch(ctx, studioURL+"/")
 	if err != nil {
 		select {
@@ -96,15 +99,19 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 
 	items := parseCards(body)
 
-	var totalPages int
-	if !isGirl {
-		total := parseTotal(body)
-		if total > 0 {
-			totalPages = int(math.Ceil(float64(total) / 30.0))
-		}
+	// Both page types paginate at `/{slug}/{page}/` and both were walked by a
+	// page count derived from the "N Videos" figure — except that the count was
+	// skipped for /girl/ pages, so `totalPages` stayed 0 and the loop below
+	// never ran: a performer's catalogue was whatever fitted on page one
+	// (live-checked: Aletta Ocean's 21 scenes arrive 15 then 6, so a third of
+	// them were never seen). The page size also differs between the two, so the
+	// walk no longer computes a page count at all — it follows the pager until
+	// a page adds nothing, which is what the site's own 404 past the end says.
+	seen := make(map[string]bool, len(items))
+	for _, it := range items {
+		seen[it.slug] = true
 	}
-
-	for page := 2; page <= totalPages; page++ {
+	for page := 2; page <= maxPages; page++ {
 		if ctx.Err() != nil {
 			return
 		}
@@ -115,18 +122,31 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 
 		pageBody, err := s.fetch(ctx, fmt.Sprintf("%s/%d/", studioURL, page))
 		if err != nil {
-			select {
-			case out <- scraper.Error(fmt.Errorf("page %d: %w", page, err)):
-			case <-ctx.Done():
-				return
+			// Past the last page the site answers 404, which is the end of the
+			// listing rather than a failure. Any other error is reported, and
+			// either way the walk stops — a page that did not arrive cannot be
+			// told apart from the end of the pager.
+			var se *httpx.StatusError
+			if !errors.As(err, &se) || se.StatusCode != http.StatusNotFound {
+				select {
+				case out <- scraper.Error(fmt.Errorf("page %d: %w", page, err)):
+				case <-ctx.Done():
+				}
 			}
-			continue
-		}
-		pageItems := parseCards(pageBody)
-		if len(pageItems) == 0 {
 			break
 		}
-		items = append(items, pageItems...)
+		fresh := 0
+		for _, it := range parseCards(pageBody) {
+			if seen[it.slug] {
+				continue
+			}
+			seen[it.slug] = true
+			fresh++
+			items = append(items, it)
+		}
+		if fresh == 0 {
+			break
+		}
 	}
 
 	items = dedup(items)

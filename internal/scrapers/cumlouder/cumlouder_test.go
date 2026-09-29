@@ -295,3 +295,52 @@ func TestListScenesGirl(t *testing.T) {
 		t.Errorf("got %d scenes, want 1", count)
 	}
 }
+
+// A /girl/ page paginates at `/girl/{slug}/{page}/` just as a /site/ page does,
+// but the walk used to derive its page count only for /site/ pages — so a
+// performer's catalogue was whatever fitted on page one. Live-checked: Aletta
+// Ocean's 21 scenes arrive 15 then 6.
+func TestListScenesGirlFollowsThePager(t *testing.T) {
+	card := func(base, slug, title string) string {
+		return fmt.Sprintf(`<a class="muestra-escena" href="%s/porn-video/%s/">
+  <img class="thumb lazy" data-src="https://cdn/t.jpg" alt="%s">
+  <h2><span class="ico-h2 sprite"></span> %s</h2>
+  <span class="minutos"><span class="ico-minutos sprite"></span> 15:00 m</span>
+</a>`, base, slug, title, title)
+	}
+
+	var ts *httptest.Server
+	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/girl/someone/":
+			_, _ = fmt.Fprint(w, "<html>"+card(ts.URL, "a", "A")+card(ts.URL, "b", "B")+"</html>")
+		case "/girl/someone/2/":
+			_, _ = fmt.Fprint(w, "<html>"+card(ts.URL, "c", "C")+"</html>")
+		case "/girl/someone/3/":
+			// Past the end the site answers 404, which ends the listing.
+			http.NotFound(w, r)
+		default:
+			_, _ = fmt.Fprint(w, `<html></html>`)
+		}
+	}))
+	defer ts.Close()
+
+	s := &Scraper{client: ts.Client()}
+	ch, err := s.ListScenes(context.Background(), ts.URL+"/girl/someone/", scraper.ListOpts{})
+	if err != nil {
+		t.Fatalf("ListScenes error: %v", err)
+	}
+
+	ids := map[string]bool{}
+	for r := range ch {
+		switch r.Kind {
+		case scraper.KindScene:
+			ids[r.Scene.ID] = true
+		case scraper.KindError:
+			t.Errorf("unexpected error: %v", r.Err)
+		}
+	}
+	if len(ids) != 3 || !ids["a"] || !ids["b"] || !ids["c"] {
+		t.Errorf("scene IDs = %v, want a, b and c", ids)
+	}
+}
