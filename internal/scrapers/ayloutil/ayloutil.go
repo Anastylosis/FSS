@@ -128,36 +128,89 @@ func (s *Scraper) FetchToken(ctx context.Context) (string, error) {
 	return "", fmt.Errorf("instance_token cookie not found")
 }
 
+// resolveCollectionSlug maps a /sites/{slug} URL onto a collection id.
+//
+// The API publishes no slug of its own, only the display name, so the slug has
+// to be matched against a derivation of that name — and the site's own
+// derivation is not quite `slugify`'s: Reality Kings serves "Mike's Apartment"
+// at /sites/mike-s-apartment, where the apostrophe became a separator rather
+// than being dropped. An exact `slugify` match is therefore tried first, then a
+// loose one that ignores separators entirely on both sides, which agrees with
+// every spelling the tours actually link.
 func (s *Scraper) resolveCollectionSlug(ctx context.Context, token string, slug string) (int, error) {
-	apiURL := fmt.Sprintf("%s/v1/collections?limit=100", s.APIHost)
-	resp, err := httpx.Do(ctx, s.Client, httpx.Request{
-		URL: apiURL,
-		Headers: map[string]string{
-			"Instance": token,
-			"Accept":   "application/json",
-		},
-	})
-	if err != nil {
-		return 0, fmt.Errorf("fetching collections: %w", err)
+	type collection struct {
+		ID   int    `json:"id"`
+		Name string `json:"name"`
 	}
-	defer func() { _ = resp.Body.Close() }()
+	var all []collection
 
-	var result struct {
-		Result []struct {
-			ID   int    `json:"id"`
-			Name string `json:"name"`
-		} `json:"result"`
-	}
-	if err := httpx.DecodeJSON(resp.Body, &result); err != nil {
-		return 0, fmt.Errorf("decoding collections: %w", err)
+	// The listing is paged: a brand with more than one page of collections used
+	// to have everything past the first silently unresolvable.
+	const pageSize = 100
+	for offset := 0; ; offset += pageSize {
+		if err := ctx.Err(); err != nil {
+			return 0, err
+		}
+		apiURL := fmt.Sprintf("%s/v1/collections?limit=%d&offset=%d", s.APIHost, pageSize, offset)
+		resp, err := httpx.Do(ctx, s.Client, httpx.Request{
+			URL: apiURL,
+			Headers: map[string]string{
+				"Instance": token,
+				"Accept":   "application/json",
+			},
+		})
+		if err != nil {
+			return 0, fmt.Errorf("fetching collections: %w", err)
+		}
+
+		var result struct {
+			Meta struct {
+				Total int `json:"total"`
+			} `json:"meta"`
+			Result []collection `json:"result"`
+		}
+		err = func() error {
+			defer func() { _ = resp.Body.Close() }()
+			return httpx.DecodeJSON(resp.Body, &result)
+		}()
+		if err != nil {
+			return 0, fmt.Errorf("decoding collections: %w", err)
+		}
+
+		all = append(all, result.Result...)
+		if len(result.Result) < pageSize || len(all) >= result.Meta.Total {
+			break
+		}
 	}
 
-	for _, c := range result.Result {
+	for _, c := range all {
 		if slugify(c.Name) == slug {
 			return c.ID, nil
 		}
 	}
+	want := looseSlugKey(slug)
+	for _, c := range all {
+		if looseSlugKey(c.Name) == want {
+			return c.ID, nil
+		}
+	}
 	return 0, fmt.Errorf("collection %q not found", slug)
+}
+
+// looseSlugKey reduces a name or a slug to its letters and digits, so two
+// spellings that differ only in how punctuation became a separator compare
+// equal ("Mike's Apartment", "mike-s-apartment" and "mikes-apartment" all key
+// to "mikesapartment").
+func looseSlugKey(s string) string {
+	return strings.Map(func(r rune) rune {
+		switch {
+		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
+			return r
+		case r >= 'A' && r <= 'Z':
+			return r + ('a' - 'A')
+		}
+		return -1
+	}, s)
 }
 
 func slugify(name string) string {

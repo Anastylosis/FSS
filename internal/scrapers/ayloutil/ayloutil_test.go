@@ -490,12 +490,30 @@ func (s *testServer) handler(w http.ResponseWriter, r *http.Request) {
 
 	case "/v1/collections":
 		w.Header().Set("Content-Type", "application/json")
+		limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+		offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+		if limit <= 0 {
+			limit = 100
+		}
+		page := s.collections
+		if offset < len(page) {
+			page = page[offset:]
+		} else {
+			page = nil
+		}
+		if len(page) > limit {
+			page = page[:limit]
+		}
 		result := struct {
+			Meta struct {
+				Total int `json:"total"`
+			} `json:"meta"`
 			Result []struct {
 				ID   int    `json:"id"`
 				Name string `json:"name"`
 			} `json:"result"`
-		}{Result: s.collections}
+		}{Result: page}
+		result.Meta.Total = len(s.collections)
 		_ = json.NewEncoder(w).Encode(result)
 
 	default:
@@ -1134,5 +1152,63 @@ func TestFetchPageAsksForNewestFirst(t *testing.T) {
 	}
 	if strings.Contains(query, "orderby=") {
 		t.Errorf("query = %q still carries the lowercase key the API ignores", query)
+	}
+}
+
+// The API publishes no slug, only the display name, and the tours' own
+// derivation is not quite slugify's: Reality Kings serves "Mike's Apartment" at
+// /sites/mike-s-apartment, where the apostrophe became a separator rather than
+// being dropped. Both spellings must resolve.
+func TestResolveCollectionSlugPunctuationSpellings(t *testing.T) {
+	ts := newTestServer(nil)
+	ts.collections = []struct {
+		ID   int    `json:"id"`
+		Name string `json:"name"`
+	}{
+		{ID: 10, Name: "Mike's Apartment"},
+		{ID: 20, Name: "Busty & Real"},
+	}
+	defer ts.close()
+	s := newScraper(ts)
+
+	for _, tc := range []struct {
+		slug string
+		want int
+	}{
+		{"mike-s-apartment", 10},
+		{"mikes-apartment", 10},
+		{"mikesapartment", 10},
+		{"busty-real", 20},
+	} {
+		id, err := s.resolveCollectionSlug(context.Background(), "tok", tc.slug)
+		if err != nil {
+			t.Errorf("%s: %v", tc.slug, err)
+			continue
+		}
+		if id != tc.want {
+			t.Errorf("%s = %d, want %d", tc.slug, id, tc.want)
+		}
+	}
+}
+
+// The listing is paged at 100. A brand with more than one page used to have
+// every collection past the first page silently unresolvable.
+func TestResolveCollectionSlugPagesPastTheFirstHundred(t *testing.T) {
+	ts := newTestServer(nil)
+	for i := 0; i < 150; i++ {
+		ts.collections = append(ts.collections, struct {
+			ID   int    `json:"id"`
+			Name string `json:"name"`
+		}{ID: 1000 + i, Name: fmt.Sprintf("Collection %d", i)})
+	}
+	defer ts.close()
+	s := newScraper(ts)
+
+	id, err := s.resolveCollectionSlug(context.Background(), "tok", "collection-140")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if id != 1140 {
+		t.Errorf("got ID %d, want 1140", id)
 	}
 }
