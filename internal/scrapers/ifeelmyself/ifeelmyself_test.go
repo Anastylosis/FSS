@@ -409,3 +409,62 @@ func TestFilterByArtist(t *testing.T) {
 		t.Errorf("empty artist kept %d scenes; the caller must skip the filter instead", n)
 	}
 }
+
+// The search paginates at `?page=quick_search&offset=N`, 20 results a page, and
+// the keyword lives in the POST body rather than the query string — so every
+// page has to re-post it. The walk used to read only the first page.
+func TestSearchWalksEveryOffset(t *testing.T) {
+	page := func(ids ...string) string {
+		items := make([]ifmItem, 0, len(ids))
+		for _, id := range ids {
+			items = append(items, ifmItem{sceneID: id, price: "0", artistID: "A1", performer: "Anna"})
+		}
+		return buildIFMPage(items)
+	}
+
+	var keywords []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = r.ParseForm()
+		keywords = append(keywords, r.PostFormValue("keyword"))
+		switch r.URL.Query().Get("offset") {
+		case "":
+			_, _ = fmt.Fprint(w, page("101", "102"))
+		case "20":
+			_, _ = fmt.Fprint(w, page("103"))
+		default:
+			_, _ = fmt.Fprint(w, "<html></html>")
+		}
+	}))
+	defer srv.Close()
+
+	restore := siteBase
+	siteBase = srv.URL
+	defer func() { siteBase = restore }()
+
+	s := New()
+	s.client = srv.Client()
+
+	ch, err := s.ListScenes(context.Background(),
+		srv.URL+"/public/main.php?page=quick_search&keyword=anna", scraper.ListOpts{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ids := map[string]bool{}
+	for r := range ch {
+		switch r.Kind {
+		case scraper.KindScene:
+			ids[r.Scene.ID] = true
+		case scraper.KindError:
+			t.Errorf("unexpected error: %v", r.Err)
+		}
+	}
+	if len(ids) != 3 {
+		t.Errorf("collected %v, want all three scenes across both pages", ids)
+	}
+	for i, k := range keywords {
+		if k != "anna" {
+			t.Errorf("request %d posted keyword %q, want anna", i, k)
+		}
+	}
+}

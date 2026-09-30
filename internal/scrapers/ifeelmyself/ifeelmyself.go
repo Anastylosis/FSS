@@ -201,53 +201,100 @@ func (s *Scraper) resolveArtistName(ctx context.Context, artistID string, delay 
 	return "", fmt.Errorf("artist_id %s not found in first %d listing pages — try quick_search URL instead", artistID, maxPages)
 }
 
+// searchPageSize is the search's own page size, which is not the listing's.
+const searchPageSize = 20
+
+// maxSearchPages bounds the search walk; no artist on the site is near it.
+const maxSearchPages = 100
+
 // runSearch walks the site's free-text search. A non-empty artistID keeps only
 // the scenes actually credited to that artist; the search itself cannot filter.
+//
+// The search paginates at `?page=quick_search&offset=N`, 20 results a page, and
+// this used to read only the first — so an artist with more than twenty scenes
+// lost everything past them. The keyword is re-posted with each offset, since
+// it lives in the form body rather than the query string.
 func (s *Scraper) runSearch(ctx context.Context, studioURL string, keyword, artistID string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
-	body, err := s.postSearch(ctx, keyword)
-	if err != nil {
-		select {
-		case out <- scraper.Error(fmt.Errorf("search %q: %w", keyword, err)):
-		case <-ctx.Done():
+	seen := make(map[string]bool)
+	sentTotal := false
+
+	for page := 0; page < maxSearchPages; page++ {
+		if page > 0 && !scraper.Pace(ctx, opts.Delay) {
+			return
 		}
-		return
-	}
+		body, err := s.postSearch(ctx, keyword, page*searchPageSize)
+		if err != nil {
+			select {
+			case out <- scraper.Error(fmt.Errorf("search %q page %d: %w", keyword, page+1, err)):
+			case <-ctx.Done():
+			}
+			return
+		}
 
-	scenes := parseListingPage(body, studioURL)
-	if artistID != "" {
-		scenes = filterByArtist(scenes, artistID)
-	}
-	if len(scenes) == 0 {
-		return
-	}
+		scenes := parseListingPage(body, studioURL)
+		if len(scenes) == 0 {
+			return
+		}
+		// Novelty is judged before the artist filter: a page of scenes that all
+		// belong to other artists is still progress through the result set.
+		fresh := 0
+		for _, sc := range scenes {
+			if !seen[sc.ID] {
+				seen[sc.ID] = true
+				fresh++
+			}
+		}
+		if fresh == 0 {
+			return
+		}
 
-	select {
-	case out <- scraper.Progress(len(scenes)):
-	case <-ctx.Done():
-		return
-	}
+		if artistID != "" {
+			scenes = filterByArtist(scenes, artistID)
+		}
+		if len(scenes) == 0 {
+			continue
+		}
 
-	for _, scene := range scenes {
-		if opts.KnownIDs[scene.ID] {
-			scraper.Debugf(1, "ifeelmyself: hit known ID, stopping early")
+		if !sentTotal {
+			sentTotal = true
+			select {
+			case out <- scraper.Progress(len(scenes)):
+			case <-ctx.Done():
+				return
+			}
+		}
+
+		hitKnown := false
+		for _, scene := range scenes {
+			if opts.KnownIDs[scene.ID] {
+				hitKnown = true
+				continue
+			}
+			select {
+			case out <- scraper.Scene(scene):
+			case <-ctx.Done():
+				return
+			}
+		}
+		if hitKnown {
+			scraper.Debugf(1, "ifeelmyself: search page %d reached stored scenes, stopping", page+1)
 			select {
 			case out <- scraper.StoppedEarly():
 			case <-ctx.Done():
 			}
 			return
 		}
-		select {
-		case out <- scraper.Scene(scene):
-		case <-ctx.Done():
-			return
-		}
 	}
 }
 
-func (s *Scraper) postSearch(ctx context.Context, keyword string) ([]byte, error) {
+func (s *Scraper) postSearch(ctx context.Context, keyword string, offset int) ([]byte, error) {
 	form := url.Values{"keyword": {keyword}, "view_by": {"thumbnails"}}
+	searchURL := siteBase + "/public/main.php?page=quick_search"
+	if offset > 0 {
+		searchURL += "&offset=" + strconv.Itoa(offset)
+	}
 	resp, err := httpx.Do(ctx, s.client, httpx.Request{
-		URL:  siteBase + "/public/main.php?page=quick_search",
+		URL:  searchURL,
 		Body: []byte(form.Encode()),
 		Headers: map[string]string{
 			"User-Agent":   httpx.UserAgentFirefox,
