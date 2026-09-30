@@ -356,3 +356,46 @@ func TestMatchesURL(t *testing.T) {
 		}
 	}
 }
+
+// The listing card already names the scene, its channel and its thumbnail, so
+// a dead detail page costs metadata rather than the scene — dropping it traded
+// a missing description for a missing scene, which an authoritative --full
+// Save would then delete.
+func TestDetailFailureKeepsTheListingScene(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/movie/") {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		_, _ = fmt.Fprint(w, listingHTML)
+	}))
+	defer ts.Close()
+
+	s := New()
+	s.Client = ts.Client()
+	s.baseURL = ts.URL
+
+	ch, err := s.ListScenes(context.Background(), ts.URL+"/videos/all", scraper.ListOpts{})
+	if err != nil {
+		t.Fatalf("ListScenes: %v", err)
+	}
+
+	scenes, errs := 0, 0
+	for r := range ch {
+		switch r.Kind {
+		case scraper.KindScene:
+			scenes++
+			if r.Scene.ID == "" || r.Scene.Title == "" {
+				t.Errorf("scene lost its card fields: %+v", r.Scene)
+			}
+		case scraper.KindError:
+			errs++
+		}
+	}
+	if scenes == 0 {
+		t.Error("a dead detail page must not drop the card")
+	}
+	if errs == 0 {
+		t.Error("the detail failure must still be reported")
+	}
+}

@@ -144,7 +144,11 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 					case <-ctx.Done():
 						return
 					}
-					continue
+					// A cancelled fetch yields no scene at all; a failed
+					// detail still yields the listing-derived one.
+					if scene.ID == "" {
+						continue
+					}
 				}
 				select {
 				case out <- scraper.Scene(scene):
@@ -384,7 +388,11 @@ func (s *Scraper) fetchAndBuild(ctx context.Context, item apiScene, studioURL st
 	apiURL := s.apiBaseURL + "/v3/scenes/" + strconv.Itoa(item.ID)
 	var resp detailResponse
 	if err := s.fetchJSON(ctx, apiURL, &resp); err != nil {
-		return models.Scene{}, fmt.Errorf("detail %d: %w", item.ID, err)
+		// The listing response already carries title, date, cast, runtime,
+		// description and thumbnail; the detail adds only categories and the
+		// price. Dropping the scene traded a missing tag list for a missing
+		// scene, which an authoritative --full Save would then delete.
+		return toScene(item, detailData{}, studioURL), fmt.Errorf("detail %d: %w", item.ID, err)
 	}
 
 	return toScene(item, resp.Data, studioURL), nil

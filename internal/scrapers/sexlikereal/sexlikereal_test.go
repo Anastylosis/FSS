@@ -645,3 +645,47 @@ func TestCancellationDuringParallelWalk(t *testing.T) {
 	}
 	cancel()
 }
+
+// The listing response already carries title, date, cast, runtime, description
+// and thumbnail; the detail adds only categories and the price. Dropping the
+// scene when it failed traded a missing tag list for a missing scene, which an
+// authoritative --full Save would then delete.
+func TestDetailFailureKeepsTheListingScene(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v3/scenes" {
+			_, _ = fmt.Fprint(w, `{"data":[{"id":7,"title":"Kept","label":"kept","fullVideoLength":10}],`+
+				`"meta":{"pagination":{"page":1,"perPage":36,"totalCount":1,"totalPages":1}}}`)
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer ts.Close()
+
+	s := New()
+	s.client = ts.Client()
+	s.apiBaseURL = ts.URL
+
+	ch, err := s.ListScenes(context.Background(), "https://www.sexlikereal.com/scenes", scraper.ListOpts{Workers: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	scenes, errs := 0, 0
+	for _, r := range collect(ch) {
+		switch r.Kind {
+		case scraper.KindScene:
+			scenes++
+			if r.Scene.ID != "7" || r.Scene.Title != "Kept" {
+				t.Errorf("scene = %+v", r.Scene)
+			}
+		case scraper.KindError:
+			errs++
+		}
+	}
+	if scenes != 1 {
+		t.Errorf("got %d scenes, want 1 — the listing already named it", scenes)
+	}
+	if errs == 0 {
+		t.Error("the detail failure must still be reported")
+	}
+}

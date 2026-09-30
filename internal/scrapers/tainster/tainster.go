@@ -452,6 +452,12 @@ func (s *Scraper) fetchDetails(ctx context.Context, items []listingItem, studioU
 				if !scraper.Pace(ctx, opts.Delay) {
 					return
 				}
+				// A dead detail page costs the date, runtime, description,
+				// tags and cast — but the listing card already names the
+				// scene, its channel and its thumbnail, so dropping it traded
+				// missing metadata for a missing scene that an authoritative
+				// --full Save would then delete. `buildScene` already falls
+				// back to the card's own title.
 				detail, ferr := s.fetchDetail(ctx, item.path)
 				if ferr != nil {
 					select {
@@ -459,7 +465,6 @@ func (s *Scraper) fetchDetails(ctx context.Context, items []listingItem, studioU
 					case <-ctx.Done():
 						return
 					}
-					continue
 				}
 				scene := buildScene(item, detail, studioURL, now)
 				select {
