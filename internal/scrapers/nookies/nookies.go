@@ -207,7 +207,7 @@ func (s *Scraper) scrapeSinglePage(ctx context.Context, pageURL string, opts scr
 	}
 
 	now := time.Now().UTC()
-	scenes := s.fetchDetails(ctx, items, opts, now)
+	scenes := s.fetchDetails(ctx, items, opts, now, out)
 	for _, sc := range scenes {
 		if opts.KnownIDs[sc.ID] {
 			scraper.Debugf(1, "nookies: hit known ID, stopping early")
@@ -248,7 +248,7 @@ func (s *Scraper) scrapePaginated(ctx context.Context, baseURL string, opts scra
 		}
 
 		total := estimateTotal(body, len(items))
-		scenes := s.fetchDetails(ctx, items, opts, now)
+		scenes := s.fetchDetails(ctx, items, opts, now, out)
 		return scraper.PageResult{
 			Scenes: scenes,
 			Total:  total,
@@ -281,7 +281,11 @@ func hasNextPage(body []byte) bool {
 	return nextPageRe.Match(body)
 }
 
-func (s *Scraper) fetchDetails(ctx context.Context, items []listItem, opts scraper.ListOpts, now time.Time) []models.Scene {
+// fetchDetails enriches each listing card from its detail page. A failure used
+// to drop the card without a word; the card already names the scene, so it is
+// kept and the failure reported — which is what marks the traversal incomplete
+// so an authoritative --full Save cannot delete what was not re-collected.
+func (s *Scraper) fetchDetails(ctx context.Context, items []listItem, opts scraper.ListOpts, now time.Time, out chan<- scraper.SceneResult) []models.Scene {
 	workers := opts.Workers
 	if workers <= 0 {
 		workers = 4
@@ -324,8 +328,15 @@ func (s *Scraper) fetchDetails(ctx context.Context, items []listItem, opts scrap
 		if ctx.Err() != nil {
 			break
 		}
-		if r.err != nil || r.item.id == "" {
+		if r.item.id == "" {
 			continue
+		}
+		if r.err != nil {
+			select {
+			case out <- scraper.Error(fmt.Errorf("detail %s: %w", r.item.url, r.err)):
+			case <-ctx.Done():
+				return scenes
+			}
 		}
 		scenes = append(scenes, toScene(s.base, r.item, r.detail, now))
 	}

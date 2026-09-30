@@ -322,6 +322,14 @@ func newTestServer(typePath, slug string, pages [][]testCard, total int, details
 			return
 		}
 
+		// A card with no detail fixture gets an empty page rather than a 404,
+		// so a test about something else need not account for the detail
+		// failures that are now reported.
+		if strings.HasPrefix(r.URL.Path, "/videos/") {
+			_, _ = fmt.Fprint(w, `<html><body></body></html>`)
+			return
+		}
+
 		http.NotFound(w, r)
 	}))
 }

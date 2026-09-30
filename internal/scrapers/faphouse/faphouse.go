@@ -120,7 +120,17 @@ func (s *Scraper) run(ctx context.Context, studioURL, typePath, slug string, opt
 					return scraper.PageResult{}, ctx.Err()
 				}
 				detailBody, err := s.fetchPage(ctx, s.base+c.detailPath)
-				if err == nil {
+				if err != nil {
+					// The card already names the video, so it is still emitted
+					// — the detail carries its date, description, categories
+					// and cast. Reporting the failure keeps an authoritative
+					// --full Save from treating a half-read page as complete.
+					select {
+					case out <- scraper.Error(fmt.Errorf("detail %s: %w", c.detailPath, err)):
+					case <-ctx.Done():
+						return scraper.PageResult{}, ctx.Err()
+					}
+				} else {
 					d := parseDetailPage(detailBody)
 					c.date = d.date
 					c.description = d.description

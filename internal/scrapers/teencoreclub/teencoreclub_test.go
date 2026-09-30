@@ -9,6 +9,8 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -516,5 +518,52 @@ func TestGoldenFixturesAreRawCaptures(t *testing.T) {
 	}
 	if !bytes.Contains(browse, []byte(`"publication_date":"2020-06-24T22:00:00.000000Z"`)) {
 		t.Error("browse fixture lost the microsecond timestamp verbatim")
+	}
+}
+
+// SiteID is derived from the detail's label, so a scene whose detail failed
+// must not be emitted from the listing alone — it would be filed under a
+// different identity than the same scene gets on a clean run, and `(ID, SiteID)`
+// is the store's key. The failure is reported so the run counts as incomplete.
+func TestDetailFailureReportsAndSkipsRatherThanReFilingTheScene(t *testing.T) {
+	var detailHits int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.Contains(r.URL.Path, "/api/videodetail/"):
+			atomic.AddInt32(&detailHits, 1)
+			w.WriteHeader(http.StatusInternalServerError)
+		default:
+			t.Errorf("unexpected fetch %s", r.URL)
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	restore := apiBase
+	apiBase = srv.URL
+	defer func() { apiBase = restore }()
+
+	s := New()
+	s.client = srv.Client()
+
+	out := make(chan scraper.SceneResult, 16)
+	items := []videoItem{{ID: 1}, {ID: 2}}
+	scenes, err := s.enrichAndCollect(context.Background(), items,
+		configStudio{Name: "Teen Core Club"}, "https://teencoreclub.com/", scraper.ListOpts{Workers: 1}, out)
+	close(out)
+	if err != nil {
+		t.Fatalf("enrichAndCollect: %v", err)
+	}
+	if len(scenes) != 0 {
+		t.Errorf("got %d scenes, want 0 — a scene with no label must not be filed", len(scenes))
+	}
+	errs := 0
+	for r := range out {
+		if r.Kind == scraper.KindError {
+			errs++
+		}
+	}
+	if errs != len(items) {
+		t.Errorf("reported %d errors, want %d", errs, len(items))
 	}
 }

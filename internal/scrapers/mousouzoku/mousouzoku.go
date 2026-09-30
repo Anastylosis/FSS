@@ -162,13 +162,17 @@ func (s *Scraper) runPaginatedInner(ctx context.Context, basePath string, opts s
 			return scraper.PageResult{}, nil
 		}
 
-		// Check KnownIDs before fetching details.
+		// KnownIDs is checked before the details are fetched, since the slug
+		// is the scene id. A stored slug is skipped rather than ending the
+		// page: the listing is already in hand, so the rest of it costs only
+		// its own detail fetches, and a pinned or re-bumped item would
+		// otherwise hide every new scene behind it.
 		var work []string
 		hitKnown := false
 		for _, slug := range slugs {
 			if opts.KnownIDs[slug] {
 				hitKnown = true
-				break
+				continue
 			}
 			work = append(work, slug)
 		}
@@ -199,7 +203,9 @@ func (s *Scraper) runPaginatedInner(ctx context.Context, basePath string, opts s
 			return scraper.PageResult{Scenes: scenes, Total: total, Done: true}, nil
 		}
 
-		return scraper.PageResult{Scenes: scenes, Total: total}, nil
+		// A page whose every detail failed yields no scenes although it listed
+		// slugs; that is a bad page, not the end of the catalogue.
+		return scraper.PageResult{Scenes: scenes, Total: total, Continue: len(work) > 0}, nil
 	})
 	return stoppedEarly
 }

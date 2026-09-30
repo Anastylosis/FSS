@@ -224,7 +224,7 @@ func (s *Scraper) scrapeStudio(ctx context.Context, cfgSiteID int, studio config
 			return scraper.PageResult{}, nil
 		}
 
-		scenes, err := s.enrichAndCollect(ctx, resp.Videos.Data, studio, studioURL, opts)
+		scenes, err := s.enrichAndCollect(ctx, resp.Videos.Data, studio, studioURL, opts, out)
 		if err != nil {
 			return scraper.PageResult{}, err
 		}
@@ -232,7 +232,11 @@ func (s *Scraper) scrapeStudio(ctx context.Context, cfgSiteID int, studio config
 	})
 }
 
-func (s *Scraper) enrichAndCollect(ctx context.Context, items []videoItem, studio configStudio, studioURL string, opts scraper.ListOpts) ([]models.Scene, error) {
+// enrichAndCollect fetches each listing item's detail. A failure is reported
+// rather than only logged, and the item is skipped: the detail's label is what
+// SiteID is derived from, so emitting the listing alone would file the scene
+// under a different identity than a clean run gives it.
+func (s *Scraper) enrichAndCollect(ctx context.Context, items []videoItem, studio configStudio, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult) ([]models.Scene, error) {
 	workers := opts.Workers
 	if workers <= 0 {
 		workers = 4
@@ -241,6 +245,7 @@ func (s *Scraper) enrichAndCollect(ctx context.Context, items []videoItem, studi
 	type enriched struct {
 		item   videoItem
 		detail *videoDetail
+		failed bool
 	}
 
 	results := make([]enriched, len(items))
@@ -263,8 +268,11 @@ func (s *Scraper) enrichAndCollect(ctx context.Context, items []videoItem, studi
 
 			detail, err := s.fetchVideoDetail(ctx, item.ID)
 			if err != nil {
-				scraper.Debugf(2, "teencoreclub: detail fetch failed for %d: %v", item.ID, err)
-				results[idx] = enriched{item: item}
+				results[idx] = enriched{item: item, failed: true}
+				select {
+				case out <- scraper.Error(fmt.Errorf("detail %d: %w", item.ID, err)):
+				case <-ctx.Done():
+				}
 				return
 			}
 			results[idx] = enriched{item: item, detail: detail}
@@ -277,6 +285,16 @@ func (s *Scraper) enrichAndCollect(ctx context.Context, items []videoItem, studi
 	for _, r := range results {
 		if ctx.Err() != nil {
 			break
+		}
+		// A scene whose detail failed is skipped, not emitted from the listing
+		// alone. The detail's label is what names the sub-brand, and SiteID is
+		// derived from it — so emitting the fallback would store the scene
+		// under a different key than the same scene gets on a clean run, and
+		// `(ID, SiteID)` is the store's identity. Skipping leaves it for the
+		// next incremental run; the error above already marks the traversal
+		// incomplete, so no authoritative Save can delete it in the meantime.
+		if r.failed {
+			continue
 		}
 		scenes = append(scenes, toScene(r.item, r.detail, studio, studioURL, now))
 	}
@@ -303,6 +321,8 @@ func toScene(item videoItem, detail *videoDetail, studio configStudio, studioURL
 		performers = append(performers, a.Name)
 	}
 
+	// Note SiteID below depends on the detail's label, so a scene whose detail
+	// could not be read is never emitted — see enrichAndCollect.
 	if detail != nil {
 		if detail.Description != "" {
 			description = detail.Description
