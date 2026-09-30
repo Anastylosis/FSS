@@ -227,7 +227,14 @@ func (s *Scraper) scrapeListingPages(ctx context.Context, opts scraper.ListOpts,
 				if !scraper.Pace(ctx, delay) {
 					return
 				}
-				scene := s.fetchAndBuildScene(ctx, item.node, now)
+				scene, err := s.fetchAndBuildScene(ctx, item.node, now)
+				if err != nil {
+					select {
+					case out <- scraper.Error(err):
+					case <-ctx.Done():
+						return
+					}
+				}
 				select {
 				case out <- scraper.Scene(scene):
 				case <-ctx.Done():
@@ -244,8 +251,6 @@ func (s *Scraper) scrapeListingPages(ctx context.Context, opts scraper.ListOpts,
 		if page > 1 && !scraper.Pace(ctx, delay) {
 			break
 		}
-		scraper.Debugf(1, "%s: fetching page %d", s.cfg.SiteID, page)
-
 		scraper.Debugf(1, "%s: fetching page %d", s.cfg.SiteID, page)
 		pageURL := fmt.Sprintf("%s/videos?page=%d", s.base, page)
 		body, err := s.fetchPage(ctx, pageURL)
@@ -317,18 +322,26 @@ func (s *Scraper) scrapeListingPages(ctx context.Context, opts scraper.ListOpts,
 	wg.Wait()
 }
 
-func (s *Scraper) fetchAndBuildScene(ctx context.Context, n node, now time.Time) models.Scene {
+// fetchAndBuildScene builds a scene from its GraphQL node and enriches it from
+// the detail page. The node already carries everything a scene needs, so a
+// detail failure costs the description, runtime and director rather than the
+// scene — but it is returned and reported, so an authoritative --full Save
+// cannot treat a half-read catalogue as complete.
+func (s *Scraper) fetchAndBuildScene(ctx context.Context, n node, now time.Time) (models.Scene, error) {
 	scene := s.nodeToScene(n, now)
 
 	detailURL := fmt.Sprintf("%s/videos/%s", s.base, n.Slug)
 	body, err := s.fetchPage(ctx, detailURL)
 	if err != nil {
-		return scene
+		return scene, fmt.Errorf("detail %s: %w", detailURL, err)
 	}
 
 	nd, err := extractNextData(body)
-	if err != nil || nd.Props.PageProps.Video == nil {
-		return scene
+	if err != nil {
+		return scene, scraper.ParseError(detailURL, err)
+	}
+	if nd.Props.PageProps.Video == nil {
+		return scene, scraper.ParseError(detailURL, fmt.Errorf("no video in __NEXT_DATA__"))
 	}
 
 	v := nd.Props.PageProps.Video
@@ -342,7 +355,7 @@ func (s *Scraper) fetchAndBuildScene(ctx context.Context, n node, now time.Time)
 		scene.Director = v.Directors[0].Name
 	}
 
-	return scene
+	return scene, nil
 }
 
 func (s *Scraper) nodeToScene(n node, now time.Time) models.Scene {

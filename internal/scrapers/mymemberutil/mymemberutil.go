@@ -123,7 +123,9 @@ func (s *Scraper) Run(ctx context.Context, studioURL string, opts scraper.ListOp
 					case <-ctx.Done():
 						return
 					}
-					continue
+					if scene.ID == "" {
+						continue
+					}
 				}
 				select {
 				case out <- scraper.Scene(scene):
@@ -289,8 +291,19 @@ func (s *Scraper) BuildScene(ctx context.Context, studioURL string, vid APIVideo
 		})
 	}
 
+	// The detail page is enrichment: the listing API already carries the
+	// title, date, runtime, poster and price. A failure therefore keeps the
+	// scene and is returned alongside it, so the caller can report it and the
+	// traversal counts as incomplete.
+	//
+	// The URL's slug is decorative — `/{content_mapping_id}` alone resolves,
+	// live-verified — so a title that slugifies differently than the site's own
+	// spelling costs nothing.
 	detail, err := s.FetchDetail(ctx, scene.URL)
-	if err == nil {
+	if err != nil {
+		return scene, fmt.Errorf("detail %s: %w", scene.URL, err)
+	}
+	{
 		if detail.Description != "" {
 			scene.Description = detail.Description
 		}

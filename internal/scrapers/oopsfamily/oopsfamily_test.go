@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Anastylosis/FSS/internal/scrapers/testutil"
+	"github.com/Anastylosis/FSS/models"
 	"github.com/Anastylosis/FSS/scraper"
 )
 
@@ -323,7 +324,11 @@ func TestListScenesModelPage(t *testing.T) {
 	}
 }
 
-func TestListScenesDetailFallbackDate(t *testing.T) {
+// An unreleased scene's detail page answers 403, so its date is unknowable.
+// It used to fall back to the scrape time, which stored today as the release
+// date of a scene that has not been released — wrong data that
+// preserveEnrichment cannot undo, since the field is not empty.
+func TestListScenesUnreadableDetailLeavesTheDateUnknown(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/video":
@@ -345,11 +350,23 @@ func TestListScenesDetailFallbackDate(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	results := testutil.CollectScenes(t, ch)
-	if len(results) != 1 {
-		t.Fatalf("got %d scenes, want 1", len(results))
+	var scenes []models.Scene
+	var errs int
+	for r := range ch {
+		switch r.Kind {
+		case scraper.KindScene:
+			scenes = append(scenes, r.Scene)
+		case scraper.KindError:
+			errs++
+		}
 	}
-	if results[0].Date.IsZero() {
-		t.Error("date should fallback to now, not be zero")
+	if len(scenes) != 1 {
+		t.Fatalf("got %d scenes, want 1 — the card still names the scene", len(scenes))
+	}
+	if !scenes[0].Date.IsZero() {
+		t.Errorf("Date = %v, want zero — an unknown date must not be invented", scenes[0].Date)
+	}
+	if errs == 0 {
+		t.Error("the detail failure must be reported, not swallowed")
 	}
 }

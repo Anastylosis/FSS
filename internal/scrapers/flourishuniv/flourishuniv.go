@@ -2,6 +2,7 @@ package flourishuniv
 
 import (
 	"context"
+	"fmt"
 	"html"
 	"net/http"
 	"regexp"
@@ -243,7 +244,14 @@ func (s *Scraper) run(ctx context.Context, opts scraper.ListOpts, out chan<- scr
 			return
 		}
 
-		scene := s.buildScene(ctx, ep, now)
+		scene, err := s.buildScene(ctx, ep, now)
+		if err != nil {
+			select {
+			case out <- scraper.Error(err):
+			case <-ctx.Done():
+				return
+			}
+		}
 		select {
 		case out <- scraper.Scene(scene):
 		case <-ctx.Done():
@@ -252,7 +260,12 @@ func (s *Scraper) run(ctx context.Context, opts scraper.ListOpts, out chan<- scr
 	}
 }
 
-func (s *Scraper) buildScene(ctx context.Context, ep episode, now time.Time) models.Scene {
+// buildScene builds a scene from its listing entry and enriches it from the
+// watch page. The listing already names the episode, so a dead watch page
+// costs its date, runtime and tags rather than the scene — but the failure is
+// returned, and the caller reports it so an authoritative --full Save cannot
+// treat a half-read catalogue as complete.
+func (s *Scraper) buildScene(ctx context.Context, ep episode, now time.Time) (models.Scene, error) {
 	scene := models.Scene{
 		ID:          ep.slug,
 		SiteID:      siteID,
@@ -267,17 +280,19 @@ func (s *Scraper) buildScene(ctx context.Context, ep episode, now time.Time) mod
 		ScrapedAt:   now,
 	}
 
-	if body, err := s.fetchPage(ctx, ep.watchURL); err == nil {
-		detail := parseDetailPage(body)
-		scene.Date = detail.date
-		scene.Duration = detail.duration
-		scene.Tags = detail.tags
-		if detail.description != "" && scene.Description == "" {
-			scene.Description = detail.description
-		}
+	body, err := s.fetchPage(ctx, ep.watchURL)
+	if err != nil {
+		return scene, fmt.Errorf("detail %s: %w", ep.watchURL, err)
+	}
+	detail := parseDetailPage(body)
+	scene.Date = detail.date
+	scene.Duration = detail.duration
+	scene.Tags = detail.tags
+	if detail.description != "" && scene.Description == "" {
+		scene.Description = detail.description
 	}
 
-	return scene
+	return scene, nil
 }
 
 func (s *Scraper) fetchPage(ctx context.Context, url string) ([]byte, error) {

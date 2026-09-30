@@ -127,7 +127,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 	if workers <= 0 {
 		workers = 4
 	}
-	details := s.fetchDetails(ctx, collected, opts.Delay, workers)
+	details := s.fetchDetails(ctx, collected, opts.Delay, workers, out)
 
 	now := time.Now().UTC()
 	for _, c := range collected {
@@ -286,7 +286,11 @@ func parseDetailPage(body []byte) detailData {
 	return d
 }
 
-func (s *Scraper) fetchDetails(ctx context.Context, cards []listingCard, delay time.Duration, workers int) map[string]detailData {
+// fetchDetails reads each card's detail page. A failure is reported rather than
+// swallowed: the listing card already names the scene, so the scene survives,
+// but its date comes only from the detail and a run that lost it must not look
+// like a clean one.
+func (s *Scraper) fetchDetails(ctx context.Context, cards []listingCard, delay time.Duration, workers int, out chan<- scraper.SceneResult) map[string]detailData {
 	results := make(map[string]detailData, len(cards))
 	var mu sync.Mutex
 
@@ -310,6 +314,11 @@ func (s *Scraper) fetchDetails(ctx context.Context, cards []listingCard, delay t
 				}
 				body, err := s.fetchHTML(ctx, c.url)
 				if err != nil {
+					select {
+					case out <- scraper.Error(fmt.Errorf("detail %s: %w", c.url, err)):
+					case <-ctx.Done():
+						return
+					}
 					continue
 				}
 				d := parseDetailPage(body)
@@ -327,12 +336,11 @@ func (s *Scraper) fetchDetails(ctx context.Context, cards []listingCard, delay t
 // ---- scene builder ----
 
 func buildScene(studioURL string, c listingCard, d detailData, now time.Time) models.Scene {
-	date := d.date
-	// Unreleased scenes return 403 on the detail page, so no date is available.
-	// Use scrape time as fallback since the scene is already listed.
-	if date.IsZero() {
-		date = now
-	}
+	// The date comes only from the detail page, and an unreleased scene answers
+	// it with a 403. It used to fall back to the scrape time, which stored
+	// today as the release date of a scene that has not been released — wrong
+	// data that `preserveEnrichment` cannot undo, since the field is not empty.
+	// An unknown date is left unknown.
 	return models.Scene{
 		ID:         c.id,
 		SiteID:     "oopsfamily",
@@ -342,7 +350,7 @@ func buildScene(studioURL string, c listingCard, d detailData, now time.Time) mo
 		Thumbnail:  c.thumbnail,
 		Duration:   c.duration,
 		Performers: c.performers,
-		Date:       date,
+		Date:       d.date,
 		Tags:       d.tags,
 		Studio:     "OopsFamily",
 		Width:      3840,
