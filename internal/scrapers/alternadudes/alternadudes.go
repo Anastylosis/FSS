@@ -156,7 +156,14 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 				if !scraper.Pace(ctx, opts.Delay) {
 					return
 				}
-				scene := s.processEntry(ctx, base, studioURL, entry)
+				scene, err := s.processEntry(ctx, base, studioURL, entry)
+				if err != nil {
+					select {
+					case out <- scraper.Error(err):
+					case <-ctx.Done():
+						return
+					}
+				}
 				select {
 				case out <- scraper.Scene(scene):
 				case <-ctx.Done():
@@ -280,7 +287,12 @@ func (s *Scraper) produceListing(ctx context.Context, base string, opts scraper.
 	}
 }
 
-func (s *Scraper) processEntry(ctx context.Context, base, studioURL string, entry listEntry) models.Scene {
+// processEntry builds a scene from its listing card and enriches it from the
+// trailer page. A dead trailer page costs the description, tags and cover, not
+// the scene, so the scene comes back either way — with the error, which the
+// caller reports so an authoritative --full Save cannot treat a half-read
+// catalogue as complete.
+func (s *Scraper) processEntry(ctx context.Context, base, studioURL string, entry listEntry) (models.Scene, error) {
 	now := time.Now().UTC()
 	scene := models.Scene{
 		ID:        entry.id,
@@ -296,7 +308,10 @@ func (s *Scraper) processEntry(ctx context.Context, base, studioURL string, entr
 	if entry.trailerURL != "" {
 		scene.URL = base + entry.trailerURL
 		body, err := s.fetchPage(ctx, scene.URL)
-		if err == nil {
+		if err != nil {
+			return scene, fmt.Errorf("detail %s: %w", scene.URL, err)
+		}
+		{
 			if m := detailDescRe.FindSubmatch(body); m != nil {
 				scene.Description = strings.TrimSpace(html.UnescapeString(string(m[1])))
 			}
@@ -315,7 +330,7 @@ func (s *Scraper) processEntry(ctx context.Context, base, studioURL string, entr
 		}
 	}
 
-	return scene
+	return scene, nil
 }
 
 func (s *Scraper) fetchPage(ctx context.Context, url string) ([]byte, error) {

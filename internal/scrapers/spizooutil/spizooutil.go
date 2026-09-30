@@ -197,7 +197,7 @@ func (s *Scraper) scrapeModelPage(ctx context.Context, studioURL string, opts sc
 		if page > 1 {
 			return scraper.PageResult{}, nil
 		}
-		scenes, err := s.fetchDetailScenes(ctx, items, opts, now)
+		scenes, err := s.fetchDetailScenes(ctx, items, opts, now, out)
 		if err != nil {
 			return scraper.PageResult{}, err
 		}
@@ -225,15 +225,22 @@ func (s *Scraper) scrapeListingPages(ctx context.Context, opts scraper.ListOpts,
 			total = estimateTotal(body, len(items))
 		}
 
-		scenes, err := s.fetchDetailScenes(ctx, items, opts, now)
+		scenes, err := s.fetchDetailScenes(ctx, items, opts, now, out)
 		if err != nil {
 			return scraper.PageResult{}, err
 		}
-		return scraper.PageResult{Scenes: scenes, Total: total}, nil
+		// A page whose every detail failed yields no scenes although it listed
+		// cards; that is a bad page, not the end of the catalogue.
+		return scraper.PageResult{Scenes: scenes, Total: total, Continue: len(items) > 0}, nil
 	})
 }
 
-func (s *Scraper) fetchDetailScenes(ctx context.Context, items []listItem, opts scraper.ListOpts, now time.Time) ([]models.Scene, error) {
+// fetchDetailScenes enriches each listing card from its detail page. A failure
+// used to be logged at debug level and the card dropped, so a scrape that lost
+// scenes reported none; it is now sent as an error, which marks the traversal
+// incomplete and stops an authoritative --full Save from deleting what was not
+// re-collected.
+func (s *Scraper) fetchDetailScenes(ctx context.Context, items []listItem, opts scraper.ListOpts, now time.Time, out chan<- scraper.SceneResult) ([]models.Scene, error) {
 	workers := opts.Workers
 	if workers <= 0 {
 		workers = 4
@@ -277,7 +284,11 @@ func (s *Scraper) fetchDetailScenes(ctx context.Context, items []listItem, opts 
 			break
 		}
 		if r.err != nil {
-			scraper.Debugf(2, "%s: detail %s: %v", s.cfg.SiteID, r.item.slug, r.err)
+			select {
+			case out <- scraper.Error(fmt.Errorf("detail %s: %w", r.item.slug, r.err)):
+			case <-ctx.Done():
+				return scenes, nil
+			}
 			continue
 		}
 		scenes = append(scenes, toScene(s.cfg.SiteID, s.base, r.item, r.detail, now))

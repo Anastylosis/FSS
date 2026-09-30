@@ -202,7 +202,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 		enrichment[e.id] = e
 	}
 
-	allEps := s.discoverChain(ctx, homepageEps, opts)
+	allEps := s.discoverChain(ctx, homepageEps, opts, out)
 
 	select {
 	case out <- scraper.Progress(len(allEps)):
@@ -262,7 +262,11 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 	wg.Wait()
 }
 
-func (s *Scraper) discoverChain(ctx context.Context, homepageEps []episode, opts scraper.ListOpts) []episode {
+// discoverChain walks the "next episode" chain from the homepage's last card.
+// The chain *is* the catalogue here, so a fetch that fails partway truncates it
+// — and a silent truncation would let an authoritative --full Save delete every
+// episode past the break. The failure is therefore reported.
+func (s *Scraper) discoverChain(ctx context.Context, homepageEps []episode, opts scraper.ListOpts, out chan<- scraper.SceneResult) []episode {
 	if len(homepageEps) == 0 {
 		return nil
 	}
@@ -282,7 +286,19 @@ func (s *Scraper) discoverChain(ctx context.Context, homepageEps []episode, opts
 		}
 
 		body, err := s.fetch(ctx, s.base+lastPath)
-		if err != nil || len(body) == 0 {
+		if err != nil {
+			select {
+			case out <- scraper.Error(fmt.Errorf("chain %s: %w", lastPath, err)):
+			case <-ctx.Done():
+			}
+			break
+		}
+		if len(body) == 0 {
+			select {
+			case out <- scraper.Error(scraper.ParseError(s.base+lastPath,
+				fmt.Errorf("empty body, chain discovery stops here"))):
+			case <-ctx.Done():
+			}
 			break
 		}
 

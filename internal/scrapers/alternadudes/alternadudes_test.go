@@ -79,7 +79,10 @@ func TestProcessEntryWithoutTrailerFallsBackToListingPage(t *testing.T) {
 		title:   "No Trailer",
 		listURL: "https://www.alternadudes.com/categories/movies_3_d.html",
 	}
-	scene := s.processEntry(context.Background(), "https://www.alternadudes.com", "https://www.alternadudes.com/", entry)
+	scene, err := s.processEntry(context.Background(), "https://www.alternadudes.com", "https://www.alternadudes.com/", entry)
+	if err != nil {
+		t.Fatalf("processEntry: %v", err)
+	}
 	if scene.URL != "https://www.alternadudes.com/categories/movies_3_d.html#12345" {
 		t.Errorf("URL = %q", scene.URL)
 	}

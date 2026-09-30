@@ -101,7 +101,9 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 					case <-ctx.Done():
 						return
 					}
-					continue
+					if scene.ID == "" {
+						continue
+					}
 				}
 				select {
 				case out <- scraper.Scene(scene):
@@ -354,7 +356,10 @@ func (s *Scraper) fetchDetail(ctx context.Context, _ string, item listingItem, s
 
 	body, err := s.fetchPage(ctx, item.url)
 	if err != nil {
-		return scene, nil
+		// The listing card already names the title and its price, so the scene
+		// survives — what is lost is the cast, runtime, genres and label. The
+		// caller reports the error and keeps the scene.
+		return scene, fmt.Errorf("detail %s: %w", item.url, err)
 	}
 
 	detail := parseDetailPage(body)
