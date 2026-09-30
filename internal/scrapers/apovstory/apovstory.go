@@ -90,6 +90,11 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 				if !scraper.Pace(ctx, opts.Delay) {
 					return
 				}
+				// The card already names the scene, so a dead detail page
+				// costs its description and categories, not the scene — but
+				// the failure is still reported, which is what stops an
+				// authoritative --full Save from treating a half-read
+				// catalogue as the studio's full state.
 				scene, err := s.fetchDetail(ctx, studioURL, entry)
 				if err != nil {
 					select {
@@ -97,7 +102,6 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 					case <-ctx.Done():
 						return
 					}
-					continue
 				}
 				select {
 				case out <- scraper.Scene(scene):
@@ -329,13 +333,13 @@ func (s *Scraper) fetchDetail(ctx context.Context, studioURL string, entry listE
 		Headers: httpx.BrowserHeaders(httpx.UserAgentFirefox),
 	})
 	if err != nil {
-		return scene, nil
+		return scene, fmt.Errorf("detail %s: %w", entry.url, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	body, err := httpx.ReadBody(resp.Body)
 	if err != nil {
-		return scene, nil
+		return scene, fmt.Errorf("detail %s: %w", entry.url, err)
 	}
 
 	og := parseutil.OpenGraph(body)

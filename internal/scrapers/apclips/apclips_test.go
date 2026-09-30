@@ -266,7 +266,9 @@ func detailHTML(date string, tags []string) string {
 func newTestServer(slug string, pages [][]testCard, total int, details map[string]string) *httptest.Server {
 	pageIdx := 0
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Detail page requests.
+		// Detail page requests. A card with no fixture still gets an empty
+		// page rather than a 404, so a test about something else does not have
+		// to account for the detail failures that would now be reported.
 		if html, ok := details[r.URL.Path]; ok {
 			w.Header().Set("Content-Type", "text/html")
 			_, _ = fmt.Fprint(w, html)
@@ -285,6 +287,12 @@ func newTestServer(slug string, pages [][]testCard, total int, details map[strin
 
 			w.Header().Set("Content-Type", "text/html")
 			_, _ = fmt.Fprint(w, listingHTML(slug, cards, total))
+			return
+		}
+
+		if strings.HasPrefix(r.URL.Path, "/"+slug+"/") {
+			w.Header().Set("Content-Type", "text/html")
+			_, _ = fmt.Fprint(w, `<html><body></body></html>`)
 			return
 		}
 

@@ -116,7 +116,17 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 
 				detail, err := s.fetchDetail(ctx, item.Href)
 				if err != nil {
+					// The card already names the scene, so it is still emitted
+					// — losing the detail costs tags, runtime and description,
+					// not the scene. The error is reported all the same, which
+					// is what keeps an authoritative --full Save from treating
+					// a half-read page as the studio's full state.
 					detail = &DetailData{}
+					select {
+					case out <- scraper.Error(fmt.Errorf("detail %s: %w", item.Href, err)):
+					case <-ctx.Done():
+						return scraper.PageResult{}, ctx.Err()
+					}
 				}
 				if len(detail.Tags) > 0 {
 					items[i].Tags = detail.Tags

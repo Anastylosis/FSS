@@ -120,7 +120,17 @@ func (s *Scraper) run(ctx context.Context, studioURL, slug string, opts scraper.
 					return scraper.PageResult{}, ctx.Err()
 				}
 				detailBody, detailErr := s.fetchPage(ctx, s.base+c.detailPath)
-				if detailErr == nil {
+				if detailErr != nil {
+					// The card already names the clip, so the scene is kept —
+					// what is lost is its date and tags. Reporting the failure
+					// is what keeps an authoritative --full Save from treating
+					// a half-read page as the studio's full state.
+					select {
+					case out <- scraper.Error(fmt.Errorf("detail %s: %w", c.detailPath, detailErr)):
+					case <-ctx.Done():
+						return scraper.PageResult{}, ctx.Err()
+					}
+				} else {
 					c.date, c.tags = parseDetailPage(detailBody)
 				}
 			}

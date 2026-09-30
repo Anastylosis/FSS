@@ -190,13 +190,14 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 		if ctx.Err() != nil {
 			return
 		}
+		// A detail failure is reported but does not drop the product: the
+		// listing already named it and priced it.
 		if r.err != nil {
 			select {
 			case out <- scraper.Error(r.err):
 			case <-ctx.Done():
 				return
 			}
-			continue
 		}
 		select {
 		case out <- scraper.Scene(r.scene):
@@ -567,7 +568,11 @@ func fetchDetail(ctx context.Context, sess *session, e productEntry, studioURL s
 
 	body, err := fetchPage(ctx, sess, e.url)
 	if err != nil {
-		return scene, nil
+		// The product listing already names the clip and its price, so the
+		// scene survives — what is lost is its runtime, tags and cast. The
+		// caller reports the error, which is what keeps an authoritative
+		// --full Save from treating a half-read catalogue as complete.
+		return scene, fmt.Errorf("detail %s: %w", e.url, err)
 	}
 
 	if m := durationRe.FindSubmatch(body); m != nil {

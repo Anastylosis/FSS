@@ -210,7 +210,14 @@ func (s *Scraper) runModel(ctx context.Context, studioURL string, opts scraper.L
 		if !scraper.Pace(ctx, opts.Delay) {
 			return
 		}
-		scene := s.processEntry(ctx, studioURL, now, e)
+		scene, err := s.processEntry(ctx, studioURL, now, e)
+		if err != nil {
+			select {
+			case out <- scraper.Error(err):
+			case <-ctx.Done():
+				return
+			}
+		}
 		select {
 		case out <- scraper.Scene(scene):
 		case <-ctx.Done():
@@ -234,7 +241,14 @@ func (s *Scraper) runPaginated(ctx context.Context, studioURL string, opts scrap
 				if !scraper.Pace(ctx, opts.Delay) {
 					return
 				}
-				scene := s.processEntry(ctx, studioURL, now, entry)
+				scene, err := s.processEntry(ctx, studioURL, now, entry)
+				if err != nil {
+					select {
+					case out <- scraper.Error(err):
+					case <-ctx.Done():
+						return
+					}
+				}
 				select {
 				case out <- scraper.Scene(scene):
 				case <-ctx.Done():
@@ -313,7 +327,11 @@ func (s *Scraper) runPaginated(ctx context.Context, studioURL string, opts scrap
 	wg.Wait()
 }
 
-func (s *Scraper) processEntry(ctx context.Context, studioURL string, now time.Time, entry listEntry) models.Scene {
+// processEntry builds a scene from its listing card and enriches it from the
+// detail page. A dead detail page costs the cast, not the scene, so the scene
+// is returned either way — with the error, which the caller reports so an
+// authoritative --full Save cannot treat a half-read catalogue as complete.
+func (s *Scraper) processEntry(ctx context.Context, studioURL string, now time.Time, entry listEntry) (models.Scene, error) {
 	scene := models.Scene{
 		ID:        entry.id,
 		SiteID:    s.cfg.id,
@@ -328,7 +346,7 @@ func (s *Scraper) processEntry(ctx context.Context, studioURL string, now time.T
 
 	body, err := s.fetchPage(ctx, entry.url)
 	if err != nil {
-		return scene
+		return scene, fmt.Errorf("detail %s: %w", entry.url, err)
 	}
 
 	if m := modelsRe.FindSubmatch(body); m != nil {
@@ -340,7 +358,7 @@ func (s *Scraper) processEntry(ctx context.Context, studioURL string, now time.T
 		}
 	}
 
-	return scene
+	return scene, nil
 }
 
 func (s *Scraper) fetchPage(ctx context.Context, url string) ([]byte, error) {

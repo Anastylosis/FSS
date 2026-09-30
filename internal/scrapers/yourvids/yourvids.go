@@ -254,7 +254,14 @@ func (s *Scraper) run(ctx context.Context, studioURL, slug string, opts scraper.
 				if !scraper.Pace(ctx, opts.Delay) {
 					return
 				}
-				desc, tags := s.fetchDetail(ctx, v.VideoURL)
+				desc, tags, derr := s.fetchDetail(ctx, v.VideoURL)
+				if derr != nil {
+					select {
+					case out <- scraper.Error(derr):
+					case <-ctx.Done():
+						return
+					}
+				}
 				select {
 				case results <- detailResult{video: v, description: desc, tags: tags}:
 				case <-ctx.Done():
@@ -350,7 +357,11 @@ var (
 	descBlockRe = regexp.MustCompile(`(?s)<div[^>]*class="rich-text-content[^"]*"[^>]*>\s*(.*?)\s*</div>`)
 )
 
-func (s *Scraper) fetchDetail(ctx context.Context, videoURL string) (description string, tags []string) {
+// fetchDetail reads a video's description and tags. Both are enrichment — the
+// API listing already carries everything a scene needs — so a failure returns
+// empty values alongside the error, which the caller reports so an
+// authoritative --full Save cannot treat a half-read catalogue as complete.
+func (s *Scraper) fetchDetail(ctx context.Context, videoURL string) (description string, tags []string, err error) {
 	resp, err := httpx.Do(ctx, s.client, httpx.Request{
 		URL: videoURL,
 		Headers: func() map[string]string {
@@ -360,13 +371,13 @@ func (s *Scraper) fetchDetail(ctx context.Context, videoURL string) (description
 		}(),
 	})
 	if err != nil {
-		return "", nil
+		return "", nil, fmt.Errorf("detail %s: %w", videoURL, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	body, err := httpx.ReadBody(resp.Body)
 	if err != nil {
-		return "", nil
+		return "", nil, fmt.Errorf("detail %s: %w", videoURL, err)
 	}
 
 	tagMatches := dataTagRe.FindAllSubmatch(body, -1)
@@ -391,7 +402,7 @@ func (s *Scraper) fetchDetail(ctx context.Context, videoURL string) (description
 		description = cleanHTML(longest)
 	}
 
-	return description, tags
+	return description, tags, nil
 }
 
 // ---- conversion ----
