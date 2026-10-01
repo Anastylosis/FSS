@@ -182,3 +182,52 @@ func TestParseDetailPage(t *testing.T) {
 		t.Error("date is zero")
 	}
 }
+
+func TestParseListingPageThumbnails(t *testing.T) {
+	items := parseListingPage(loadFixture(t, "listing.html"))
+	if len(items) != 3 {
+		t.Fatalf("expected 3 list items, got %d", len(items))
+	}
+	// Card 0 uses the hover-preview markup, the others the stdimage markup.
+	for i, it := range items {
+		if !strings.Contains(it.thumbnail, "/contentthumbs/") {
+			t.Errorf("item[%d].thumbnail = %q", i, it.thumbnail)
+		}
+	}
+}
+
+func TestHasNextPage(t *testing.T) {
+	body := loadFixture(t, "listing.html")
+	if !hasNextPage(body, 1) {
+		t.Error("page 1 should have a next page")
+	}
+	if hasNextPage(body, 2) {
+		t.Error("page 2 should not have a next page")
+	}
+}
+
+func TestScrapeEmptyFirstPageIsParseError(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("<html><body>redesigned</body></html>"))
+	}))
+	defer ts.Close()
+
+	s := New()
+	s.base = ts.URL
+	ch, err := s.ListScenes(context.Background(), ts.URL+"/", scraper.ListOpts{})
+	if err != nil {
+		t.Fatalf("ListScenes: %v", err)
+	}
+	var gotErr error
+	for res := range ch {
+		if res.Kind == scraper.KindError {
+			gotErr = res.Err
+		}
+	}
+	if gotErr == nil {
+		t.Fatal("expected an error for a page with no cards")
+	}
+	if k := scraper.Classify(gotErr); k != scraper.FailureParse {
+		t.Errorf("Classify = %v, want FailureParse", k)
+	}
+}

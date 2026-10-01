@@ -5,11 +5,14 @@
 package corbinfisher
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"html"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -63,12 +66,18 @@ func (s *Scraper) ListScenes(ctx context.Context, studioURL string, opts scraper
 }
 
 var (
-	// cardRe captures each listing card on a tour listing/model page.
-	cardRe = regexp.MustCompile(`(?s)<div class="item item-update">.*?</div>\s*</div>`)
+	// cardStart marks each listing card on a tour listing/model page. Cards are
+	// split on it rather than matched to a closing tag: the hover-preview
+	// thumbnail nests enough empty divs to end any non-greedy match early.
+	cardStart = []byte(`<div class="item item-update">`)
 	// cardHrefRe captures the trailer URL inside a card.
 	cardHrefRe = regexp.MustCompile(`href="[^"]*?/tour/trailers/([^"]+)\.html"[^>]*?title="([^"]*)"`)
 	// cardThumbRe captures the card thumbnail (token-signed CDN URL).
 	cardThumbRe = regexp.MustCompile(`class="update_thumb thumbs stdimage"[^>]*?src0_1x="([^"]+)"`)
+	// cardPlaceholderRe captures the poster of a hover-preview card.
+	cardPlaceholderRe = regexp.MustCompile(`<img src="([^"]+)"[^>]*?class="video_placeholder"`)
+	// nextPageRe captures the target of each pagination "next" link.
+	nextPageRe = regexp.MustCompile(`href="[^"]*?/tour/categories/guys/(\d+)/latest/" class="next-page"`)
 	// cardTimeRe captures "MM:SS Minutes" from the item-meta block.
 	cardTimeRe = regexp.MustCompile(`<div class="time">\s*(\d+:\d{2})`)
 
@@ -128,22 +137,33 @@ func (s *Scraper) scrapePaginated(ctx context.Context, opts scraper.ListOpts, ou
 		}
 
 		items := parseListingPage(body)
+		more := hasNextPage(body, page)
 		if len(items) == 0 {
+			if page == 1 || more {
+				return scraper.PageResult{}, scraper.ParseError(pageURL, errNoCards)
+			}
 			return scraper.PageResult{}, nil
 		}
 
 		scenes := s.fetchDetails(ctx, items, opts, now)
-		// No reliable total on the page; report per-page progress so the
-		// consumer still sees forward movement. Listing pages are a fixed
-		// size, so a short page signals the last page.
 		return scraper.PageResult{
 			Scenes: scenes,
-			Done:   len(items) < listingPageSize,
+			Done:   !more,
 		}, nil
 	})
 }
 
-const listingPageSize = 20
+var errNoCards = errors.New("no scene cards found on listing page")
+
+// hasNextPage reports whether the pagination links on page point at page+1.
+func hasNextPage(body []byte, page int) bool {
+	for _, m := range nextPageRe.FindAllSubmatch(body, -1) {
+		if string(m[1]) == strconv.Itoa(page+1) {
+			return true
+		}
+	}
+	return false
+}
 
 // scrapeSinglePage handles a model page (single page of that model's scenes).
 func (s *Scraper) scrapeSinglePage(ctx context.Context, pageURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
@@ -158,6 +178,10 @@ func (s *Scraper) scrapeSinglePage(ctx context.Context, pageURL string, opts scr
 
 	items := parseListingPage(body)
 	if len(items) == 0 {
+		select {
+		case out <- scraper.Error(scraper.ParseError(pageURL, errNoCards)):
+		case <-ctx.Done():
+		}
 		return
 	}
 
@@ -188,10 +212,10 @@ func (s *Scraper) scrapeSinglePage(ctx context.Context, pageURL string, opts scr
 }
 
 func parseListingPage(body []byte) []listItem {
-	cards := cardRe.FindAll(body, -1)
-	items := make([]listItem, 0, len(cards))
+	parts := bytes.Split(body, cardStart)
+	items := make([]listItem, 0, len(parts))
 	seen := make(map[string]bool)
-	for _, card := range cards {
+	for _, card := range parts[min(1, len(parts)):] {
 		it, ok := parseCard(card)
 		if !ok || seen[it.id] {
 			continue
@@ -217,6 +241,8 @@ func parseCard(card []byte) (listItem, bool) {
 	}
 	if mt := cardThumbRe.FindSubmatch(card); mt != nil {
 		it.thumbnail = html.UnescapeString(string(mt[1]))
+	} else if mt := cardPlaceholderRe.FindSubmatch(card); mt != nil {
+		it.thumbnail = html.UnescapeString(string(mt[1]))
 	}
 	if md := cardTimeRe.FindSubmatch(card); md != nil {
 		it.duration = parseutil.ParseDurationColon(string(md[1]))
@@ -230,10 +256,7 @@ func deslugify(slug string) string {
 }
 
 func (s *Scraper) fetchDetails(ctx context.Context, items []listItem, opts scraper.ListOpts, now time.Time) []models.Scene {
-	workers := opts.Workers
-	if workers <= 0 {
-		workers = 4
-	}
+	workers := scraper.WorkerCount(opts, 4)
 
 	scraper.Debugf(1, "corbinfisher: fetching %d details with %d workers", len(items), workers)
 
