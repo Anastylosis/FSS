@@ -8,7 +8,9 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/Anastylosis/FSS/models"
 	"github.com/Anastylosis/FSS/scraper"
 )
 
@@ -172,29 +174,39 @@ func TestParseListing_noJSONLD(t *testing.T) {
 }
 
 // TestParseListing_htmlFallback pins the Citebeur category-page case: the
-// page has no JSON-LD ItemList but does render the grid in plain HTML. The
-// fallback parser must surface URL/ID/title/thumbnail from the markup.
+// page has no JSON-LD ItemList but does render the grid in plain HTML. A card
+// links to its detail page twice; the title is the second link's text, while
+// the image alt is the uploaded file's name and must not win.
 const categoryHTMLFallback = `<html><body>
 <div class="row">
 
-<div class="video-gallery-0 col-12 col-md-6 col-lg-4">
-  <a href="/en/videos/detail/51582-arab-top-and-young-classy-bottom">
-    <div class="position-relative">
-      <img class="embed-responsive-item obj-adapt"
-           alt="grosse bite de rebeu en fond de gorge"
-           src="https://gcs.pornsitemanager.com/store/2/3/2/6a185fe252e81c6c64030232/sd/grosse-bite-de-rebeu-en-fond-de-gorge.jpg" />
-    </div>
-  </a>
+<div class="col-12 col-md-6 col-lg-4">
+		<a class="d-block" href="/en/videos/detail/53067-henry-hanson-and-the-king-of-cruising-berlin-parking">
+		<div class="position-relative my-item">
+			<div class="ratio ratio-16x9 rounded overflow-hidden">
+				<img class="vc-img "
+					alt="Capture d’écran 2026 09 24 à 19 39 20"
+					src="https://images.gayvideo.network/store/2/2/0/6ab68f96c13509a1e40f3022/sd/capture-d-e-cran-2026-09-24-a-19-39-20.jpg" loading="lazy">
+			</div>
+		</div>
+		</a>
+		<!-- VIDEO NAME -->
+		<a class="d-block h110 pt-3 pb-0 px-3 text-truncate text-center text-primary fw-bold" href="/en/videos/detail/53067-henry-hanson-and-the-king-of-cruising-berlin-parking">
+									Henry Hanson and The King of Cruising — Berlin Parking
+					</a>
 </div>
 
-<div class="video-gallery-1 col-12 col-md-6 col-lg-4">
-  <a href="/en/videos/detail/44742-the-good-neighbor-sucks-andolini">
-    <div class="position-relative">
-      <img class="embed-responsive-item obj-adapt"
-           alt="The Good Neighbor Sucks Andolini"
-           src="https://gcs.pornsitemanager.com/store/x/y/z/abc/sd/good-neighbor.jpg" />
-    </div>
-  </a>
+<div class="col-12">
+		<a href="https://www.frenchporn.fr/en/videos/detail/99999-cross-site-ad"><img alt="ad" src="https://images.gayvideo.network/ad.jpg"></a>
+</div>
+
+<div class="col-12 col-md-6 col-lg-4">
+		<a class="d-block" href="/en/videos/detail/44742-the-good-neighbor-sucks-andolini">
+				<img class="vc-img " alt="IMG_0042" src="https://images.gayvideo.network/store/x/y/z/abc/sd/good-neighbor.jpg" loading="lazy">
+		</a>
+		<a class="d-block text-primary fw-bold" href="/en/videos/detail/44742-the-good-neighbor-sucks-andolini">
+			The Good Neighbor Sucks Andolini
+		</a>
 </div>
 
 </div>
@@ -206,22 +218,62 @@ func TestParseListing_htmlFallback(t *testing.T) {
 		t.Fatalf("HTML fallback must not error: %v", err)
 	}
 	if len(videos) != 2 {
-		t.Fatalf("got %d videos from HTML fallback, want 2", len(videos))
+		t.Fatalf("got %d videos from HTML fallback, want 2 (cross-site ad must be ignored)", len(videos))
 	}
 	first := videos[0]
-	if first.URL != "/en/videos/detail/51582-arab-top-and-young-classy-bottom" {
+	if first.URL != "/en/videos/detail/53067-henry-hanson-and-the-king-of-cruising-berlin-parking" {
 		t.Errorf("URL = %q", first.URL)
 	}
-	if first.Name != "grosse bite de rebeu en fond de gorge" {
-		t.Errorf("Name = %q", first.Name)
+	if first.Name != "Henry Hanson and The King of Cruising — Berlin Parking" {
+		t.Errorf("Name = %q, want the title link's text, not the image alt", first.Name)
 	}
-	if !strings.Contains(first.ThumbnailURL, "gcs.pornsitemanager.com") {
+	if !strings.HasPrefix(first.ThumbnailURL, "https://images.gayvideo.network/") {
 		t.Errorf("ThumbnailURL = %q", first.ThumbnailURL)
 	}
-	// Scene IDs derived from the URL slug — extractSceneID is exercised
-	// elsewhere; here we just check the URL/title made it through.
+	if !first.fromHTML {
+		t.Error("HTML-fallback card not marked fromHTML")
+	}
 	if videos[1].Name != "The Good Neighbor Sucks Andolini" {
 		t.Errorf("second Name = %q", videos[1].Name)
+	}
+}
+
+// detailHTML is a scene detail page: its VideoObject carries the date, HD
+// thumbnail and description a category card lacks, and its "text" field
+// holds a raw newline, as PornSiteManager emits it.
+const detailHTML = `<html><head>
+<script type="application/ld+json">
+		{
+			"@context": "https://schema.org",
+			"@type": "VideoObject",
+			"name": "Henry Hanson and The King of Cruising — Berlin Parking",
+			"url": "https://www.citebeur.com/en/videos/detail/53067-henry-hanson-and-the-king-of-cruising-berlin-parking",
+			"thumbnailUrl": "https://images.gayvideo.network/store/2/2/0/6ab68f96c13509a1e40f3022/hd/capture.jpg",
+			"datePublished": "2026-09-30",
+			"uploadDate": "2026-09-30T09:00:00-01:00",
+			"description": "In a Berlin car park, The King of Cruising deep-throats Henry Hanson&#039;s cock.",
+			"text": "First paragraph.
+
+Second paragraph.",
+			"actor": [{"@type": "Person", "name": "Henry Hanson"}, {"@type": "Person", "name": "The King of Cruising"}],
+			"author": {"@type": "Organization", "name": "Citebeur"}
+		}
+</script>
+</head><body></body></html>`
+
+func TestParseDetail(t *testing.T) {
+	v, ok := parseDetail([]byte(detailHTML))
+	if !ok {
+		t.Fatal("no VideoObject parsed from detail page")
+	}
+	if v.DatePublished != "2026-09-30" || !strings.HasSuffix(v.ThumbnailURL, "/hd/capture.jpg") {
+		t.Errorf("got date %q thumb %q", v.DatePublished, v.ThumbnailURL)
+	}
+	if len(v.Actor) != 2 {
+		t.Errorf("got %d actors, want 2", len(v.Actor))
+	}
+	if _, ok := parseDetail([]byte(emptyListingHTML)); ok {
+		t.Error("page without a VideoObject reported one")
 	}
 }
 
@@ -427,5 +479,74 @@ func TestListScenes_knownIDsStopsEarly(t *testing.T) {
 	}
 	if !stoppedEarly {
 		t.Error("expected StoppedEarly signal")
+	}
+}
+
+// TestListScenes_categoryEnrichesFromDetail drives a category page, whose
+// cards come from the HTML fallback, through run: each card is completed
+// from its detail page, and a detail page without JSON-LD is reported as a
+// parse failure while the card is kept with its listing data.
+func TestListScenes_categoryEnrichesFromDetail(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		switch r.URL.Path {
+		case "/en/videos/arab-french-gay":
+			if r.URL.Query().Get("page") == "" {
+				_, _ = fmt.Fprint(w, categoryHTMLFallback)
+				return
+			}
+			_, _ = fmt.Fprint(w, emptyListingHTML)
+		case "/en/videos/detail/53067-henry-hanson-and-the-king-of-cruising-berlin-parking":
+			_, _ = fmt.Fprint(w, detailHTML)
+		case "/en/videos/detail/44742-the-good-neighbor-sucks-andolini":
+			_, _ = fmt.Fprint(w, "<html><body>no structured data</body></html>")
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer ts.Close()
+
+	s := New(SiteConfig{
+		ID:       "citebeur",
+		SiteBase: ts.URL,
+		Studio:   "Citebeur",
+		MatchRe:  regexp.MustCompile(`.*`),
+	})
+	ch, err := s.ListScenes(context.Background(), ts.URL+"/en/videos/arab-french-gay", scraper.ListOpts{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	scenes := map[string]models.Scene{}
+	var parseErrs int
+	for r := range ch {
+		switch r.Kind {
+		case scraper.KindScene:
+			scenes[r.Scene.ID] = r.Scene
+		case scraper.KindError:
+			if scraper.Classify(r.Err) != scraper.FailureParse {
+				t.Errorf("error not classified as a parse failure: %v", r.Err)
+			}
+			parseErrs++
+		}
+	}
+	if len(scenes) != 2 || parseErrs != 1 {
+		t.Fatalf("got %d scenes and %d parse errors, want 2 and 1", len(scenes), parseErrs)
+	}
+
+	good := scenes["53067"]
+	if want := time.Date(2026, 9, 30, 10, 0, 0, 0, time.UTC); !good.Date.Equal(want) {
+		t.Errorf("Date = %v, want %v", good.Date, want)
+	}
+	if !strings.Contains(good.Thumbnail, "/hd/") {
+		t.Errorf("Thumbnail = %q, want the detail page's HD one", good.Thumbnail)
+	}
+	if !strings.Contains(good.Description, "Henry Hanson's") || len(good.Performers) != 2 {
+		t.Errorf("Description = %q, Performers = %v", good.Description, good.Performers)
+	}
+
+	kept := scenes["44742"]
+	if kept.Title != "The Good Neighbor Sucks Andolini" || !kept.Date.IsZero() {
+		t.Errorf("failed-detail card: Title = %q, Date = %v", kept.Title, kept.Date)
 	}
 }

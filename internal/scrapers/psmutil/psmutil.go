@@ -39,6 +39,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Anastylosis/FSS/internal/httpx"
@@ -55,6 +56,8 @@ type SiteConfig struct {
 	Patterns []string
 	MatchRe  *regexp.Regexp
 }
+
+const defaultDetailWorkers = 4
 
 type Scraper struct {
 	cfg    SiteConfig
@@ -107,6 +110,8 @@ type videoObject struct {
 	Description   string        `json:"description"`
 	Actor         []actorRef    `json:"actor"`
 	Author        *organization `json:"author"`
+
+	fromHTML bool // card parsed from markup; needs its detail page
 }
 
 type actorRef struct {
@@ -167,8 +172,8 @@ func fixControlChars(s string) string {
 // parseListing extracts every VideoObject from the page's ItemList JSON-LD,
 // falling back to HTML card-link extraction when no ItemList is present
 // (Citebeur category pages, for example, ship only the rendered grid). The
-// HTML fallback yields fewer fields per scene — only URL/ID/title/thumbnail
-// — but at least surfaces the catalog instead of returning zero.
+// HTML fallback yields only URL/ID/title/thumbnail; run completes those cards
+// from their detail pages (enrichFromDetail).
 // Returns nil on a genuinely empty page (signal to stop pagination).
 func parseListing(body []byte) ([]videoObject, error) {
 	if m := jsonLDRe.FindSubmatch(body); m != nil {
@@ -193,21 +198,28 @@ func parseListing(body []byte) ([]videoObject, error) {
 	return parseListingHTML(body), nil
 }
 
-// HTML fallback regexes. The grid card pattern:
+// HTML fallback regexes. A grid card links to the detail page twice — once
+// around the thumbnail, once around the title:
 //
 //	<a href="/en/videos/detail/{ID}-{slug}">
-//	  <img class="…obj-adapt…" alt="{title}"
-//	       src="https://gcs.pornsitemanager.com/store/…/sd/{thumb}.jpg" />
+//	  <img class="vc-img" alt="{image filename}" src="https://{cdn}/store/…/sd/{thumb}.jpg">
+//	</a>
+//	<a class="… fw-bold" href="/en/videos/detail/{ID}-{slug}">{title}</a>
+//
+// The image alt is the uploaded file's name, not the scene title, so it is
+// only a last resort. The CDN host has changed before (gcs.pornsitemanager.com
+// → images.gayvideo.network), so it is not pinned.
 var (
-	htmlCardLinkRe = regexp.MustCompile(`href="(/[a-z]{2,3}/videos/detail/\d+-[a-z0-9-]+)"`)
-	htmlCardImgRe  = regexp.MustCompile(`<img[^>]+alt="([^"]*)"[^>]+src="(https://gcs\.pornsitemanager\.com[^"]+)"`)
+	htmlCardLinkRe  = regexp.MustCompile(`href="(/[a-z]{2,3}/videos/detail/\d+-[a-z0-9-]+)"`)
+	htmlCardImgRe   = regexp.MustCompile(`<img[^>]+alt="([^"]*)"[^>]+src="(https?://[^"]+)"`)
+	htmlCardTitleRe = regexp.MustCompile(`href="/[a-z]{2,3}/videos/detail/[^"]+"[^>]*>\s*([^<]*[^<\s])\s*</a>`)
 )
 
 func parseListingHTML(body []byte) []videoObject {
 	s := string(body)
-	// Each card opens with the detail-link anchor; the next 1KB usually contains
-	// the alt + src pair. We slice between successive anchors so a stray <img>
-	// elsewhere on the page can't pollute the wrong card.
+	// A card spans from the first link to its detail URL up to the first link
+	// to a different one, so both anchors of a card land in the same block and
+	// a stray <img> elsewhere on the page cannot pollute the wrong card.
 	matches := htmlCardLinkRe.FindAllStringSubmatchIndex(s, -1)
 	out := make([]videoObject, 0, len(matches))
 	seen := map[string]bool{}
@@ -219,19 +231,62 @@ func parseListingHTML(body []byte) []videoObject {
 		seen[url] = true
 
 		end := len(s)
-		if i+1 < len(matches) {
-			end = matches[i+1][0]
+		for _, next := range matches[i+1:] {
+			if s[next[2]:next[3]] != url {
+				end = next[0]
+				break
+			}
 		}
 		block := s[loc[0]:end]
 
-		v := videoObject{Type: "VideoObject", URL: url}
+		v := videoObject{Type: "VideoObject", URL: url, fromHTML: true}
 		if m := htmlCardImgRe.FindStringSubmatch(block); m != nil {
 			v.Name = m[1]
 			v.ThumbnailURL = m[2]
 		}
+		if m := htmlCardTitleRe.FindStringSubmatch(block); m != nil {
+			v.Name = strings.TrimSpace(m[1])
+		}
 		out = append(out, v)
 	}
 	return out
+}
+
+// parseDetail returns the VideoObject JSON-LD of a scene detail page.
+func parseDetail(body []byte) (videoObject, bool) {
+	for _, m := range jsonLDRe.FindAllSubmatch(body, -1) {
+		var v videoObject
+		if err := json.Unmarshal([]byte(fixControlChars(string(m[1]))), &v); err != nil {
+			continue
+		}
+		if v.Type == "VideoObject" {
+			return v, true
+		}
+	}
+	return videoObject{}, false
+}
+
+// merge overlays the detail page's fields onto a card scraped from HTML.
+func (v videoObject) merge(d videoObject) videoObject {
+	if d.Name != "" {
+		v.Name = d.Name
+	}
+	if d.ThumbnailURL != "" {
+		v.ThumbnailURL = d.ThumbnailURL
+	}
+	if d.DatePublished != "" {
+		v.DatePublished = d.DatePublished
+	}
+	if d.UploadDate != "" {
+		v.UploadDate = d.UploadDate
+	}
+	if d.Description != "" {
+		v.Description = d.Description
+	}
+	if len(d.Actor) > 0 {
+		v.Actor = d.Actor
+	}
+	return v
 }
 
 // ---- URL handling ----
@@ -303,6 +358,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 		if err != nil {
 			return scraper.PageResult{}, err
 		}
+		s.enrichFromDetail(ctx, videos, opts, out)
 		scenes := make([]models.Scene, len(videos))
 		for i, v := range videos {
 			scenes[i] = v.toScene(s.cfg.ID, s.cfg.SiteBase, s.cfg.Studio, now)
@@ -350,6 +406,66 @@ func (v videoObject) toScene(siteID, siteBase, studio string, now time.Time) mod
 	}
 
 	return scene
+}
+
+// enrichFromDetail completes cards that came from the HTML fallback: those
+// listings (category pages) carry no date, description or performers, so each
+// unknown scene's detail page is fetched for its VideoObject JSON-LD. A failed
+// fetch is reported and the card kept with what the listing gave.
+func (s *Scraper) enrichFromDetail(ctx context.Context, videos []videoObject, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
+	var jobs []int
+	for i, v := range videos {
+		if v.fromHTML && !opts.KnownIDs[extractSceneID(v.URL)] {
+			jobs = append(jobs, i)
+		}
+	}
+	if len(jobs) == 0 {
+		return
+	}
+	workers := min(scraper.WorkerCount(opts, defaultDetailWorkers), len(jobs))
+	scraper.Debugf(1, "%s: fetching %d details with %d workers", s.cfg.ID, len(jobs), workers)
+
+	jobCh := make(chan int)
+	var wg sync.WaitGroup
+	for range workers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := range jobCh {
+				if !scraper.Pace(ctx, opts.Delay) {
+					return
+				}
+				u := videos[i].URL
+				if strings.HasPrefix(u, "/") {
+					u = s.cfg.SiteBase + u
+				}
+				body, err := s.fetchPage(ctx, u)
+				if err == nil {
+					if d, ok := parseDetail(body); ok {
+						videos[i] = videos[i].merge(d)
+						continue
+					}
+					err = scraper.ParseError(u, fmt.Errorf("no VideoObject JSON-LD"))
+				}
+				select {
+				case out <- scraper.Error(fmt.Errorf("detail %s: %w", u, err)):
+				case <-ctx.Done():
+					return
+				}
+			}
+		}()
+	}
+	for _, i := range jobs {
+		select {
+		case jobCh <- i:
+		case <-ctx.Done():
+		}
+		if ctx.Err() != nil {
+			break
+		}
+	}
+	close(jobCh)
+	wg.Wait()
 }
 
 func (s *Scraper) fetchPage(ctx context.Context, url string) ([]byte, error) {
