@@ -152,3 +152,99 @@ func TestListScenesPassesTheAgeGateFirst(t *testing.T) {
 		t.Errorf("fetched %d listing pages, want 2", listings)
 	}
 }
+
+// A listing that is still the age gate yields no products; that must be a
+// parse failure, not an empty catalogue.
+func TestGatedListingIsAParseError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			_, _ = fmt.Fprint(w, "ok")
+			return
+		}
+		_, _ = fmt.Fprint(w, `<form method="post"><input type=hidden name="chk" value="1"></form>`)
+	}))
+	defer srv.Close()
+
+	s := New()
+	s.client.Transport = srv.Client().Transport
+	s.base = srv.URL
+
+	ch, _ := s.ListScenes(context.Background(), srv.URL, scraper.ListOpts{})
+	var errs []error
+	for r := range ch {
+		if r.Kind == scraper.KindError {
+			errs = append(errs, r.Err)
+		}
+	}
+	if len(errs) != 1 || scraper.Classify(errs[0]) != scraper.FailureParse || !strings.Contains(errs[0].Error(), "age gate") {
+		t.Fatalf("errors = %v, want one parse failure naming the age gate", errs)
+	}
+	if s.gatePassed {
+		t.Error("a gated listing should make the next run post the gate again")
+	}
+}
+
+// The walk reports the advertised total, stops once it has listed that many
+// without requesting the page past the end (which redirects to page 1), and
+// a stored product ends it at the end of its page without paying for its
+// detail page.
+func TestListScenesTotalAndKnownIDs(t *testing.T) {
+	var details, listings []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodPost:
+			_, _ = fmt.Fprint(w, "ok")
+		case strings.HasPrefix(r.URL.Path, "/home/"):
+			details = append(details, r.URL.Path)
+			_, _ = fmt.Fprint(w, productPage)
+		case r.URL.Path == categoryPath:
+			listings = append(listings, r.URL.RawQuery)
+			if r.URL.Query().Get("p") == "" {
+				_, _ = fmt.Fprint(w, `<div class="product-count">3 件中 1 件目から 2 件を表示しています</div>`+
+					`<a href="/home/3-ccc-003.html">c</a><a href="/home/2-bbb-002.html">b</a>`)
+				return
+			}
+			_, _ = fmt.Fprint(w, `<a href="/home/1-aaa-001.html">a</a>`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	run := func(opts scraper.ListOpts) (total, scenes int, stopped bool) {
+		s := New()
+		s.client.Transport = srv.Client().Transport
+		s.base = srv.URL
+		ch, _ := s.ListScenes(context.Background(), srv.URL, opts)
+		for r := range ch {
+			switch r.Kind {
+			case scraper.KindTotal:
+				total = r.Total
+			case scraper.KindScene:
+				scenes++
+			case scraper.KindStoppedEarly:
+				stopped = true
+			case scraper.KindError:
+				t.Errorf("unexpected error: %v", r.Err)
+			}
+		}
+		return
+	}
+
+	total, scenes, stopped := run(scraper.ListOpts{Workers: 1})
+	if total != 3 || scenes != 3 || stopped {
+		t.Errorf("full walk: total=%d scenes=%d stopped=%v", total, scenes, stopped)
+	}
+	if len(listings) != 2 {
+		t.Errorf("listing requests = %v, want 2 (no request past the advertised total)", listings)
+	}
+
+	details, listings = nil, nil
+	_, scenes, stopped = run(scraper.ListOpts{Workers: 1, KnownIDs: map[string]bool{"bbb-002": true}})
+	if scenes != 1 || !stopped {
+		t.Errorf("incremental: scenes=%d stopped=%v, want 1 and an early stop", scenes, stopped)
+	}
+	if len(details) != 1 || len(listings) != 1 {
+		t.Errorf("incremental fetched details %v and listings %v; the known product must not be fetched", details, listings)
+	}
+}

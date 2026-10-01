@@ -46,18 +46,28 @@ var (
 	dateRe     = regexp.MustCompile(`(\d{4})/(\d{1,2})/(\d{1,2})`)
 	scriptRe   = regexp.MustCompile(`(?s)<script.*?</script>`)
 	tagStripRe = regexp.MustCompile(`<[^>]+>`)
+	// totalRe reads "2442 件中 1 件目から 60 件を表示しています".
+	totalRe = regexp.MustCompile(`(\d+)\s*件中`)
+	// gateRe recognises the age gate's own form field.
+	gateRe = regexp.MustCompile(`name="chk"`)
 )
 
 type Scraper struct {
 	client *http.Client
 	base   string
-	// gate guards the one-time age-gate POST, which the whole run shares.
-	gate sync.Once
+	// gateMu guards the age-gate POST, which every run in the process shares
+	// once it has succeeded.
+	gateMu     sync.Mutex
+	gatePassed bool
 }
+
+// clientTimeout clears the origin's own latency with room to spare: a product
+// page takes 4–10s and a 60-product listing ~14s, live-measured in 2026-10.
+const clientTimeout = 60 * time.Second
 
 func New() *Scraper {
 	jar, _ := cookiejar.New(nil)
-	c := httpx.NewClient(30 * time.Second)
+	c := httpx.NewClient(clientTimeout)
 	c.Jar = jar
 	return &Scraper{client: c, base: siteBase}
 }
@@ -80,44 +90,113 @@ func (s *Scraper) ListScenes(ctx context.Context, studioURL string, opts scraper
 	return out, nil
 }
 
+// run walks the listing serially and streams each product as its detail
+// page arrives. It does not use scraper.Paginate, which emits a page only
+// once every detail on it is in: at 60 products a page and 4–10s a product
+// page, that held back the first scene for two minutes and lost the whole
+// page to any cancellation.
 func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
 	defer close(out)
 
-	s.gate.Do(func() { s.enter(ctx) })
-
-	workers := opts.Workers
-	if workers <= 0 {
-		workers = defaultWorkers
+	send := func(r scraper.SceneResult) bool {
+		select {
+		case out <- r:
+			return true
+		case <-ctx.Done():
+			return false
+		}
 	}
+
+	if err := s.enter(ctx); err != nil {
+		send(scraper.Error(fmt.Errorf("age gate: %w", err)))
+		return
+	}
+
+	workers := scraper.WorkerCount(opts, defaultWorkers)
 	now := time.Now().UTC()
 	seen := map[string]bool{}
+	total := 0
 
-	scraper.Paginate(ctx, opts, siteID, out, func(ctx context.Context, page int) (scraper.PageResult, error) {
-		if page > maxPages {
-			return scraper.PageResult{Done: true}, nil
+	for page := 1; page <= maxPages; page++ {
+		if ctx.Err() != nil {
+			return
 		}
-		refs, err := s.fetchListing(ctx, page)
+		if page > 1 && !scraper.Pace(ctx, opts.Delay) {
+			return
+		}
+		scraper.Debugf(1, "dogma: fetching page %d", page)
+		listing, err := s.fetchListing(ctx, page)
 		if err != nil {
-			return scraper.PageResult{}, err
+			send(scraper.Error(fmt.Errorf("page %d: %w", page, err)))
+			return
 		}
-		fresh := refs[:0]
-		for _, r := range refs {
+		if page == 1 {
+			if len(listing.refs) == 0 {
+				if listing.isGate {
+					// The session lapsed; let the next run post the gate again.
+					s.gateMu.Lock()
+					s.gatePassed = false
+					s.gateMu.Unlock()
+				}
+				send(scraper.Error(scraper.ParseError(listing.url, listing.emptyReason())))
+				return
+			}
+			total = listing.total
+			if total > 0 {
+				scraper.Debugf(1, "dogma: %d total scenes", total)
+				if !send(scraper.Progress(total)) {
+					return
+				}
+			}
+		}
+
+		// A known product ends the walk at the end of this page, as
+		// scraper.Paginate does. The slug is the SKU on every product seen,
+		// so it is checked before paying for the detail page; a product whose
+		// SKU differs is still caught by its parsed ID below.
+		hitKnown := false
+		var fresh []productRef
+		for _, r := range listing.refs {
 			if seen[r.id] {
 				continue
 			}
 			seen[r.id] = true
+			if opts.KnownIDs[r.slug] {
+				hitKnown = true
+				continue
+			}
 			fresh = append(fresh, r)
 		}
-		if len(fresh) == 0 {
-			return scraper.PageResult{}, nil
+		if len(fresh) == 0 && !hitKnown {
+			return
 		}
-		return scraper.PageResult{Scenes: s.fetchProducts(ctx, fresh, studioURL, workers, opts.Delay, now, out)}, nil
-	})
+		if s.fetchProducts(ctx, fresh, studioURL, workers, opts, now, out) {
+			hitKnown = true
+		}
+		if ctx.Err() != nil {
+			return
+		}
+		if hitKnown {
+			scraper.Debugf(1, "dogma: page %d reached stored scenes, stopping", page)
+			send(scraper.StoppedEarly())
+			return
+		}
+		// Past the last page the store redirects to the first, so stop
+		// once the advertised count has been listed.
+		if total > 0 && len(seen) >= total {
+			return
+		}
+	}
 }
 
 // enter posts the age gate's own form, which is a button rather than a login —
 // every page is the gate until the session cookie it sets is held.
-func (s *Scraper) enter(ctx context.Context) {
+func (s *Scraper) enter(ctx context.Context) error {
+	s.gateMu.Lock()
+	defer s.gateMu.Unlock()
+	if s.gatePassed {
+		return nil
+	}
 	resp, err := httpx.Do(ctx, s.client, httpx.Request{
 		URL:     s.base + "/",
 		Method:  http.MethodPost,
@@ -125,11 +204,12 @@ func (s *Scraper) enter(ctx context.Context) {
 		Headers: gateHeaders(),
 	})
 	if err != nil {
-		scraper.Debugf(1, "dogma: age gate: %v", err)
-		return
+		return err
 	}
 	_ = resp.Body.Close()
+	s.gatePassed = true
 	scraper.Debugf(1, "dogma: age gate passed")
+	return nil
 }
 
 func gateHeaders() map[string]string {
@@ -140,86 +220,119 @@ func gateHeaders() map[string]string {
 
 type productRef struct{ id, slug string }
 
-func (s *Scraper) fetchListing(ctx context.Context, page int) ([]productRef, error) {
+type listingPage struct {
+	url    string
+	refs   []productRef
+	total  int
+	isGate bool
+}
+
+func (l listingPage) emptyReason() error {
+	if l.isGate {
+		return fmt.Errorf("the listing is still the age gate after posting it")
+	}
+	return fmt.Errorf("no products on the first listing page")
+}
+
+func (s *Scraper) fetchListing(ctx context.Context, page int) (listingPage, error) {
 	u := fmt.Sprintf("%s%s", s.base, categoryPath)
 	if page > 1 {
 		u = fmt.Sprintf("%s%s?p=%d", s.base, categoryPath, page)
 	}
 	body, err := s.fetchPage(ctx, u)
 	if err != nil {
-		return nil, err
+		return listingPage{}, err
+	}
+	return parseListing(u, body), nil
+}
+
+func parseListing(u, body string) listingPage {
+	l := listingPage{url: u, isGate: gateRe.MatchString(body)}
+	if m := totalRe.FindStringSubmatch(body); m != nil {
+		l.total, _ = strconv.Atoi(m[1])
 	}
 	seen := map[string]bool{}
-	var refs []productRef
 	for _, m := range productRe.FindAllStringSubmatch(body, -1) {
 		if seen[m[1]] {
 			continue
 		}
 		seen[m[1]] = true
-		refs = append(refs, productRef{id: m[1], slug: m[2]})
+		l.refs = append(l.refs, productRef{id: m[1], slug: m[2]})
 	}
-	return refs, nil
+	return l
 }
 
-func (s *Scraper) fetchProducts(ctx context.Context, refs []productRef, studioURL string, workers int, pause time.Duration, now time.Time, out chan<- scraper.SceneResult) []models.Scene {
-	results := make([]*models.Scene, len(refs))
-	work := make(chan int)
+// fetchProducts fetches and emits refs' detail pages through a worker pool,
+// skipping any whose parsed ID is already stored. It reports whether it
+// skipped one.
+func (s *Scraper) fetchProducts(ctx context.Context, refs []productRef, studioURL string, workers int, opts scraper.ListOpts, now time.Time, out chan<- scraper.SceneResult) bool {
+	if len(refs) == 0 {
+		return false
+	}
+	if workers > len(refs) {
+		workers = len(refs)
+	}
+	scraper.Debugf(1, "dogma: fetching %d details with %d workers", len(refs), workers)
+	work := make(chan productRef)
 	var wg sync.WaitGroup
+	var mu sync.Mutex
+	hitKnown := false
+
+	send := func(r scraper.SceneResult) bool {
+		select {
+		case out <- r:
+			return true
+		case <-ctx.Done():
+			return false
+		}
+	}
 
 	for i := 0; i < workers; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for idx := range work {
-				if pause > 0 {
-					select {
-					case <-time.After(pause):
-					case <-ctx.Done():
-						return
-					}
+			for ref := range work {
+				if !scraper.Pace(ctx, opts.Delay) {
+					return
 				}
-				pageURL := fmt.Sprintf("%s/home/%s-%s.html", s.base, refs[idx].id, refs[idx].slug)
+				pageURL := fmt.Sprintf("%s/home/%s-%s.html", s.base, ref.id, ref.slug)
 				body, err := s.fetchPage(ctx, pageURL)
 				if err != nil {
-					select {
-					case out <- scraper.Error(err):
-					case <-ctx.Done():
+					if ctx.Err() != nil || !send(scraper.Error(err)) {
 						return
 					}
 					continue
 				}
-				scene, err := parseProduct(body, refs[idx], studioURL, now)
+				scene, err := parseProduct(body, ref, studioURL, now)
 				if err != nil {
-					select {
-					case out <- scraper.Error(scraper.ParseError(pageURL, err)):
-					case <-ctx.Done():
+					if !send(scraper.Error(scraper.ParseError(pageURL, err))) {
 						return
 					}
 					continue
 				}
-				results[idx] = &scene
+				if opts.KnownIDs[scene.ID] {
+					mu.Lock()
+					hitKnown = true
+					mu.Unlock()
+					continue
+				}
+				if !send(scraper.Scene(scene)) {
+					return
+				}
 			}
 		}()
 	}
-	for i := range refs {
+feed:
+	for _, r := range refs {
 		select {
-		case work <- i:
+		case work <- r:
 		case <-ctx.Done():
-			close(work)
-			wg.Wait()
-			return nil
+			break feed
 		}
 	}
 	close(work)
 	wg.Wait()
-
-	scenes := make([]models.Scene, 0, len(refs))
-	for _, sc := range results {
-		if sc != nil {
-			scenes = append(scenes, *sc)
-		}
-	}
-	return scenes
+	return hitKnown
 }
 
 // parseProduct reads the store's feature list: 女優 (cast), 監督 (director),
