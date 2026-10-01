@@ -11,9 +11,10 @@
 //     /sets/{id}/{slug}.webp; the set id and de-slugged title are all that is
 //     publicly available (the real scene detail lives behind /join). The newest
 //     handful of sets ship obfuscated slugs, so their titles are gibberish.
-//   - Oldje-3some — listing-only. /gallery/{n} embeds the whole catalogue as a
+//   - Oldje-3some — /gallery/1 embeds the whole catalogue as a
 //     window.sslSearchItems JSON array (title, actors, duration, cover, URL),
-//     so one fetch yields every scene.
+//     so one fetch enumerates every scene; each /videos/{token} detail page
+//     then adds the release date, tags and cast. Uses a worker pool.
 package classmedia
 
 import (
@@ -41,7 +42,11 @@ const (
 	tplOldje3some
 )
 
-const subspacelandWorkers = 4
+const (
+	subspacelandWorkers = 4
+	oldje3someWorkers   = 4
+	oldje3someChunk     = 24
+)
 
 type siteConfig struct {
 	id       string
@@ -415,12 +420,129 @@ func (s *Scraper) runOldje3some(ctx context.Context, studioURL string, opts scra
 		})
 	}
 
-	scraper.Paginate(ctx, opts, s.cfg.id, out, func(_ context.Context, page int) (scraper.PageResult, error) {
-		if page > 1 {
+	// The listing is newest-first, so walking it in chunks lets the KnownIDs
+	// early stop end the walk before fetching every detail page.
+	scraper.Paginate(ctx, opts, s.cfg.id, out, func(ctx context.Context, page int) (scraper.PageResult, error) {
+		start := (page - 1) * oldje3someChunk
+		if start >= len(scenes) {
 			return scraper.PageResult{Done: true}, nil
 		}
-		return scraper.PageResult{Scenes: scenes, Total: len(scenes), Done: true}, nil
+		end := min(start+oldje3someChunk, len(scenes))
+		chunk := scenes[start:end]
+		s.enrichOldje3some(ctx, chunk, opts, out)
+		return scraper.PageResult{Scenes: chunk, Total: len(scenes), Done: end == len(scenes)}, nil
 	})
+}
+
+// Detail page (/videos/{token}) markup:
+//
+//	<div class='ssl-detail-content'><h1>Dusting off desire</h1>
+//	<div class='ssl-detail-meta'><span><i class='bi bi-calendar3'></i> May 5, 2025</span>…
+//	<div class='ssl-detail-tags'><span>kissing</span><span>teen</span></div>
+//	<div class='ssl-detail-performer-grid'><a href='/girls/x'>…<strong>Candie Luciani</strong></a>…</div>
+var (
+	o3TitleRe      = regexp.MustCompile(`(?s)class='ssl-detail-content'>\s*<h1[^>]*>(.*?)</h1>`)
+	o3DateRe       = regexp.MustCompile(`bi-calendar3'></i>\s*([A-Z][a-z]{2,8}\.? \d{1,2}, \d{4})`)
+	o3TagsRe       = regexp.MustCompile(`(?s)<div class='ssl-detail-tags'>(.*?)</div>`)
+	o3TagRe        = regexp.MustCompile(`<span>([^<]+)</span>`)
+	o3PerformersRe = regexp.MustCompile(`(?s)<div class='ssl-detail-performer-grid'>(.*?)</div>`)
+	o3StrongRe     = regexp.MustCompile(`<strong>([^<]*)</strong>`)
+)
+
+// enrichOldje3some completes listing scenes from their detail pages, which
+// carry the release date, tags and cast that the listing JSON omits. Known
+// scenes are skipped (Paginate drops them anyway), as are the older sets whose
+// listing entry points at /join instead of a detail page. A failed detail page
+// is reported and the scene kept with its listing data.
+func (s *Scraper) enrichOldje3some(ctx context.Context, scenes []models.Scene, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
+	var jobs []int
+	for i, sc := range scenes {
+		if !opts.KnownIDs[sc.ID] && strings.HasPrefix(sc.URL, s.cfg.base+"/videos/") {
+			jobs = append(jobs, i)
+		}
+	}
+	if len(jobs) == 0 {
+		return
+	}
+	workers := min(scraper.WorkerCount(opts, oldje3someWorkers), len(jobs))
+	scraper.Debugf(1, "%s: fetching %d details with %d workers", s.cfg.id, len(jobs), workers)
+
+	jobCh := make(chan int)
+	var wg sync.WaitGroup
+	for range workers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := range jobCh {
+				if !scraper.Pace(ctx, opts.Delay) {
+					return
+				}
+				body, err := s.get(ctx, scenes[i].URL)
+				if err == nil {
+					err = applyOldje3someDetail(&scenes[i], string(body))
+				}
+				if err != nil {
+					select {
+					case out <- scraper.Error(fmt.Errorf("scene %s: %w", scenes[i].ID, err)):
+					case <-ctx.Done():
+						return
+					}
+				}
+			}
+		}()
+	}
+	for _, i := range jobs {
+		select {
+		case jobCh <- i:
+		case <-ctx.Done():
+		}
+		if ctx.Err() != nil {
+			break
+		}
+	}
+	close(jobCh)
+	wg.Wait()
+}
+
+// applyOldje3someDetail merges a detail page into sc. The newest sets are
+// published with an empty title and empty cast names on every public page;
+// those fields are left empty rather than invented, so a re-scrape keeps any
+// title stored earlier (see preserveEnrichment).
+func applyOldje3someDetail(sc *models.Scene, page string) error {
+	m := o3DateRe.FindStringSubmatch(page)
+	if m == nil {
+		return scraper.ParseError(sc.URL, fmt.Errorf("release date not found"))
+	}
+	d, err := parseutil.TryParseDate(m[1], "Jan 2, 2006", "January 2, 2006")
+	if err != nil {
+		return scraper.ParseError(sc.URL, err)
+	}
+	sc.Date = d
+
+	if sc.Title == "" {
+		if tm := o3TitleRe.FindStringSubmatch(page); tm != nil {
+			sc.Title = cleanText(tm[1])
+		}
+	}
+	if tm := o3TagsRe.FindStringSubmatch(page); tm != nil {
+		for _, t := range o3TagRe.FindAllStringSubmatch(tm[1], -1) {
+			if tag := cleanText(t[1]); tag != "" {
+				sc.Tags = append(sc.Tags, tag)
+			}
+		}
+	}
+	if pm := o3PerformersRe.FindStringSubmatch(page); pm != nil {
+		var names []string
+		for _, n := range o3StrongRe.FindAllStringSubmatch(pm[1], -1) {
+			if name := cleanText(n[1]); name != "" {
+				names = append(names, name)
+			}
+		}
+		if len(names) > 0 {
+			sc.Performers = names
+		}
+	}
+	return nil
 }
 
 // oldje3somePerformers splits the comma-separated actors field, dropping the

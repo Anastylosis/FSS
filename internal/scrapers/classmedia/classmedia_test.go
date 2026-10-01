@@ -228,9 +228,25 @@ func TestRunOldje(t *testing.T) {
 
 const oldje3someListHTML = `<html><body>
 <script>
-window.sslSearchItems = [{"title":"Full Service","actors":"Oldje-3Some","duration":"24:23","thumb":"/media/sets/188/cover.jpg","url":"/videos/8ff48390","search":"full service 188"},{"title":"Charge Me Up","actors":"Victoria Benz, Benito","duration":"22:30","thumb":"/media/sets/187/cover.jpg","url":"/videos/c0be3b5a","search":"charge me up 187"},{"title":"Charge Me Up","actors":"Victoria Benz","duration":"22:30","thumb":"/media/sets/187/cover.jpg","url":"/videos/c0be3b5a","search":"dupe"}];
+window.sslSearchItems = [{"title":"","actors":"Oldje-3Some","duration":"24:23","thumb":"/media/sets/188/cover.jpg","url":"/videos/8ff48390","search":""},{"title":"Charge Me Up","actors":"Victoria Benz, Benito","duration":"22:30","thumb":"/media/sets/187/cover.jpg","url":"/videos/c0be3b5a","search":"charge me up 187"},{"title":"Charge Me Up","actors":"Victoria Benz","duration":"22:30","thumb":"/media/sets/187/cover.jpg","url":"/videos/c0be3b5a","search":"dupe"}];
 </script>
 </body></html>`
+
+// Detail pages, trimmed from live 2026-10 markup. 188 is one of the newest
+// sets, which the site publishes with an empty title and empty cast names.
+const oldje3someDetail188 = `<section class='ssl-detail-page'><div class='ssl-detail-main'><div class='ssl-detail-content'><h1></h1><div class='ssl-detail-meta'><span><i class='bi bi-calendar3'></i> Jul 31, 2026</span><span><i class='bi bi-badge-4k'></i> 4K UHD</span></div>
+<div class='ssl-detail-section'><h2>About This Update</h2><p>Experience the newest Oldje-3Some update.</p><div class='ssl-detail-tags'>
+	<span>double-blowjob</span>
+	<span>massage</span>
+</div></div>
+<div class='ssl-detail-section'><h2>Featured Performers</h2><div class='ssl-detail-performer-grid'><a href='/girls/mia-de-vil'><img src='/a.jpg' alt='' loading='lazy'><strong></strong></a><a href='/oldjes/harry-river'><img src='/b.jpg' alt=''><strong></strong></a></div></div>
+<div class='ssl-detail-related'><h2>Related Scenes</h2><div class='ssl-detail-related-grid'><a href='/videos/98'><strong>A Dick Is A Dick</strong><span>Amy Douxxx, Missy Luv, Master X</span></a></div></div>
+</div></div></section>`
+
+const oldje3someDetail187 = `<div class='ssl-detail-content'><h1>Charge Me Up</h1><div class='ssl-detail-meta'><span><i class='bi bi-calendar3'></i> May 5, 2025</span></div>
+<div class='ssl-detail-tags'><span>kissing</span><span>teen</span></div>
+<div class='ssl-detail-performer-grid'><a href='/girls/victoria-benz'><strong>Victoria Benz</strong></a><a href='/oldjes/benito'><strong>Benito</strong></a><a href='/oldjes/erik'><strong></strong></a></div>
+<div class='ssl-detail-related-grid'><a href='/videos/c5'><strong>Picture This</strong></a></div></div>`
 
 func TestRunOldje3some(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -238,6 +254,10 @@ func TestRunOldje3some(t *testing.T) {
 		switch r.URL.Path {
 		case "/gallery/1":
 			_, _ = fmt.Fprint(w, oldje3someListHTML)
+		case "/videos/8ff48390":
+			_, _ = fmt.Fprint(w, oldje3someDetail188)
+		case "/videos/c0be3b5a":
+			_, _ = fmt.Fprint(w, oldje3someDetail187)
 		default:
 			_, _ = fmt.Fprint(w, "<html><body></body></html>")
 		}
@@ -264,8 +284,9 @@ func TestRunOldje3some(t *testing.T) {
 	if len(scenes) != 2 {
 		t.Fatalf("got %d scenes, want 2 (deduped by set id): %v", len(scenes), scenes)
 	}
-	if got := scenes["188"].Title; got != "Full Service" {
-		t.Errorf("title for 188 = %q, want Full Service", got)
+	// The site publishes no title for its newest sets; none is invented.
+	if got := scenes["188"].Title; got != "" {
+		t.Errorf("title for 188 = %q, want empty", got)
 	}
 	if got := scenes["188"].URL; got != ts.URL+"/videos/8ff48390" {
 		t.Errorf("URL for 188 = %q", got)
@@ -273,12 +294,62 @@ func TestRunOldje3some(t *testing.T) {
 	if got := scenes["188"].Duration; got != 24*60+23 {
 		t.Errorf("duration for 188 = %d, want %d", got, 24*60+23)
 	}
-	// The site puts its own name in "actors" when there is no real cast.
-	if got := scenes["188"].Performers; len(got) != 0 {
-		t.Errorf("performers for 188 = %v, want none (studio name dropped)", got)
+	if got := scenes["188"].Date; !got.Equal(time.Date(2026, 7, 31, 0, 0, 0, 0, time.UTC)) {
+		t.Errorf("date for 188 = %v", got)
 	}
-	if got := scenes["187"].Performers; len(got) != 2 || got[0] != "Victoria Benz" || got[1] != "Benito" {
+	if got := scenes["188"].Tags; len(got) != 2 || got[0] != "double-blowjob" || got[1] != "massage" {
+		t.Errorf("tags for 188 = %v", got)
+	}
+	// The site puts its own name in "actors" when there is no real cast, and
+	// blank <strong> names on the detail page must not become performers.
+	if got := scenes["188"].Performers; len(got) != 0 {
+		t.Errorf("performers for 188 = %v, want none", got)
+	}
+	sc := scenes["187"]
+	if sc.Title != "Charge Me Up" || !sc.Date.Equal(time.Date(2025, 5, 5, 0, 0, 0, 0, time.UTC)) {
+		t.Errorf("187 = %q %v", sc.Title, sc.Date)
+	}
+	if got := sc.Performers; len(got) != 2 || got[0] != "Victoria Benz" || got[1] != "Benito" {
 		t.Errorf("performers for 187 = %v, want [Victoria Benz Benito]", got)
+	}
+}
+
+// A detail page without a release date is reported as a parse error, and the
+// scene is still emitted with its listing data.
+func TestRunOldje3someDetailParseError(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		if r.URL.Path == "/gallery/1" {
+			_, _ = fmt.Fprint(w, oldje3someListHTML)
+			return
+		}
+		_, _ = fmt.Fprint(w, "<html><body>redesigned</body></html>")
+	}))
+	defer ts.Close()
+
+	s := NewOldje3some()
+	s.Client = ts.Client()
+	s.cfg.base = ts.URL
+
+	ch, err := s.ListScenes(context.Background(), ts.URL, scraper.ListOpts{KnownIDs: map[string]bool{"188": true}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var scenes, errs int
+	for r := range ch {
+		switch r.Kind {
+		case scraper.KindScene:
+			scenes++
+		case scraper.KindError:
+			errs++
+			if scraper.Classify(r.Err) != scraper.FailureParse {
+				t.Errorf("Classify = %v, want FailureParse", scraper.Classify(r.Err))
+			}
+		}
+	}
+	// 188 is known: no detail fetch, no emit. 187 fails its detail but is kept.
+	if scenes != 1 || errs != 1 {
+		t.Errorf("got %d scenes, %d errors; want 1, 1", scenes, errs)
 	}
 }
 
