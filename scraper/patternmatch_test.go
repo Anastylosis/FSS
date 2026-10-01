@@ -102,3 +102,26 @@ func TestURLLooksUnhandledWithNoFilteredPatterns(t *testing.T) {
 		t.Error("the bare catalogue must not look unhandled")
 	}
 }
+
+type recognizingScraper struct {
+	patternScraper
+	recognizes string
+}
+
+func (r *recognizingScraper) RecognizesURL(u string) bool { return u == r.recognizes }
+
+// A scraper whose rows are defined by a URL form cannot express that as a
+// display pattern, so it may vouch for the URL directly.
+func TestURLLooksUnhandledHonoursTheRecognizer(t *testing.T) {
+	const vouched = "https://example.com/en/studio/adult-time"
+	s := &recognizingScraper{
+		patternScraper: patternScraper{patterns: []string{"example.com"}},
+		recognizes:     vouched,
+	}
+	if URLLooksUnhandled(s, vouched) {
+		t.Error("a vouched URL must not read as a fallthrough")
+	}
+	if !URLLooksUnhandled(s, "https://example.com/en/channel/other") {
+		t.Error("an unvouched path with no matching pattern must still warn")
+	}
+}

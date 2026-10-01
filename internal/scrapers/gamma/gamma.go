@@ -342,8 +342,34 @@ type siteScraper struct {
 
 var _ scraper.StudioScraper = (*siteScraper)(nil)
 
-func (s *siteScraper) ID() string               { return s.config.SiteID }
-func (s *siteScraper) Patterns() []string       { return []string{s.config.Domain} }
+func (s *siteScraper) ID() string { return s.config.SiteID }
+
+// Patterns lists what this scraper dispatches on, which the fallthrough warning
+// reads. The two filtered forms `gammautil.Run` understands are the performer
+// and the series; a channel, studio or category URL is *not* recognised and
+// falls through to the segment's whole catalogue, so it is deliberately absent
+// here and warns.
+func (s *siteScraper) Patterns() []string {
+	d := s.config.Domain
+	return []string{
+		d,
+		d + "/en/pornstar/view/{slug}/{id}",
+		d + "/en/model/view/{slug}/{id}",
+		d + "/pornstar/view/{slug}/{id}",
+		d + "/model/view/{slug}/{id}",
+		d + "/en/serie/{id}/",
+		d + "/en/videos",
+	}
+}
+
+// RecognizesURL vouches for the rows that exist *because* of a URL form. A row
+// with its own match regex is scoped to a channel or studio path and filters
+// the index by `availableOnSite`, so that URL is a recognised filtered view
+// even though the display pattern above cannot say so.
+func (s *siteScraper) RecognizesURL(u string) bool {
+	return s.config.MatchRe != "" && s.matchRe.MatchString(u)
+}
+
 func (s *siteScraper) MatchesURL(u string) bool { return s.matchRe.MatchString(u) }
 
 func (s *siteScraper) ListScenes(ctx context.Context, studioURL string, opts scraper.ListOpts) (<-chan scraper.SceneResult, error) {

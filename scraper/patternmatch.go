@@ -165,6 +165,9 @@ func URLLooksUnhandled(s StudioScraper, rawURL string) bool {
 	if !URLHasNonRootPath(rawURL) {
 		return false
 	}
+	if r, ok := s.(URLRecognizer); ok && r.RecognizesURL(rawURL) {
+		return false
+	}
 	for _, pat := range s.Patterns() {
 		if !patternHasNonRootPath(pat) {
 			continue
@@ -174,6 +177,19 @@ func URLLooksUnhandled(s StudioScraper, rawURL string) bool {
 		}
 	}
 	return true
+}
+
+// URLRecognizer lets a scraper vouch that it dispatches on a URL form its
+// Patterns() cannot express. It is opt-in and structural, like FailureKind and
+// MultiLingual: the scrapers that do not implement it are judged by their
+// patterns alone.
+//
+// The case it exists for is a table whose rows are *defined* by a URL form — a
+// Gamma row carrying its own match regex exists precisely because that
+// channel or studio path is the filtered view it scrapes, so MatchesURL is the
+// authority there and a display pattern would only restate it.
+type URLRecognizer interface {
+	RecognizesURL(rawURL string) bool
 }
 
 func patternHasNonRootPath(pattern string) bool {

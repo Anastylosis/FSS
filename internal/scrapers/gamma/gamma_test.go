@@ -73,3 +73,57 @@ func TestPrideStudiosSites(t *testing.T) {
 		}
 	}
 }
+
+// The fallthrough warning reads Patterns(), so the forms gammautil actually
+// dispatches on must be listed or every performer and series URL on the
+// platform warns about a fallthrough that is not happening — and the forms it
+// does *not* dispatch on must stay absent, since scraping a channel URL really
+// does return the segment's whole catalogue under that channel's key.
+func TestURLRecognitionMatchesWhatRunDispatchesOn(t *testing.T) {
+	s, err := scraper.ForURL("https://www.adulttime.com/")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, u := range []string{
+		"https://www.adulttime.com/",
+		"https://www.adulttime.com/en/videos",
+		"https://www.adulttime.com/en/pornstar/view/someone/12345",
+		"https://www.adulttime.com/en/model/view/someone/12345",
+		"https://www.adulttime.com/en/serie/9876/",
+	} {
+		if scraper.URLLooksUnhandled(s, u) {
+			t.Errorf("%s is dispatched on but reads as a fallthrough", u)
+		}
+	}
+
+	// No facet is derived from a channel or category, so these fall through to
+	// the segment's whole catalogue and must say so.
+	for _, u := range []string{
+		"https://www.adulttime.com/en/channel/some-channel",
+		"https://www.adulttime.com/en/category/anal",
+	} {
+		if !scraper.URLLooksUnhandled(s, u) {
+			t.Errorf("%s falls through to the full segment and must warn", u)
+		}
+	}
+}
+
+// A row that carries its own match regex exists because that channel or studio
+// path is the filtered view it scrapes, and it narrows the index by
+// availableOnSite. Those URLs must not warn.
+func TestPinnedRowsVouchForTheirOwnURL(t *testing.T) {
+	for _, u := range []string{
+		"https://www.adulttime.com/en/studio/adult-time",
+		"https://www.adulttime.com/en/channel/adult-time-originals",
+		"https://www.nextdoorstudios.com/en/videos/sites/strokethatdick",
+	} {
+		s, err := scraper.ForURL(u)
+		if err != nil {
+			t.Fatalf("%s: %v", u, err)
+		}
+		if scraper.URLLooksUnhandled(s, u) {
+			t.Errorf("%s routed to %s, which is scoped to it, but reads as a fallthrough", u, s.ID())
+		}
+	}
+}
