@@ -16,11 +16,11 @@ import (
 
 func listingHTML(base string) string {
 	card := func(slug, id, title, date string) string {
-		return fmt.Sprintf(`<div class="item">
+		return fmt.Sprintf(`<div class="item tour-content-card">
   <div class="item-inside">
     <a href="%s/video/%s-%s.html">
       <div class="thumb">
-        <img class="lazy" data-src="https://media.boyfun.com/thumbs_pg/%s.jpg" loading="lazy" alt="%s">
+        <img src="https://media.boyfun.com/thumbs_pg/%s.jpg" loading="lazy" alt="%s" data-card-fallbacks="[&quot;https:\/\/www.boyfun.com\/placeholder.svg&quot;]">
         <div class="overlay"><div class="meta">
           <span class="title">%s</span>
           <span class="date">%s</span>
@@ -30,7 +30,7 @@ func listingHTML(base string) string {
   </div>
 </div>`, base, slug, id, id, title, title, date)
 	}
-	return "<html><body>" +
+	return `<html><body><nav><div class="item item-videos"><a href="` + base + `/videos/">Videos</a></div></nav>` +
 		card("dirty-daydream", "15957", "Dirty Daydream: Part 1", "26 Jun 2026") +
 		card("beach-fun", "15940", "Beach Fun &amp; Sun", "20 Jun 2026") +
 		// duplicate id should be deduped
@@ -41,7 +41,7 @@ func listingHTML(base string) string {
 func detailHTML() string {
 	return `<html><body>
 <div class="video-poster">
-  <img src="https://media.boyfun.com/thumbs_pg/015957-feat_lg.jpg" class="poster" alt="">
+  <img src="https://media.boyfun.com/thumbs_pg/015957-feat_lg.jpg" class="poster" style="width: auto;" alt="Video preview" loading="eager" decoding="async">
 </div>
 <div class="content-information-meta cf">
   <span class="models">
@@ -50,12 +50,14 @@ func detailHTML() string {
   </span>
   <span class="date">
     <span class="heading">Added:</span>
-    <span class="content">Jun 26th, 2026</span>
+    <span class="content">26 Jun 2026</span>
   </span>
 </div>
 <div class="content-information-description">
   <div class="heading">Description: </div>
-  <p>Xean and Jack get very messy in the kitchen.<br></p>
+  <div class="tour-detail-description-body">Xean and Jack get very messy in the kitchen.
+
+They clean up afterwards &amp; start again.</div>
 </div>
 </body></html>`
 }
@@ -105,6 +107,56 @@ func TestFetchListing(t *testing.T) {
 	if items[0].date != "26 Jun 2026" {
 		t.Errorf("item0 date = %q", items[0].date)
 	}
+	if items[0].thumbnail != "https://media.boyfun.com/thumbs_pg/15957.jpg" {
+		t.Errorf("item0 thumbnail = %q", items[0].thumbnail)
+	}
+}
+
+func TestParseLegacyDetail(t *testing.T) {
+	legacy := `<span class="date"><span class="heading">Added:</span><span class="content">Jun 26th, 2026</span></span>
+<div class="content-information-description"><div class="heading">Description: </div><p>Old layout.<br></p></div>`
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprint(w, legacy)
+	}))
+	defer ts.Close()
+
+	s := &Scraper{Client: ts.Client()}
+	sc := s.toScene(context.Background(), "studioURL", listItem{id: "1", url: ts.URL}, time.Now())
+	if want := time.Date(2026, 6, 26, 0, 0, 0, 0, time.UTC); !sc.Date.Equal(want) {
+		t.Errorf("Date = %v, want %v", sc.Date, want)
+	}
+	if sc.Description != "Old layout." {
+		t.Errorf("Description = %q", sc.Description)
+	}
+}
+
+func TestListScenesEmptyListingIsParseError(t *testing.T) {
+	orig := siteBase
+	defer func() { siteBase = orig }()
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprint(w, `<html><body><div class="warning-overlay">Adults only</div></body></html>`)
+	}))
+	defer ts.Close()
+	siteBase = ts.URL
+
+	s := &Scraper{Client: ts.Client()}
+	ch, err := s.ListScenes(context.Background(), "studioURL", scraper.ListOpts{})
+	if err != nil {
+		t.Fatalf("ListScenes error: %v", err)
+	}
+	var errs []error
+	for r := range ch {
+		if r.Kind == scraper.KindScene {
+			t.Errorf("unexpected scene %+v", r.Scene)
+		}
+		if r.Err != nil {
+			errs = append(errs, r.Err)
+		}
+	}
+	if len(errs) != 1 || scraper.Classify(errs[0]) != scraper.FailureParse {
+		t.Fatalf("errors = %v, want one parse error", errs)
+	}
 }
 
 // ---- TestToScene (detail parse) ----
@@ -133,7 +185,7 @@ func TestToScene(t *testing.T) {
 	if strings.Join(sc.Performers, ",") != "Jack Angeli,Xean Piere" {
 		t.Errorf("Performers = %v", sc.Performers)
 	}
-	if !strings.Contains(sc.Description, "messy in the kitchen") {
+	if sc.Description != "Xean and Jack get very messy in the kitchen. They clean up afterwards & start again." {
 		t.Errorf("Description = %q", sc.Description)
 	}
 	if sc.Thumbnail != "https://media.boyfun.com/thumbs_pg/015957-feat_lg.jpg" {

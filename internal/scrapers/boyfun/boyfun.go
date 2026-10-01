@@ -62,16 +62,18 @@ func (s *Scraper) ListScenes(ctx context.Context, studioURL string, opts scraper
 }
 
 var (
-	cardSplitRe = regexp.MustCompile(`<div class="item">`)
+	cardSplitRe = regexp.MustCompile(`<div class="item(?: tour-content-card)?">`)
 	cardHrefRe  = regexp.MustCompile(`href="([^"]*/video/[^"]+-(\d+)\.html)"`)
 	cardTitleRe = regexp.MustCompile(`<span class="title">([^<]*)</span>`)
 	cardDateRe  = regexp.MustCompile(`<span class="date">([^<]*)</span>`)
-	cardThumbRe = regexp.MustCompile(`data-src="([^"]+)"`)
+	cardLazyRe  = regexp.MustCompile(`<img[^>]*\sdata-src="([^"]+)"`)
+	cardThumbRe = regexp.MustCompile(`<img[^>]*\ssrc="([^"]+)"`)
 
 	modelsRe     = regexp.MustCompile(`(?s)<span class="models">.*?<span class="content">(.*?)</span>`)
 	modelLinkRe  = regexp.MustCompile(`<a[^>]*>([^<]+)</a>`)
 	detailDateRe = regexp.MustCompile(`(?s)<span class="date">.*?<span class="content">([^<]+)</span>`)
-	descRe       = regexp.MustCompile(`(?s)<div class="content-information-description">.*?<p>(.*?)</p>`)
+	descRe       = regexp.MustCompile(`(?s)<div class="tour-detail-description-body">(.*?)</div>`)
+	legacyDescRe = regexp.MustCompile(`(?s)<div class="content-information-description">.*?<p>(.*?)</p>`)
 	posterRe     = regexp.MustCompile(`(?s)<div class="video-poster">\s*<img src="([^"]+)"`)
 	tagStripRe   = regexp.MustCompile(`<[^>]+>`)
 )
@@ -89,6 +91,10 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 		items, err := s.fetchListing(ctx, pageURL)
 		if err != nil {
 			return scraper.PageResult{}, err
+		}
+		if page == 1 && len(items) == 0 {
+			return scraper.PageResult{}, scraper.ParseError(pageURL,
+				fmt.Errorf("no video cards on the first listing page"))
 		}
 		fresh := items[:0]
 		for _, it := range items {
@@ -138,7 +144,9 @@ func (s *Scraper) fetchListing(ctx context.Context, pageURL string) ([]listItem,
 		if d := cardDateRe.FindStringSubmatch(card); d != nil {
 			it.date = strings.TrimSpace(d[1])
 		}
-		if th := cardThumbRe.FindStringSubmatch(card); th != nil {
+		if th := cardLazyRe.FindStringSubmatch(card); th != nil {
+			it.thumbnail = th[1]
+		} else if th := cardThumbRe.FindStringSubmatch(card); th != nil {
 			it.thumbnail = th[1]
 		}
 		items = append(items, it)
@@ -214,14 +222,15 @@ func (s *Scraper) toScene(ctx context.Context, studioURL string, it listItem, no
 	}
 
 	if m := detailDateRe.FindStringSubmatch(detail); m != nil {
-		// e.g. "Jun 26th, 2026" -> strip ordinal -> "Jun 2, 2006".
 		raw := parseutil.StripOrdinalSuffix(strings.TrimSpace(m[1]))
-		if d, derr := parseutil.TryParseDate(raw, "Jan 2, 2006"); derr == nil {
+		if d, derr := parseutil.TryParseDate(raw, "2 Jan 2006", "Jan 2, 2006"); derr == nil {
 			scene.Date = d.UTC()
 		}
 	}
 
 	if m := descRe.FindStringSubmatch(detail); m != nil {
+		scene.Description = cleanText(m[1])
+	} else if m := legacyDescRe.FindStringSubmatch(detail); m != nil {
 		scene.Description = cleanText(m[1])
 	}
 
