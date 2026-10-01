@@ -13,6 +13,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -123,7 +124,8 @@ func TestApplyReplacesTheBinary(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if info.Mode().Perm()&0o111 == 0 {
+	// Windows has no executable bit; Go reports every file there as 0666.
+	if runtime.GOOS != "windows" && info.Mode().Perm()&0o111 == 0 {
 		t.Errorf("installed binary is not executable (mode %v)", info.Mode().Perm())
 	}
 	if left, _ := filepath.Glob(filepath.Join(filepath.Dir(path), ".fss-update-*")); len(left) != 0 {
