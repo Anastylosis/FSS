@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
@@ -101,5 +102,79 @@ func TestDialBrowserTLSReportsDialFailure(t *testing.T) {
 func TestDialBrowserTLSRejectsAnAddressWithNoPort(t *testing.T) {
 	if _, err := dialBrowserTLS(context.Background(), "tcp", "127.0.0.1"); err == nil {
 		t.Error("dial with a portless address succeeded")
+	}
+}
+
+// trustServer points the browser dialer's root pool at srv for one test.
+func trustServer(t *testing.T, srv *httptest.Server) {
+	t.Helper()
+	pool := x509.NewCertPool()
+	pool.AddCert(srv.Certificate())
+	prev := browserRootCAs
+	browserRootCAs = pool
+	t.Cleanup(func() { browserRootCAs = prev })
+}
+
+// The transport is told the connection is plain HTTP/2, so the caller must
+// never see that: the Host header, a redirect and resp.Request all stay on the
+// https URL the caller asked for.
+func TestBrowserTLSKeepsTheCallersURL(t *testing.T) {
+	var srv *httptest.Server
+	srv = httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/start" {
+			http.Redirect(w, r, srv.URL+"/end", http.StatusFound)
+			return
+		}
+		_, _ = w.Write([]byte(r.Host))
+	}))
+	srv.EnableHTTP2 = true
+	srv.StartTLS()
+	defer srv.Close()
+	trustServer(t, srv)
+
+	resp, err := NewBrowserTLSClient(15 * time.Second).Get(srv.URL + "/start")
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	body, _ := io.ReadAll(resp.Body)
+
+	if got := resp.Request.URL.String(); got != srv.URL+"/end" {
+		t.Errorf("resp.Request.URL = %s, want %s/end", got, srv.URL)
+	}
+	if want := strings.TrimPrefix(srv.URL, "https://"); string(body) != want {
+		t.Errorf("server saw Host %q, want %q", body, want)
+	}
+}
+
+// A server that will not speak HTTP/2 must fail in the dialer: the transport
+// sends HTTP/2 frames without asking, which an HTTP/1.1 server cannot read.
+func TestBrowserTLSRefusesAServerWithoutH2(t *testing.T) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("ok"))
+	}))
+	defer srv.Close()
+	trustServer(t, srv)
+
+	resp, err := NewBrowserTLSClient(10 * time.Second).Get(srv.URL)
+	if err == nil {
+		_ = resp.Body.Close()
+		t.Fatal("request to an HTTP/1.1-only server succeeded")
+	}
+	if !strings.Contains(err.Error(), "not h2") {
+		t.Errorf("error was %v, want the dialer's h2 refusal", err)
+	}
+}
+
+// Only https is carried: an http URL would otherwise be sent over a TLS
+// handshake to whatever port it names.
+func TestBrowserTLSRefusesPlainHTTP(t *testing.T) {
+	resp, err := NewBrowserTLSClient(time.Second).Get("http://127.0.0.1:1/")
+	if err == nil {
+		_ = resp.Body.Close()
+		t.Fatal("plain http URL was accepted")
+	}
+	if !strings.Contains(err.Error(), "refusing http URL") {
+		t.Errorf("error was %v, want the scheme refusal", err)
 	}
 }

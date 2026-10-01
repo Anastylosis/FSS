@@ -4,13 +4,13 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 	"net"
 	"net/http"
 	"sync"
 	"time"
 
 	utls "github.com/refraction-networking/utls"
-	"golang.org/x/net/http2"
 )
 
 // A handful of WAFs classify clients by the shape of the TLS ClientHello
@@ -66,6 +66,12 @@ func dialBrowserTLS(ctx context.Context, network, addr string) (net.Conn, error)
 		_ = raw.Close()
 		return nil, err
 	}
+	// The transport speaks HTTP/2 without asking, so a server that did not
+	// agree to it must fail here rather than receive frames it cannot read.
+	if p := conn.ConnectionState().NegotiatedProtocol; p != "h2" {
+		_ = conn.Close()
+		return nil, fmt.Errorf("browser TLS: %s negotiated %q, not h2", host, p)
+	}
 	return conn, nil
 }
 
@@ -76,21 +82,57 @@ var (
 
 // browserTransport builds the shared browser-fingerprint transport.
 //
-// It is HTTP/2 only, deliberately. A browser hello advertises h2 in ALPN, so
-// every host that accepts it negotiates HTTP/2 anyway; wiring an HTTP/1.1
-// fallback that could never be selected would only add a path no test covers.
-// A host that refuses h2 will surface as a handshake error rather than
-// silently falling back to Go's own fingerprint, which would defeat the point.
+// net/http negotiates HTTP/2 only over its own *tls.Conn, so it cannot be
+// handed a utls connection. Instead the transport is told the connection is
+// unencrypted HTTP/2 — prior knowledge, no ALPN of its own — and the dialer
+// does the browser handshake underneath it. browserScheme rewrites each
+// request to http:// on the way in, so the transport takes that path, and
+// restores the caller's request on the response. See docs/scrapers.md.
+//
+// It is HTTP/2 only, deliberately: a browser hello advertises h2, and a
+// fallback to HTTP/1.1 would never be selected. A host that refuses h2 fails
+// in the dialer instead.
 func browserTransport() http.RoundTripper {
 	browserTLSOnce.Do(func() {
-		browserTLSTransport = &http2.Transport{
-			DialTLSContext: func(ctx context.Context, network, addr string, _ *tls.Config) (net.Conn, error) {
+		var protocols http.Protocols
+		protocols.SetUnencryptedHTTP2(true)
+		browserTLSTransport = browserScheme{&http.Transport{
+			Protocols: &protocols,
+			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 				return dialBrowserTLS(ctx, network, addr)
 			},
-		}
+			MaxIdleConnsPerHost: 4,
+			IdleConnTimeout:     90 * time.Second,
+		}}
 	})
 	return browserTLSTransport
 }
+
+// browserScheme carries an https request over the transport's unencrypted
+// HTTP/2 path, whose dialer is in fact the browser TLS handshake.
+type browserScheme struct{ next *http.Transport }
+
+func (b browserScheme) RoundTrip(r *http.Request) (*http.Response, error) {
+	if r.URL.Scheme != "https" {
+		return nil, fmt.Errorf("browser TLS: refusing %s URL %s", r.URL.Scheme, r.URL.Redacted())
+	}
+	out := r.Clone(r.Context())
+	out.URL.Scheme = "http"
+	if out.URL.Port() == "" {
+		out.URL.Host = net.JoinHostPort(out.URL.Hostname(), "443")
+	}
+	if out.Host == "" {
+		out.Host = r.URL.Host
+	}
+	resp, err := b.next.RoundTrip(out)
+	if resp != nil {
+		resp.Request = r
+	}
+	return resp, err
+}
+
+// CloseIdleConnections lets http.Client.CloseIdleConnections reach the pool.
+func (b browserScheme) CloseIdleConnections() { b.next.CloseIdleConnections() }
 
 // NewBrowserTLSClient returns a client that presents a browser's TLS
 // fingerprint instead of Go's.
