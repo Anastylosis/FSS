@@ -1,6 +1,6 @@
 # Covered Sites — All Domains
 
-1870 scrapers covering 1950 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
+1797 scrapers covering 1875 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
 
 Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scraper ID(s)** column lists every scraper that claims URLs on that domain — most domains have one entry, but table-driven networks (`adultprime`, `tmw`, `nextdoorstudios`, etc.) host many sub-studios on a single root domain. See [`scrapers.md`](scrapers.md) for what each ID covers.
 
@@ -33,7 +33,6 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | 8teenboy.com | `8teenboy` |
 | abbiemaley.com | `abbiemaley` |
 | abbywinters.com | `abbywinters` |
-| abigailmac.puba.com | `pubaabigailmac` |
 | aboutgirlslove.com | `tmw-aboutgirlslove` |
 | accidentalgangbang.com | `accidentalgangbang` |
 | activeduty.com | `activeduty` |
@@ -42,7 +41,6 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | adultdoorway.com | `adultdoorway` |
 | adultprime.com | `adultprime-4kcfnm`, `adultprime-arousins`, `adultprime-bamateurs` (+94 more) |
 | adulttime.com | `adulttime`, `adulttimeoriginals` |
-| adventuresxxx.puba.com | `pubaadventuresxxx` |
 | africanbucks.com | `africanbucks` |
 | africancasting.com | `africanbucks` |
 | africanfucktour.com | `africanbucks` |
@@ -54,8 +52,6 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | alettaoceanlive.com | `alettaoceanlive` |
 | alexandrasnow.com (rewritten to goddesssnow.com) | `alexandrasnow` |
 | alisonangel.com | `alisonangel` |
-| alisontyler.puba.com | `pubaalisontyler` |
-| alixlynx.puba.com | `pubaalixlynx` |
 | allanalallthetime.com | `allanalallthetime` |
 | allblackx.com | `allblackx` |
 | allbrookwright.com | `allbrookwright` |
@@ -108,10 +104,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | arabellesplayground.com | `arabellesplayground` |
 | archangelvideo.com | `archangelvideo` |
 | arporn.com | `arporn` |
-| asaakira.puba.com | `pubaasaakira` |
-| asafucks.com | `pubaasaakira` |
 | asgmax.com | `asgmax` |
-| ashleegraham.puba.com | `pubaashleegraham` |
 | ashleysageellison.com | `ashleysageellison` |
 | asianamericantgirls.com | `asianamericantgirls` |
 | asiancoochies.com | `asiancoochies` |
@@ -133,7 +126,6 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | av-e-body.com | `ebody` |
 | avidolz.com | `avidolz` |
 | avjiali.com | `avjiali` |
-| avyscott.puba.com | `pubaavyscott` |
 | aziani.com | `aziani` |
 | babearchives.com | `babearchives` |
 | babes.com | `babes` |
@@ -155,7 +147,6 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | bang.com | `bang` |
 | bangbangboys.com | `bangbangboys` |
 | bangbros.com | `bangbros` |
-| bangingpornstars.puba.com | `pubabangingpornstars` |
 | bangmyteenass.com | `bangmyteenass` |
 | barebackstudios.com | `barebackstudios` |
 | barefootconfidential.com | `barefootconfidential` |
@@ -233,7 +224,6 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | bondagecafe.com | `bondagecafe` |
 | bondagejunkies.com | `bondagejunkies` |
 | bonedathome.com | `bonedathome` |
-| bonuscontent.puba.com | `pubabonuscontent` |
 | bootyliciousmag.com | `bootyliciousmag` |
 | boppingbabes.com | `boppingbabes` |
 | borntobebound.com | `borntobebound` |
@@ -268,19 +258,14 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | breath-takers.com | `breathtakers` |
 | breedingmaterial.com | `breedingmaterial` |
 | breeditraw.net | `rawcitytwinks` |
-| breeolson.puba.com | `pubabreeolson` |
 | brett-tyler.com | `bretttyler` |
-| brettrossi.puba.com | `pubabrettrossi` |
 | brickyates.com | `brickyates` |
 | britishbratz.com | `britishbratz` |
-| britneyamber.puba.com | `pubabritneyamber` |
 | brokenlatinawhores.com | `brokenlatinawhores` |
 | brokensluts.net | `brokensluts` |
 | brokestraightboys.com | `brokestraightboys` |
 | bromo.com | `bromo` |
-| brookebrand.puba.com | `pubabrookebrand` |
 | brookelynnebriar.com | `brookelynnebriar` |
-| brooklynchase.puba.com | `pubabrooklynchase` |
 | brunetteslovedick.com | `porngutter` |
 | brutalmaster.com | `brutalmaster` |
 | brutalx.com | `brutalx` |
@@ -307,7 +292,6 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | canada-tgirl.com | `canadatgirl` |
 | candyglitterclips.com | `candyglitter` |
 | candyxs.com | `candyxs` |
-| capricavanni.puba.com | `pubacapricavanni` |
 | captiveclinic.com | `captiveclinic` |
 | caribbeancom.com | `caribbeancom` |
 | carmenvalentina.com | `carmenvalentina` |
@@ -326,7 +310,6 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | cfnmteens.com | `cfnmteens` |
 | chaosmen.com | `chaosmen` |
 | charleechaselive.com | `charleechase` |
-| charleychase.puba.com | `pubacharleychase` |
 | chastitybabes.com | `chastitybabes` |
 | cheatingmommy.com | `nubiles` |
 | cheatingsis.com | `nubiles` |
@@ -343,8 +326,6 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | chicksonblackdicks.com | `chicksonblackdicks` |
 | chloemorgane.com | `chloemorgane` |
 | chloesworld.com | `chloesworld` |
-| christianacinn.puba.com | `pubachristianacinn` |
-| christymack.puba.com | `pubachristymack` |
 | christymarks.com | `christymarks` |
 | circlejerkboys.com | `circlejerkboys` |
 | citebeur.com | `citebeur` |
@@ -425,7 +406,6 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | czechgfs.com | `czechgfs` |
 | czechharem.com | `czechharem` |
 | czechhomeorgy.com | `czechhomeorgy` |
-| czechhotties.puba.com | `pubaczechhotties` |
 | czechhunter.com | `bigstr` |
 | czechhypno.com | `czechhypno` |
 | czechjacker.com | `czechjacker` |
@@ -455,15 +435,11 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | daddysbondageboys.com | `daddysbondageboys` |
 | daddyslilangel.com | `nubiles` |
 | dahlia-av.jp | `faleno` |
-| dahliasky.puba.com | `pubadahliasky` |
-| daisymonroe.puba.com | `pubadaisymonroe` |
 | dallasdiamondz.com | `dallasdiamondz` |
 | damnthatsbig.com | `damnthatsbig` |
 | damselsinperil.com | `damselsinperil` |
-| danadearmond.puba.com | `pubadanadearmond` |
 | dancingbear.com | `dancingbear` |
 | danejones.com | `danejones` |
-| danidaniels.puba.com | `pubadanidaniels` |
 | darkroomvr.com | `darkroomvr` |
 | darksodomy.com | `porngutter` |
 | darkx.com | `darkx` |
@@ -471,7 +447,6 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | data18.com | `data18` |
 | datingmystepson.com | `nubiles` |
 | daughterswap.com | `daughterswap` |
-| davafoxx.puba.com | `pubadavafoxx` |
 | daylenerio.com | `daylenerio` |
 | deauxmalive.com | `deauxma` |
 | debtdandy.com | `bigstr` |
@@ -494,7 +469,6 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | devilstgirls.com | `devilstgirls` |
 | dezyred.com | `dezyred` |
 | diabolic.com | `diabolic` |
-| diamondkitty.puba.com | `pubadiamondkitty` |
 | dickdorm.com | `realitydudes` |
 | dickdrainers.com | `dickdrainers` |
 | dickhddaily.com | `dickhddaily` |
@@ -536,7 +510,6 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | ebonycumdumps.com | `ebonycumdumps` |
 | ebonythots.com | `ebonythots` |
 | elegantangel.com | `elegantangel` |
-| elsajean.puba.com | `pubaelsajean` |
 | emilybloom.com | `emilybloom` |
 | englishlads.com | `englishlads` |
 | enjoyx.com | `enjoyx` |
@@ -566,7 +539,6 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | extremestreets.com | `extremestreets` |
 | exxxtrasmall.com | `exxxtrasmall` |
 | facefucktour.com | `africanbucks` |
-| facepounders.puba.com | `pubafacepounders` |
 | facialabuse.com | `facialabuse` |
 | facialcasting.com | `facialcasting` |
 | facials4k.com | `facials4k` |
@@ -633,7 +605,6 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | footjobvirgin.com | `footjobvirgin` |
 | footsiebabes.com | `footsiebabes` |
 | forbiddenfruitsfilms.com | `forbiddenfruitsfilms` |
-| forbiddenhookups.puba.com | `pubaforbiddenhookups` |
 | fostertapes.com | `fostertapes` |
 | foxxedup.com | `foxxedup` |
 | franks-tgirlworld.com | `frankstgirlworld` |
@@ -685,7 +656,6 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | german-scout.com | `germanscout` |
 | getupclose.com | `getupclose` |
 | ghettogaggers.com | `ghettogaggers` |
-| giannamichaels.puba.com | `pubagiannamichaels` |
 | gilfed.com | `milehigh` |
 | gingerpatch.com | `gingerpatch` |
 | girlasylum.com | `girlasylum` |
@@ -756,7 +726,6 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | hardcoredoorway.com | `hardcoredoorway` |
 | hardfuckgirls.com | `hardfuckgirls` |
 | hardfucktales.com | `hardfucktales` |
-| hardgonzo.puba.com | `pubahardgonzo` |
 | hardkinks.com | `hardkinks` |
 | hardwerk.com | `hardwerk` |
 | hardx.com | `hardx` |
@@ -859,17 +828,13 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | japanlust.com | `japanlust` |
 | javdatabase.com | `javdatabase` |
 | javhd.com | `javhd` |
-| jaydencole.puba.com | `pubajaydencole` |
-| jaydenjaymes.puba.com | `pubajaydenjaymes` |
 | jayspov.net | `jayspov` |
 | jeffsmodels.com | `jeffsmodels` |
 | jelenajensen.com | `jelenajensen` |
-| jenhexxx.puba.com | `pubajenhexxx` |
 | jenysmith.net | `jenysmith` |
 | jerk-buddies.com | `jerkbuddies` |
 | jerkoffinstructions.com | `jerkoffinstructions` |
 | jeshbyjesh.com | `jeshbyjesh` |
-| jezebellebond.puba.com | `pubajezebellebond` |
 | jizzonteens.com | `jizzonteens` |
 | jizzorgy.com | `men` |
 | joanabliss.com | `joanabliss` |
@@ -895,12 +860,9 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | kawaiikawaii.jp | `kawaii` |
 | kayleighcoxx.com | `kayleighcoxx` |
 | kellymadison.com | `kellymadison` |
-| kendallkarson.puba.com | `pubakendallkarson` |
-| kendracole.puba.com | `pubakendracole` |
 | kickass.com | `kickasspictures` |
 | kickasspussypump.com | `kickasspussypump` |
 | kickassteens.com | `kickassteens` |
-| kikidaire.puba.com | `pubakikidaire` |
 | killergram.com | `killergram` |
 | kimberleelive.com | `kimberlee` |
 | kimholland.com | `kimholland` |
@@ -914,7 +876,6 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | kinkyrubberworld.com | `kinkyrubberworld` |
 | kinkyspa.com | `metro` |
 | kirakira-av.com | `kirakira` |
-| kirstenprice.puba.com | `pubakirstenprice` |
 | km-produce.com | `kmproduce` |
 | ko-tube.com | `kobeast`, `kobump`, `kodeep` (+10 more) |
 | ko-video.com | `kobeast`, `kobump`, `kodeep` (+10 more) |
@@ -953,13 +914,11 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | letsdoeit.com | `letsdoeit` |
 | lewood.com | `lewood` |
 | lexidona.com | `lexidona` |
-| leyafalcon.puba.com | `pubaleyafalcon` |
 | lezbebad.com | `lezbebad` |
 | lezcuties.com | `lezcuties` |
 | lifepornstories.com | `lifepornstories` |
 | lifeselector.com | `lifeselector` |
 | lilsis.com | `nubiles` |
-| lilycarter.puba.com | `pubalilycarter` |
 | lingerietales.com | `lingerietales` |
 | linseysworld.com | `linseysworld` |
 | lisariveraxo.com | `lisariveraxo` |
@@ -968,10 +927,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | littledick.club | `littledickclub` |
 | littlefromasia.com | `littlefromasia` |
 | littlemutt.com | `littlemutt` |
-| lolafoxx.puba.com | `pubalolafoxx` |
 | lollyhardcore.com | `tmw-lollyhardcore` |
-| lollyink.puba.com | `pubalollyink` |
-| londonkeyes.puba.com | `pubalondonkeyes` |
 | lostbetsgames.com | `lostbetsgames` |
 | lovehairy.com | `lovehairy` |
 | loveherboobs.com | `loveherboobs` |
@@ -1002,10 +958,8 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | manuelferrara.com | `manuelferrara` |
 | manyvids.com | `manyvids` |
 | marcusmojo.com | `marcusmojo` |
-| maricahase.puba.com | `pubamaricahase` |
 | mariskax.com | `mariskax` |
 | masonicboys.com | `masonicboys` |
-| masonmoore.puba.com | `pubamasonmoore` |
 | masonwyler.com | `masonwyler` |
 | masqulin.com | `masqulin` |
 | massage-parlor.com | `massageparlor` |
@@ -1037,7 +991,6 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | metartnetwork.com | `metartnetwork` |
 | metartx.com | `metartx` |
 | metrohd.com | `metro` |
-| mialelani.puba.com | `pubamialelani` |
 | mickybells.com | `mickybells` |
 | mika-ayden.com | `mikaayden` |
 | mikebigdick.com | `mikebigdick` |
@@ -1060,7 +1013,6 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | mindcontroltheatre.com | `mindcontroltheatre` |
 | mindundermaster.com | `mindundermaster` |
 | minimuff.com | `minimuff` |
-| mishamontana.puba.com | `pubamishamontana` |
 | missax.com | `missax` |
 | missionasspossible.com | `private` |
 | misspussycat.com | `misspussycat` |
@@ -1104,7 +1056,6 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | mousouzoku-av.com | `mousouzoku` |
 | movieporn.com | `movieporn` |
 | mplstudios.com | `mplstudios` |
-| mrfacial.puba.com | `pubamrfacial` |
 | mrluckylife.com | `mrluckylife` |
 | mrluckypov.com | `mrluckypov` |
 | mrluckyraw.com | `mrluckyraw` |
@@ -1123,7 +1074,6 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | mydaughterswap.com | `mydaughterswap` |
 | mydeepdarksecret.com | `mydeepdarksecret` |
 | mydirtyhobby.com | `mydirtyhobby` |
-| mydollparts.puba.com | `pubamydollparts` |
 | myfamilypies.com | `nubiles` |
 | myfriendshotmom.com | `naughtyamerica` |
 | mylf.com | `mylf` |
@@ -1137,7 +1087,6 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | mysweetapple.com | `mysweetapple` |
 | myteenoasis.com | `myteenoasis` |
 | myveryfirsttime.com | `myveryfirsttime` |
-| nadiawhite.puba.com | `pubanadiawhite` |
 | nadine-j.de | `nadinejansen` |
 | nakedgirlssmoking.com | `nakedgirlssmoking` |
 | nakednews.com | `nakednews` |
@@ -1148,7 +1097,6 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | nastystepfamily.com | `nastystepfamily` |
 | nataliastarr.com | `nataliastarr` |
 | nataliefiore.com | `nataliefiore` |
-| natashanice.puba.com | `pubanatashanice` |
 | naughty-lada.com | `naughtylada` |
 | naughtyamerica.com | `naughtyamerica` |
 | naughtyamericavr.com | `naughtyamerica` |
@@ -1178,12 +1126,9 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | nextdoortwink.com | `nextdoortwink` |
 | nfbusty.com | `nubiles` |
 | nhlpcentral.com | `nhlpcentral` |
-| nickmanning.puba.com | `pubanickmanning` |
 | nickmarxx.com | `nickmarxx` |
-| nicoleaniston.puba.com | `pubanicoleaniston` |
 | nicolepeters.com | `nicolepeters` |
 | nigged.com | `fakings` |
-| nikitavonjames.puba.com | `pubanikitavonjames` |
 | niksindian.com | `niksindian` |
 | ninakayy.com | `ninakayy` |
 | nineteen.com | `nineteen` |
@@ -1213,7 +1158,6 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | oldhornymilfs.com | `oldhornymilfs` |
 | oldje-3some.com | `oldje3some` |
 | oldje.com | `oldje` |
-| oliviaaustin.puba.com | `pubaoliviaaustin` |
 | onlybbc.com | `onlybbc` |
 | onlytarts.com | `onlytarts` |
 | onlyteenblowjobs.com | `onlyteenblowjobs` |
@@ -1358,7 +1302,6 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | r18.dev | `r18dev` |
 | r51.com | `r51` |
 | rachel-steele.com | `rachelsteele` |
-| rachelroxxx.puba.com | `pubarachelroxxx` |
 | ragingstallion.com | `ragingstallion` |
 | randyblue.com | `randyblue` |
 | raunchybastards.com | `raunchybastards` |
@@ -1409,7 +1352,6 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | rodneymoorestore.com | `rodneymoore` |
 | rodsroom.com | `rodsroom` |
 | romemajor.com | `romemajor` |
-| romirain.puba.com | `pubaromirain` |
 | rosella-extrem.com | `rosellaextrem` |
 | roxired.com | `roxired` |
 | rubber-passion.com | `rubberpassion` |
@@ -1422,16 +1364,11 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | s3xus.com | `s3xus` |
 | sallydangeloxxx.com | `citygirlz` |
 | samantalily.xxx | `samantalily` |
-| samanthafucks.com | `pubasamanthasaint` |
-| samanthasaint.puba.com | `pubasamanthasaint` |
 | samuelotoole.com | `samuelotoole` |
 | sapphicerotica.com | `sapphicerotica` |
 | sapphix.com | `sapphix` |
-| sarahjessie.puba.com | `pubasarahjessie` |
-| sarahvandella.puba.com | `pubasarahvandella` |
 | sarajay.com | `sarajay` |
 | sarennasworld.com | `sarennasworld` |
-| sashagrey.puba.com | `pubasashagrey` |
 | satinsilkfun.com | `satinsilkfun` |
 | sausageparty.com | `sausageparty` |
 | sayuncle.com | `sayuncle` |
@@ -1484,7 +1421,6 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | shockchallenge.com | `shockchallenge` |
 | shoplyfter.com | `shoplyfter` |
 | showerbait.com | `showerbait` |
-| shyla.puba.com | `pubashylastylez` |
 | silversluts.com | `silversluts` |
 | silverstonedvd.com | `silverstonedvd` |
 | silviasaint.com | `silviasaint` |
@@ -1497,7 +1433,6 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | sissypov.com | `sissypov` |
 | sistertrick.com | `sistertrick` |
 | sketchysex.com | `sketchysex` |
-| skindiamond.puba.com | `pubaskindiamond` |
 | skintightglamour.com | `skintightglamour` |
 | skirtsupgirls.com | `skirtsupgirls` |
 | slayed.com | `slayed` |
@@ -1577,7 +1512,6 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | sugardaddyporn.com | `sugardaddyporn` |
 | suggabunny.com | `porngutter` |
 | sukmydick.com | `sukmydick` |
-| summerbrielle.puba.com | `pubasummerbrielle` |
 | sunnylanelive.com | `sunnylane` |
 | superhotfilms.com | `superhotfilms` |
 | swallowsalon.com | `swallowsalon` |
@@ -1601,7 +1535,6 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | tampahousewives.com | `tampahousewives` |
 | taratainton.com | `taratainton` |
 | tawny-peaks.com | `tawny-peaks` |
-| taylorvixen.puba.com | `pubataylorvixen` |
 | teacherfucksteens.com | `nubiles` |
 | teamfucksgirl.com | `porngutter` |
 | teamskeet.com | `teamskeet` |
@@ -1765,7 +1698,6 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | twinks.com | `twinks` |
 | twinktop.com | `twinktop` |
 | twistys.com | `twistys` |
-| tyendicott.puba.com | `pubatyendicott` |
 | uk-tgirls.com | `uktgirls` |
 | ukpornparty.xxx | `ukpornparty` |
 | uktickling.com | `uktickling` |
@@ -1784,10 +1716,8 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | uralesbian.com | `uralesbian` |
 | valoryirene.com | `valoryirene` |
 | vampired.com | `vampired` |
-| vanessacage.puba.com | `pubavanessacage` |
 | venus-av.com | `venusav` |
 | vickyathome.com | `vickyathome` |
-| victoriawhite.puba.com | `pubavictoriawhite` |
 | vintageflash.com | `vintageflash` |
 | vip4k.com | `vip4k` |
 | vipissy.com | `vipissy` |
@@ -1823,7 +1753,6 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | vrporn.com | `vrporn` |
 | vrspy.com | `vrspy` |
 | vurigvlaanderen.be | `vurigvlaanderen` |
-| vyxensteel.puba.com | `pubavyxensteel` |
 | waap.co.jp | `waap` |
 | wakeupnfuck.com | `wunf` |
 | wankitnow.com | `wankitnow` |
@@ -1861,7 +1790,6 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | wowgirls.com | `wowgirls` |
 | wtfpass.com | `wtfpass` |
 | www.10musume.com | `10musume` |
-| www.1girl1camera.com | `puba1girl1camera` |
 | www.1pondo.tv | `1pondo` |
 | www.amateur18.tv | `amateur18` |
 | www.angelasommers.com | `angelasommers` |
@@ -1871,7 +1799,6 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | www.bearfilms.com | `bearfilms` |
 | www.bigbreast.tv | `bigbreasttv` |
 | www.bosslesson.com | `bosslesson` |
-| www.bouncypicturesonline.com | `pubabouncypictures` |
 | www.brazilpartyorgy.com | `brazilpartyorgy` |
 | www.breedmeraw.com | `breedmeraw` |
 | www.bringmeaboy.com | `bringmeaboy` |
@@ -1903,8 +1830,6 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | www.pegasproductions.com | `pegasproductions` |
 | www.pkfstudios.com | `pkfstudios` |
 | www.pornonstage.com | `pornonstage` |
-| www.priyaraiofficial.com | `pubapriyarai` |
-| www.puba.com | `puba`, `puba1girl1camera`, `pubaabigailmac` (+70 more) |
 | www.realgangbangs.com | `realgangbangs` |
 | www.realspankingsinstitute.com | `realspankingsinstitute` |
 | www.scandalonstage.com | `scandalonstage` |

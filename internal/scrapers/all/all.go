@@ -332,7 +332,6 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/privatecastings"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/privateclassics"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/producersfun"
-	_ "github.com/Anastylosis/FSS/internal/scrapers/puba"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/puffy"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/puremature"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/puremedia"

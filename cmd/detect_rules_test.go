@@ -125,22 +125,22 @@ func TestWordPressVariants(t *testing.T) {
 // behaviour, and TestWordPressPrecedesTrailingRules pins it so it cannot change
 // silently.
 func TestGenericWordPressIsReportedLate(t *testing.T) {
-	results := detectPlatform("puba.com /wp-content/ theme", nil, nil)
+	results := detectPlatform("nats.mygaycash.com /wp-content/ theme", nil, nil)
 
 	wpIdx, specificIdx := -1, -1
 	for i, d := range results {
 		switch d.platform {
 		case "WordPress":
 			wpIdx = i
-		case "Puba":
+		case "My Gay Cash NATS CMS":
 			specificIdx = i
 		}
 	}
 	if specificIdx == -1 || wpIdx == -1 {
-		t.Fatalf("expected both Puba and WordPress, got %+v", results)
+		t.Fatalf("expected both My Gay Cash and WordPress, got %+v", results)
 	}
 	if specificIdx > wpIdx {
-		t.Errorf("WordPress (index %d) was reported before Puba (index %d); the generic "+
+		t.Errorf("WordPress (index %d) was reported before My Gay Cash (index %d); the generic "+
 			"check must stay after the specific rules", wpIdx, specificIdx)
 	}
 }
