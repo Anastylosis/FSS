@@ -174,12 +174,22 @@ type listingScene struct {
 }
 
 var (
-	sceneStartRe = regexp.MustCompile(`class="li-item (?:compact video|video-wide[^"]*|movie)"`)
+	// The card's class list is a set of utility classes in no fixed order, and
+	// the CMS keeps adding to it — Scoreland's cards became
+	// `li-item compact h-100 video`, which an alternation of whole class lists
+	// could not match, so 36 of the network's 93 sites parsed to zero scenes.
+	// Match a li-item whose classes *contain* the card marker instead. The
+	// `\b` keeps `videos` and `video-player` out while still matching
+	// `video-wide`, whose hyphen is a word boundary.
+	sceneStartRe = regexp.MustCompile(`class="li-item[^"]*\b(?:video|movie)\b[^"]*"`)
 	sceneLinkRe  = regexp.MustCompile(`href="(https?://[^"]*?/(\d+)/?(?:\?[^"]*)?)"`)
-	titleRe      = regexp.MustCompile(`class="i-title[^"]*">\s*([^<\s][^<]*)`)
-	modelRe      = regexp.MustCompile(`class="i-model"[^>]*>([^<]+)`)
-	durationRe   = regexp.MustCompile(`class="time-ol[^"]*"[^>]*>(\d+):(\d+)\s*mins?`)
-	thumbRe      = regexp.MustCompile(`src="((?:https?:)?//[^"]*(?:posting_\d+|scoreuniverse\.com/)[^"]*\.(?:jpg|png|webp))"`)
+	// Scoreland's template emits a stray quote after the class value —
+	// `class="i-title accent-text " ">` — so the tag does not end where the
+	// class attribute does; every title on those sites came out empty.
+	titleRe    = regexp.MustCompile(`class="i-title[^"]*"[^>]*>\s*([^<\s][^<]*)`)
+	modelRe    = regexp.MustCompile(`class="i-model"[^>]*>([^<]+)`)
+	durationRe = regexp.MustCompile(`class="time-ol[^"]*"[^>]*>(\d+):(\d+)\s*mins?`)
+	thumbRe    = regexp.MustCompile(`src="((?:https?:)?//[^"]*(?:posting_\d+|scoreuniverse\.com/)[^"]*\.(?:jpg|png|webp))"`)
 )
 
 func parseListingPage(body []byte, _ string) []listingScene {

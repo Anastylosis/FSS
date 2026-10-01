@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"net/http"
 	"net/url"
 	"os"
 	"regexp"
@@ -236,14 +235,24 @@ func allTimeouts(errs []error) bool {
 }
 
 // probeSite asks the studio URL whether it is still serving this site.
+//
+// It must ask the way a scraper does. A bare client sending only a User-Agent
+// is not the request the site answered a moment ago, and the difference is not
+// academic: Score Group's CDN resets the HTTP/2 stream for a header set that
+// thin, so 36 of its 93 sites reported "the site could not be reached" — and
+// therefore skipped — while every one of them returned 200 to the same probe
+// with browser headers. The probe decides whether a 0-scene run is the site's
+// fault or ours, so a probe that fails for its own reasons excuses the scraper
+// from a verdict it should have faced. `DoWithStatus` is used rather than `Do`
+// because the status is what is being inspected.
 func probeSite(studioURL string) (string, bool) {
-	req, err := http.NewRequest(http.MethodGet, studioURL, nil)
-	if err != nil {
-		return "", false
-	}
-	req.Header.Set("User-Agent", httpx.UserAgentFirefox)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
 
-	resp, err := (&http.Client{Timeout: 20 * time.Second}).Do(req)
+	resp, err := httpx.DoWithStatus(ctx, httpx.NewClient(20*time.Second), httpx.Request{
+		URL:     studioURL,
+		Headers: httpx.BrowserHeaders(httpx.UserAgentFirefox),
+	})
 	if err != nil {
 		if reason, ok := siteSideError(err); ok {
 			return reason, true
@@ -511,4 +520,34 @@ func SkipIfPlaceholder(t *testing.T, studioURL string) {
 
 func isPlaceholder(studioURL string) bool {
 	return strings.Contains(studioURL, "REPLACE-ME")
+}
+
+// Gate bounds how many parallel subtests hit a site at once.
+//
+// A table-driven live test that calls t.Parallel() for every row fans out to
+// whatever -parallel allows, which for a network whose sites share one CDN is a
+// burst against a single origin: Score Group's CDN answers ~40 of its 93 sites
+// with an HTTP/2 stream reset under that load, while every one of them returns
+// 200 when fetched on its own. The reset classifies as site-side and skips, so
+// the result is silently fewer scrapers tested rather than a failure.
+//
+// Use it as the first two lines of the subtest:
+//
+//	t.Parallel()
+//	gate.Enter(t)
+type Gate chan struct{}
+
+// NewGate returns a Gate admitting at most n subtests at a time.
+func NewGate(n int) Gate {
+	if n < 1 {
+		n = 1
+	}
+	return make(Gate, n)
+}
+
+// Enter blocks until a slot is free and releases it when the test ends.
+func (g Gate) Enter(t *testing.T) {
+	t.Helper()
+	g <- struct{}{}
+	t.Cleanup(func() { <-g })
 }

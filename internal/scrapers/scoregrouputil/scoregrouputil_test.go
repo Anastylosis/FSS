@@ -320,3 +320,42 @@ func TestExtractMaxPageOnASinglePageListing(t *testing.T) {
 		t.Error("a listing with no pager has no next page")
 	}
 }
+
+// The CMS keeps adding utility classes to the card and does not order them, so
+// an alternation of whole class lists eventually matches nothing: Scoreland's
+// cards became `li-item compact h-100 video` and 36 of the network's 93 sites
+// parsed to zero scenes. Its title anchor also carries a stray quote after the
+// class value, so the tag does not end where the attribute does.
+func TestParseListingPageToleratesTheCMSsClassChurn(t *testing.T) {
+	const page = `<html><body>
+<div class="li-item compact h-100 video">
+<a href="https://www.scoreland.com/big-boob-videos/Brittany-ONeil/41067/?nats=abc" >
+<img src="https://cdn77.scoreuniverse.com/scoreland/scenes/x/01_lg.jpg" /></a>
+<div class="time-ol sm pos-abs pab par">26:01 mins</div>
+<a href="https://www.scoreland.com/big-boob-videos/Brittany-ONeil/41067/?nats=abc" class="i-title accent-text " "> Brittany O'Neil: Tit Attack </a>
+<small class="i-model">Brittany O'Neil</small>
+</div>
+<div class="li-item video-wide h-100 of-h">
+<a href="https://www.scoreland.com/big-boob-videos/Someone/28291/" >
+<img src="https://cdn77.scoreuniverse.com/scoreland/scenes/y/01_lg.jpg" /></a>
+<div class="time-ol sm">12:00 mins</div>
+<h2 class="i-title t-trunc mb-1">A Wide Card</h2>
+<small class="i-model">Someone</small>
+</div>
+<div class="li-item h-100 pos-rel">not a scene card</div>
+</body></html>`
+
+	scenes := parseListingPage([]byte(page), "https://www.scoreland.com")
+	if len(scenes) != 2 {
+		t.Fatalf("got %d scenes, want 2 — the non-video li-item must not count", len(scenes))
+	}
+	if scenes[0].id != "41067" || scenes[0].title != "Brittany O'Neil: Tit Attack" {
+		t.Errorf("first card = %q / %q", scenes[0].id, scenes[0].title)
+	}
+	if scenes[1].id != "28291" || scenes[1].title != "A Wide Card" {
+		t.Errorf("second card = %q / %q", scenes[1].id, scenes[1].title)
+	}
+	if scenes[0].duration != 26*60+1 {
+		t.Errorf("duration = %d", scenes[0].duration)
+	}
+}
