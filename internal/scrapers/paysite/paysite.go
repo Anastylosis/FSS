@@ -43,9 +43,9 @@ func (s *Scraper) MatchesURL(u string) bool {
 	return s.cfg.MatchRe.MatchString(u)
 }
 
-func (s *Scraper) ListScenes(ctx context.Context, _ string, opts scraper.ListOpts) (<-chan scraper.SceneResult, error) {
+func (s *Scraper) ListScenes(ctx context.Context, studioURL string, opts scraper.ListOpts) (<-chan scraper.SceneResult, error) {
 	out := make(chan scraper.SceneResult)
-	go s.run(ctx, s.cfg.SiteBase, opts, out)
+	go s.run(ctx, studioURL, s.cfg.SiteBase, opts, out)
 	return out, nil
 }
 
@@ -86,7 +86,7 @@ type videoFormat struct {
 	Height int `json:"height"`
 }
 
-func (s *Scraper) run(ctx context.Context, base string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
+func (s *Scraper) run(ctx context.Context, studioURL, base string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
 	defer close(out)
 
 	scraper.Paginate(ctx, opts, s.cfg.ID, out, func(ctx context.Context, page int) (scraper.PageResult, error) {
@@ -103,7 +103,7 @@ func (s *Scraper) run(ctx context.Context, base string, opts scraper.ListOpts, o
 
 		scenes := make([]models.Scene, len(contents.Data))
 		for i, sc := range contents.Data {
-			scenes[i] = toScene(s.cfg.ID, base, sc)
+			scenes[i] = toScene(s.cfg.ID, base, studioURL, sc)
 		}
 		return scraper.PageResult{
 			Scenes: scenes,
@@ -137,7 +137,7 @@ func parsePage(body []byte) (*pageContents, error) {
 	return &nd.Props.PageProps.Contents, nil
 }
 
-func toScene(siteID, base string, sc scene) models.Scene {
+func toScene(siteID, base, studioURL string, sc scene) models.Scene {
 	id := strconv.Itoa(sc.ID)
 	sceneURL := fmt.Sprintf("%s/scenes/%s", base, sc.Slug)
 
@@ -178,7 +178,7 @@ func toScene(siteID, base string, sc scene) models.Scene {
 	return models.Scene{
 		ID:          id,
 		SiteID:      siteID,
-		StudioURL:   base,
+		StudioURL:   studioURL,
 		Title:       sc.Title,
 		URL:         sceneURL,
 		Date:        date,

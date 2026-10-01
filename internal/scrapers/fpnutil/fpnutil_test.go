@@ -242,11 +242,14 @@ func TestFetchDetail(t *testing.T) {
 		Performers: []string{"Naomi Russell"},
 	}
 
-	scene, err := s.fetchDetail(context.Background(), ls, 0)
+	scene, err := s.fetchDetail(context.Background(), "https://example.com/studio", ls, 0)
 	if err != nil {
 		t.Fatalf("fetchDetail error: %v", err)
 	}
 
+	if scene.StudioURL != "https://example.com/studio" {
+		t.Errorf("StudioURL = %q", scene.StudioURL)
+	}
 	if scene.ID != "42" {
 		t.Errorf("ID = %q", scene.ID)
 	}
@@ -287,7 +290,7 @@ func TestFetchDetailFallbackPerformers(t *testing.T) {
 		Slug: "Test-Slug",
 	}
 
-	scene, err := s.fetchDetail(context.Background(), ls, 0)
+	scene, err := s.fetchDetail(context.Background(), "https://example.com/studio", ls, 0)
 	if err != nil {
 		t.Fatalf("fetchDetail error: %v", err)
 	}
@@ -326,13 +329,17 @@ func TestRunPagination(t *testing.T) {
 	}
 
 	out := make(chan scraper.SceneResult)
-	go s.Run(context.Background(), ts.URL+"/porn-categories/movies/?page=1&sort=most-recent", scraper.ListOpts{Workers: 2}, out)
+	studioURL := ts.URL + "/porn-categories/movies/?page=1&sort=most-recent"
+	go s.Run(context.Background(), studioURL, scraper.ListOpts{Workers: 2}, out)
 
 	var scenes []string
 	for r := range out {
 		switch r.Kind {
 		case scraper.KindScene:
 			scenes = append(scenes, r.Scene.ID)
+			if r.Scene.StudioURL != studioURL {
+				t.Errorf("StudioURL = %q, want %q", r.Scene.StudioURL, studioURL)
+			}
 		case scraper.KindError:
 			t.Fatalf("unexpected error: %v", r.Err)
 		}

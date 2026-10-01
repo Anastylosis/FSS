@@ -151,7 +151,7 @@ func TestParseDetail(t *testing.T) {
 		price:      8.99,
 	}
 
-	scene := parseDetail([]byte(detailHTML), entry, "https://www.ladyfyre.com"+entry.url)
+	scene := parseDetail([]byte(detailHTML), entry, "https://www.ladyfyre.com"+entry.url, "https://www.ladyfyre.com/tour/")
 
 	if scene.Title != "Test Scene" {
 		t.Errorf("title = %q", scene.Title)
@@ -167,6 +167,9 @@ func TestParseDetail(t *testing.T) {
 	}
 	if scene.PriceHistory == nil || scene.PriceHistory[0].Regular != 8.99 {
 		t.Errorf("price = %v", scene.PriceHistory)
+	}
+	if scene.StudioURL != "https://www.ladyfyre.com/tour/" {
+		t.Errorf("StudioURL = %q", scene.StudioURL)
 	}
 }
 
@@ -211,6 +214,9 @@ func TestListScenes(t *testing.T) {
 		switch r.Kind {
 		case scraper.KindScene:
 			scenes++
+			if r.Scene.StudioURL != ts.URL+"/tour/" {
+				t.Errorf("StudioURL = %q, want %q", r.Scene.StudioURL, ts.URL+"/tour/")
+			}
 		case scraper.KindError:
 			t.Errorf("unexpected error: %v", r.Err)
 		}
@@ -401,6 +407,9 @@ func TestListScenesModelPage(t *testing.T) {
 		case scraper.KindScene:
 			scenes++
 			titles = append(titles, r.Scene.Title)
+			if want := ts.URL + "/tour/models/LadyOliviaFyre.html"; r.Scene.StudioURL != want {
+				t.Errorf("StudioURL = %q, want %q", r.Scene.StudioURL, want)
+			}
 		case scraper.KindError:
 			t.Errorf("unexpected error: %v", r.Err)
 		}
@@ -448,7 +457,7 @@ func TestParseDetailStoresAnAbsoluteURL(t *testing.T) {
 		title: "A Scene",
 		url:   "/tour/updates/abc.html",
 	}
-	scene := parseDetail([]byte(`<html><body></body></html>`), entry, "https://www.ladyfyre.com"+entry.url)
+	scene := parseDetail([]byte(`<html><body></body></html>`), entry, "https://www.ladyfyre.com"+entry.url, "https://www.ladyfyre.com/tour/")
 	if scene.URL != "https://www.ladyfyre.com/tour/updates/abc.html" {
 		t.Errorf("URL = %q, want the absolute form", scene.URL)
 	}

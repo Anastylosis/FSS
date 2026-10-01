@@ -191,7 +191,11 @@ func TestParseDetail(t *testing.T) {
 		thumbnail: "https://www.rawalphamales.com/content/movies/RAM326/RAM326-A_video.jpg",
 	}
 
-	scene := parseDetail([]byte(detailHTML), entry, "https://www.rawalphamales.com")
+	scene := parseDetail([]byte(detailHTML), entry, "https://www.rawalphamales.com/category/x/")
+
+	if scene.StudioURL != "https://www.rawalphamales.com/category/x/" {
+		t.Errorf("StudioURL = %q", scene.StudioURL)
+	}
 
 	if scene.ID != "jake-morgan-bottoms-for-michael-lucas" {
 		t.Errorf("ID = %q", scene.ID)
@@ -261,6 +265,9 @@ func TestListScenes(t *testing.T) {
 		switch r.Kind {
 		case scraper.KindScene:
 			scenes++
+			if r.Scene.StudioURL != ts.URL {
+				t.Errorf("StudioURL = %q, want %q", r.Scene.StudioURL, ts.URL)
+			}
 		case scraper.KindError:
 			t.Errorf("unexpected error: %v", r.Err)
 		}

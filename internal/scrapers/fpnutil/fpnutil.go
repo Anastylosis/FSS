@@ -52,7 +52,7 @@ func (s *Scraper) Run(ctx context.Context, studioURL string, opts scraper.ListOp
 		go func() {
 			defer wg.Done()
 			for dw := range work {
-				scene, err := s.fetchDetail(ctx, dw.listing, opts.Delay)
+				scene, err := s.fetchDetail(ctx, studioURL, dw.listing, opts.Delay)
 				if err != nil {
 					select {
 					case out <- scraper.Error(err):
@@ -308,7 +308,7 @@ var (
 	detailTagRe  = regexp.MustCompile(`href="/porn-categories/([^/]+)/"[^>]*>([^<]+)</a>`)
 )
 
-func (s *Scraper) fetchDetail(ctx context.Context, ls listingScene, delay time.Duration) (models.Scene, error) {
+func (s *Scraper) fetchDetail(ctx context.Context, studioURL string, ls listingScene, delay time.Duration) (models.Scene, error) {
 	if !scraper.Pace(ctx, delay) {
 		return models.Scene{}, ctx.Err()
 	}
@@ -350,7 +350,7 @@ func (s *Scraper) fetchDetail(ctx context.Context, ls listingScene, delay time.D
 	return models.Scene{
 		ID:          ls.ID,
 		SiteID:      s.cfg.SiteID,
-		StudioURL:   s.cfg.SiteBase,
+		StudioURL:   studioURL,
 		Title:       ls.Title,
 		URL:         url,
 		Date:        date,

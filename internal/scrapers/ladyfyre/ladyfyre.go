@@ -75,14 +75,14 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 
 	isModel := strings.Contains(studioURL, "/models/")
 	if isModel {
-		s.runSinglePage(ctx, s.resolveURL(studioURL), opts, out)
+		s.runSinglePage(ctx, studioURL, s.resolveURL(studioURL), opts, out)
 		return
 	}
 
-	s.runPaginated(ctx, opts, out)
+	s.runPaginated(ctx, studioURL, opts, out)
 }
 
-func (s *Scraper) runSinglePage(ctx context.Context, modelURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
+func (s *Scraper) runSinglePage(ctx context.Context, studioURL, modelURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
 	body, err := s.fetchHTML(ctx, modelURL)
 	if err != nil {
 		select {
@@ -112,10 +112,10 @@ func (s *Scraper) runSinglePage(ctx context.Context, modelURL string, opts scrap
 		return
 	}
 
-	s.processEntries(ctx, entries, opts, out)
+	s.processEntries(ctx, studioURL, entries, opts, out)
 }
 
-func (s *Scraper) runPaginated(ctx context.Context, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
+func (s *Scraper) runPaginated(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
 	work := make(chan listEntry, opts.Workers)
 	var wg sync.WaitGroup
 	for i := 0; i < opts.Workers; i++ {
@@ -126,7 +126,7 @@ func (s *Scraper) runPaginated(ctx context.Context, opts scraper.ListOpts, out c
 				if !scraper.Pace(ctx, opts.Delay) {
 					return
 				}
-				scene, err := s.fetchDetail(ctx, entry)
+				scene, err := s.fetchDetail(ctx, entry, studioURL)
 				if err != nil {
 					select {
 					case out <- scraper.Error(err):
@@ -216,7 +216,7 @@ func (s *Scraper) runPaginated(ctx context.Context, opts scraper.ListOpts, out c
 	wg.Wait()
 }
 
-func (s *Scraper) processEntries(ctx context.Context, entries []listEntry, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
+func (s *Scraper) processEntries(ctx context.Context, studioURL string, entries []listEntry, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
 	work := make(chan listEntry, opts.Workers)
 	var wg sync.WaitGroup
 	// LIFO: close(work) fires first so workers' `for ... range work` exits,
@@ -232,7 +232,7 @@ func (s *Scraper) processEntries(ctx context.Context, entries []listEntry, opts 
 				if !scraper.Pace(ctx, opts.Delay) {
 					return
 				}
-				scene, err := s.fetchDetail(ctx, entry)
+				scene, err := s.fetchDetail(ctx, entry, studioURL)
 				if err != nil {
 					select {
 					case out <- scraper.Error(err):
@@ -385,7 +385,7 @@ func (s *Scraper) resolveURL(rawURL string) string {
 	return s.base() + rawURL
 }
 
-func (s *Scraper) fetchDetail(ctx context.Context, entry listEntry) (models.Scene, error) {
+func (s *Scraper) fetchDetail(ctx context.Context, entry listEntry, studioURL string) (models.Scene, error) {
 	referer := s.base() + "/tour/categories/movies.html"
 	body, err := s.fetchHTMLWithReferer(ctx, s.resolveURL(entry.url), referer)
 	if err != nil {
@@ -394,15 +394,15 @@ func (s *Scraper) fetchDetail(ctx context.Context, entry listEntry) (models.Scen
 
 	// The listing links are site-relative. Storing them verbatim left every
 	// scene with a URL that resolves against nothing outside the scraper.
-	return parseDetail(body, entry, s.resolveURL(entry.url)), nil
+	return parseDetail(body, entry, s.resolveURL(entry.url), studioURL), nil
 }
 
-func parseDetail(body []byte, entry listEntry, sceneURL string) models.Scene {
+func parseDetail(body []byte, entry listEntry, sceneURL, studioURL string) models.Scene {
 	now := time.Now().UTC()
 	scene := models.Scene{
 		ID:         entry.slug,
 		SiteID:     "ladyfyre",
-		StudioURL:  "https://www.ladyfyre.com",
+		StudioURL:  studioURL,
 		Title:      entry.title,
 		URL:        sceneURL,
 		Thumbnail:  entry.thumbnail,

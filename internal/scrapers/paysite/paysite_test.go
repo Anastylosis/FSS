@@ -129,8 +129,11 @@ func TestToScene(t *testing.T) {
 		Videos:           map[string]videoFormat{"orig": {Width: 1920, Height: 1080}},
 	}
 
-	result := toScene("testsite", "https://tour.testsite.com", sc)
+	result := toScene("testsite", "https://tour.testsite.com", "https://tour.testsite.com/x", sc)
 
+	if result.StudioURL != "https://tour.testsite.com/x" {
+		t.Errorf("StudioURL = %q", result.StudioURL)
+	}
 	if result.ID != "200" {
 		t.Errorf("ID = %q", result.ID)
 	}
@@ -172,7 +175,7 @@ func TestToScene(t *testing.T) {
 
 func TestToSceneTrailingSpaceSite(t *testing.T) {
 	sc := scene{ID: 1, Slug: "x", Site: "MariskaX "}
-	result := toScene("mariskax", "https://tour.mariskax.com", sc)
+	result := toScene("mariskax", "https://tour.mariskax.com", "https://tour.mariskax.com/x", sc)
 	if result.Studio != "MariskaX" {
 		t.Errorf("Studio = %q, want trimmed", result.Studio)
 	}
@@ -180,7 +183,7 @@ func TestToSceneTrailingSpaceSite(t *testing.T) {
 
 func TestToSceneThumbFallback(t *testing.T) {
 	sc := scene{ID: 300, Slug: "fallback", Thumb: "https://cdn.example.com/thumb.jpg"}
-	result := toScene("testsite", "https://tour.testsite.com", sc)
+	result := toScene("testsite", "https://tour.testsite.com", "https://tour.testsite.com/x", sc)
 	if result.Thumbnail != "https://cdn.example.com/thumb.jpg" {
 		t.Errorf("Thumbnail = %q, want thumb fallback", result.Thumbnail)
 	}
@@ -199,7 +202,8 @@ func TestListScenes(t *testing.T) {
 	defer ts.Close()
 
 	s := testScraper(ts.URL, ts.Client())
-	ch, err := s.ListScenes(context.Background(), ts.URL, scraper.ListOpts{})
+	studioURL := ts.URL + "/studio"
+	ch, err := s.ListScenes(context.Background(), studioURL, scraper.ListOpts{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -207,6 +211,11 @@ func TestListScenes(t *testing.T) {
 	results := testutil.CollectScenes(t, ch)
 	if len(results) != 2 {
 		t.Fatalf("got %d scenes, want 2", len(results))
+	}
+	for _, r := range results {
+		if r.StudioURL != studioURL {
+			t.Errorf("StudioURL = %q, want %q", r.StudioURL, studioURL)
+		}
 	}
 }
 

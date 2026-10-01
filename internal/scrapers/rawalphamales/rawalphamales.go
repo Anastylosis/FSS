@@ -75,10 +75,10 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 		pathPrefix = "/category/" + m[1]
 	}
 
-	s.runPaginated(ctx, pathPrefix, opts, out)
+	s.runPaginated(ctx, studioURL, pathPrefix, opts, out)
 }
 
-func (s *Scraper) runPaginated(ctx context.Context, pathPrefix string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
+func (s *Scraper) runPaginated(ctx context.Context, studioURL, pathPrefix string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
 	work := make(chan listEntry, opts.Workers)
 	var wg sync.WaitGroup
 	for i := 0; i < opts.Workers; i++ {
@@ -89,7 +89,7 @@ func (s *Scraper) runPaginated(ctx context.Context, pathPrefix string, opts scra
 				if !scraper.Pace(ctx, opts.Delay) {
 					return
 				}
-				scene, err := s.fetchDetail(ctx, entry)
+				scene, err := s.fetchDetail(ctx, entry, studioURL)
 				if err != nil {
 					select {
 					case out <- scraper.Error(err):
@@ -272,13 +272,13 @@ var (
 	datePubRe = regexp.MustCompile(`"datePublished":"(\d{4}-\d{2}-\d{2})`)
 )
 
-func (s *Scraper) fetchDetail(ctx context.Context, entry listEntry) (models.Scene, error) {
+func (s *Scraper) fetchDetail(ctx context.Context, entry listEntry, studioURL string) (models.Scene, error) {
 	body, err := s.fetchHTML(ctx, entry.url)
 	if err != nil {
 		return models.Scene{}, fmt.Errorf("detail %s: %w", entry.slug, err)
 	}
 
-	return parseDetail(body, entry, s.base()), nil
+	return parseDetail(body, entry, studioURL), nil
 }
 
 func parseOrdinalDate(s string) time.Time {
@@ -290,12 +290,12 @@ func parseOrdinalDate(s string) time.Time {
 	return t.UTC()
 }
 
-func parseDetail(body []byte, entry listEntry, _ string) models.Scene {
+func parseDetail(body []byte, entry listEntry, studioURL string) models.Scene {
 	now := time.Now().UTC()
 	scene := models.Scene{
 		ID:         entry.slug,
 		SiteID:     "rawalphamales",
-		StudioURL:  "https://www.rawalphamales.com",
+		StudioURL:  studioURL,
 		Title:      entry.title,
 		URL:        entry.url,
 		Thumbnail:  entry.thumbnail,
