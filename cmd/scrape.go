@@ -272,6 +272,7 @@ func scrapeOne(ctx context.Context, st store.Store, tgt scrapeTarget, name, dbPa
 
 	delay := resolveTargetDelay(tgt, sc.ID(), sites)
 	scraper.Debugf(1, "scraper: %s, delay: %v, workers: %d", sc.ID(), delay, workers)
+	noticePacingIsRunWide(delay, workers)
 
 	lang, err := scraper.ResolveLanguage(sc, resolveTargetLanguage(tgt, sc.ID(), sites))
 	if err != nil {

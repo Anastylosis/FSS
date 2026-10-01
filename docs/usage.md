@@ -40,7 +40,7 @@ For choosing a store, inspecting a database, and moving between the two, see [st
 | `--output`, `-o` | string | `json` | Export format(s): `json`, `csv`, or `json,csv` |
 | `--out-dir` | string | `.` | Output directory |
 | `--db` | string | _(from config)_ | Store selector. `--db` alone uses the database named in `db:`, or `~/.local/share/fss/fss.db`; `--db=/path` uses a specific file; `--db=""` forces the flat JSON store even when `db:` is set. Note the `=` — a space-separated value is not parsed |
-| `--delay` | int | `500` | Milliseconds between requests, across the whole run rather than per worker (default from config; `--delay 0` disables) |
+| `--delay` | int | `500` | Milliseconds between requests, across the whole run rather than per worker (default from config; `--delay 0` disables). **Changed:** this used to be per worker, so `--delay 500 --workers 8` issued ~16 requests a second; it is now 2. An unchanged invocation is therefore slower — `fss scrape` prints a one-shot `[notice]` saying so. Lower `--delay` to go faster. |
 | `--site-delay` | []string | _(none)_ | Per-scraper delay overrides as `name=ms` pairs, e.g. `--site-delay manyvids=0,pornhub=2000` |
 | `--site-cookie` | []string | _(none)_ | Per-scraper `Cookie` header as `name=cookies` pairs, e.g. `--site-cookie mydirtyhobby="KEY=abc; other=1"` |
 | `--name` | string | _(none)_ | Human-readable label for this studio (stored when `--db` is set) |
