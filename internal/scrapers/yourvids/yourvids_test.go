@@ -1,6 +1,7 @@
 package yourvids
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -330,7 +331,15 @@ func TestGoldenCreatorVideos(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// The captured page names live video_url values, and the scraper fetches
+	// those verbatim, so the fixture is pointed at the test server.
+	var page []byte
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/vids/") {
+			w.Header().Set("Content-Type", "text/html")
+			_, _ = w.Write([]byte(`<html><body></body></html>`))
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		if strings.Contains(r.URL.Path, "/api/creators/") {
 			// Only page 1 has content; later pages are empty so the walk ends.
@@ -339,13 +348,16 @@ func TestGoldenCreatorVideos(t *testing.T) {
 				_, _ = w.Write([]byte(`{"success":true,"data":{"videos":[]}}`))
 				return
 			}
-			_, _ = w.Write(body)
+			_, _ = w.Write(page)
 			return
 		}
-		// Detail fetches: the scraper tolerates these failing.
 		http.NotFound(w, r)
 	}))
 	defer ts.Close()
+	page = bytes.ReplaceAll(body, []byte("https://yourvids.com/vids/"), []byte(ts.URL+"/vids/"))
+	if bytes.Equal(page, body) {
+		t.Fatal("fixture names no https://yourvids.com/vids/ URL to redirect; the detail fetches would leave the test")
+	}
 
 	s := &Scraper{client: ts.Client(), apiBase: ts.URL}
 	ch, err := s.ListScenes(context.Background(), ts.URL+"/creators/bettie-bondage", scraper.ListOpts{Workers: 1})
@@ -376,7 +388,7 @@ func TestGoldenCreatorVideos(t *testing.T) {
 	if sc.Duration != 43*60+43 {
 		t.Errorf("Duration = %d (data.videos[].duration \"43:43\"), want %d", sc.Duration, 43*60+43)
 	}
-	if !strings.Contains(sc.URL, "ending-your-semen-retention") {
+	if !strings.HasPrefix(sc.URL, ts.URL) || !strings.Contains(sc.URL, "ending-your-semen-retention") {
 		t.Errorf("URL = %q (data.videos[].video_url)", sc.URL)
 	}
 	if sc.Thumbnail == "" {
