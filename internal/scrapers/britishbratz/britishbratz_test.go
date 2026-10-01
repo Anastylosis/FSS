@@ -1,93 +1,152 @@
 package britishbratz
 
 import (
+	"context"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"strings"
+	"sync"
 	"testing"
 	"time"
+
+	"github.com/Anastylosis/FSS/models"
+	"github.com/Anastylosis/FSS/scraper"
 )
 
-const fixture = `<html><body>
-<div class="row">
-<div class="col-sm-4 single_update">
-  <a href="/join">
-    <img class="img-responsive" src="https://vz-1c30c71e-eb5.b-cdn.net/aa4ca853-ce32-4840-960b-0e5f28ca32a5/preview.webp?token=abc" alt="Pvc Pleasure And Poppers" />
-  </a>
-  <div class="col-xs-6 update_bottom">
-    <h1><a href="/join">Pvc Pleasure And Poppers</a></h1>
-  </div>
-  <div class="col-xs-6 update_bottom update_time">
-    <p><time>30 October 2025</time></p>
-  </div>
-  <div class="col-xs-12 update_bottom">
-    <div class="update_description"><p>Description text.</p></div>
-    <h2>CATEGORIES: <a href="/sub-category/mind-fuck">Mind Fuck</a></h2>
-  </div>
-<div class="clearfix"></div>
-</div>
-<div class="col-sm-4 single_update">
-  <a href="/join">
-    <img class="img-responsive" src="/site_resources/core_images/admin/video_bg_small.jpg" alt="Denied Scene" />
-  </a>
-  <div class="col-xs-6 update_bottom">
-    <h1><a href="/join">Denied Scene</a></h1>
-  </div>
-  <div class="col-xs-6 update_bottom update_time">
-    <p><time>24 April 2026</time></p>
-  </div>
-  <div class="col-xs-12 update_bottom">
-    <div class="update_description"></div>
-  </div>
-<div class="clearfix"></div>
-</div>
-</div>
-<ul class="pagination">
-  <li><a href="/updates/videos/1">1</a></li>
-  <li><a href="/updates/videos/2">2</a></li>
-  <li><a href="/updates/videos/56">56</a></li>
-</ul>
-</body></html>`
+func loadFixture(t *testing.T) []byte {
+	t.Helper()
+	b, err := os.ReadFile("testdata/listing.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
+}
 
 func TestParseListingPage(t *testing.T) {
-	scenes := parseListingPage([]byte(fixture), "https://www.britishbratz.com/")
+	s := New()
+	scenes := s.parseListingPage(loadFixture(t), "https://www.britishbratz.com/")
 
-	if len(scenes) != 2 {
-		t.Fatalf("got %d scenes, want 2", len(scenes))
+	if len(scenes) != 3 {
+		t.Fatalf("got %d scenes, want 3", len(scenes))
 	}
 
-	sc := scenes[0]
-	if sc.ID != "aa4ca853-ce32-4840-960b-0e5f28ca32a5" {
+	sc := scenes[1]
+	if sc.ID != "2384927a-da41-4c2b-9fd2-e526175c913d" {
 		t.Errorf("ID = %q", sc.ID)
 	}
-	if sc.Title != "Pvc Pleasure And Poppers" {
+	if sc.Title != "$100 In 120 Seconds" {
 		t.Errorf("Title = %q", sc.Title)
 	}
-	if sc.Thumbnail == "" || sc.Thumbnail == "/site_resources/core_images/admin/video_bg_small.jpg" {
-		t.Errorf("Thumbnail = %q (should be CDN URL)", sc.Thumbnail)
+	if sc.URL != "https://www.britishbratz.com/updates/previews/videos/100-in-120-seconds" {
+		t.Errorf("URL = %q", sc.URL)
 	}
-	want := time.Date(2025, 10, 30, 0, 0, 0, 0, time.UTC)
-	if sc.Date != want {
+	if !strings.HasPrefix(sc.Thumbnail, "https://vz-1c30c71e-eb5.b-cdn.net/2384927a-") || strings.Contains(sc.Thumbnail, "&amp;") {
+		t.Errorf("Thumbnail = %q", sc.Thumbnail)
+	}
+	want := time.Date(2025, 10, 23, 0, 0, 0, 0, time.UTC)
+	if !sc.Date.Equal(want) {
 		t.Errorf("Date = %v, want %v", sc.Date, want)
 	}
-	if len(sc.Tags) != 1 || sc.Tags[0] != "Mind Fuck" {
+	if len(sc.Tags) != 1 || sc.Tags[0] != "Financial Domination" {
 		t.Errorf("Tags = %v", sc.Tags)
 	}
+	if len(sc.Performers) != 1 || sc.Performers[0] != "Jasmine Jones" {
+		t.Errorf("Performers = %v", sc.Performers)
+	}
 
-	sc2 := scenes[1]
-	if sc2.Title != "Denied Scene" {
-		t.Errorf("Title = %q", sc2.Title)
+	// The first card credits "Various Models" as plain text and has no
+	// category; the footer's links after the last card must not leak in.
+	if len(scenes[0].Performers) != 0 || len(scenes[0].Tags) != 0 {
+		t.Errorf("card 0 performers=%v tags=%v, want none", scenes[0].Performers, scenes[0].Tags)
 	}
-	if sc2.Thumbnail != "" {
-		t.Errorf("Thumbnail = %q (placeholder should be empty)", sc2.Thumbnail)
-	}
-	if sc2.ID != "denied-scene" {
-		t.Errorf("ID = %q (should be slugified title as fallback)", sc2.ID)
+	last := scenes[2]
+	if len(last.Performers) != 1 || len(last.Tags) != 1 {
+		t.Errorf("last card performers=%v tags=%v", last.Performers, last.Tags)
 	}
 }
 
 func TestEstimateTotal(t *testing.T) {
-	total := estimateTotal([]byte(fixture))
-	if total != 56*20 {
-		t.Errorf("total = %d, want %d", total, 56*20)
+	if total := estimateTotal(loadFixture(t)); total != 31*pageSize {
+		t.Errorf("total = %d, want %d", total, 31*pageSize)
 	}
+}
+
+func TestScrapePaginates(t *testing.T) {
+	listing := loadFixture(t)
+	var (
+		mu    sync.Mutex
+		pages []string
+	)
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/updates/videos" {
+			http.NotFound(w, r)
+			return
+		}
+		p := r.URL.Query().Get("updates_page")
+		mu.Lock()
+		pages = append(pages, p)
+		mu.Unlock()
+		if p == "1" {
+			_, _ = w.Write(listing)
+			return
+		}
+		_, _ = w.Write([]byte("<html><body>No updates found.</body></html>"))
+	}))
+	defer ts.Close()
+
+	s := New()
+	s.base = ts.URL
+	scenes, errs := collect(t, s, scraper.ListOpts{})
+	if len(errs) != 0 {
+		t.Fatalf("errors: %v", errs)
+	}
+	if len(scenes) != 3 {
+		t.Fatalf("got %d scenes, want 3", len(scenes))
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if strings.Join(pages, ",") != "1,2" {
+		t.Errorf("pages fetched = %v, want [1 2]", pages)
+	}
+}
+
+func TestScrapeEmptyFirstPageIsParseError(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("<html><body>redesigned</body></html>"))
+	}))
+	defer ts.Close()
+
+	s := New()
+	s.base = ts.URL
+	_, errs := collect(t, s, scraper.ListOpts{})
+	if len(errs) != 1 {
+		t.Fatalf("got %d errors, want 1", len(errs))
+	}
+	if k := scraper.Classify(errs[0]); k != scraper.FailureParse {
+		t.Errorf("Classify = %v, want FailureParse", k)
+	}
+}
+
+func collect(t *testing.T, s *Scraper, opts scraper.ListOpts) ([]models.Scene, []error) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	ch, err := s.ListScenes(ctx, "https://www.britishbratz.com/", opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var scenes []models.Scene
+	var errs []error
+	for r := range ch {
+		switch r.Kind {
+		case scraper.KindScene:
+			scenes = append(scenes, r.Scene)
+		case scraper.KindError:
+			errs = append(errs, r.Err)
+		}
+	}
+	return scenes, errs
 }
 
 func TestMatchesURL(t *testing.T) {
