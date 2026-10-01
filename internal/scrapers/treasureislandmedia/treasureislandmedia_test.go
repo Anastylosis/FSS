@@ -29,24 +29,26 @@ func emptyListingHTML() string {
 	return `<html><body><div class="view-content"><p>No results</p></div></body></html>`
 }
 
-// detailHTML builds a scene detail page with anonymous OpenGraph tags. host is
-// the og:url host (a sub-brand subdomain), coverID becomes the scene ID.
-func detailHTML(host, slug, title, coverID, updated, desc string) string {
+// detailHTML builds a scene detail page in the live Next.js markup: the
+// scene id in the player's RSC payload, OpenGraph tags, a VideoObject with the
+// release date, and the sub-brand label in the header brand block.
+func detailHTML(brand, slug, title, sceneID, uploaded, desc string) string {
 	return fmt.Sprintf(`<html><head>
-<meta property="og:title" content="%s">
-<meta property="og:description" content="%s">
-<meta property="og:updated_time" content="%s">
-<meta property="og:image" content="https://treasureislandmedia.com/sites/default/files/scenes/images/covers/%s.jpg">
-<meta property="og:url" content="https://%s.treasureislandmedia.com/scenes/%s">
+<meta property="og:title" content="%[3]s"/>
+<meta property="og:description" content="%[6]s…"/>
+<meta property="og:url" content="https://treasureislandmedia.com/scenes/%[2]s"/>
+<meta property="og:image" content="https://assets.treasureislandmedia.com/sites/default/files/scenes/images/sliders/1284848.jpg"/>
 </head><body>
-<h1>%s</h1>
-<div class="field-name-field-directors"><div class="field-label">Directors:</div>
-  <a href="/directors/elliott-wilder" property="rdfs:label">Elliott Wilder</a></div>
-<div id="movie-models">
-  <p><a class="thumbnail-subtitle-a" href="https://men.treasureislandmedia.com/men/41475" title="x">Joe Silver</a></p>
-  <p><a class="thumbnail-subtitle-a" href="https://men.treasureislandmedia.com/men/41476" title="x">Matt Coven</a></p>
-</div>
-</body></html>`, title, desc, updated, coverID, host, slug, title)
+<a class="to-brandblock" href="/"><span class="to-brandblock__lines"><span class="to-brandblock__label">%[1]s</span><span class="to-brandblock__sub">Treasure Island Media</span></span></a>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"VideoObject","name":"%[3]s","uploadDate":"%[5]s"}</script>
+<h1 class="to-scene__title">%[3]s</h1>
+<div class="to-caststrip"><span class="to-caststrip__name">Joe Silver</span><span class="to-caststrip__name">Matt Coven</span></div>
+<div class="to-meta"><span class="to-chip to-chip--fact">18<!-- --> min</span>
+<div class="to-meta__row"><span class="to-meta__label">Directors:</span><span class="to-meta__chips"><a class="to-chip" href="/director/elliott-wilder">Elliott Wilder</a></span></div>
+<div class="to-meta__row"><span class="to-meta__label">Tags:</span><span class="to-meta__chips"><a class="to-chip" href="/tag/sucking">Sucking</a><a class="to-chip" href="/tag/flip">Flip</a></span></div></div>
+<section id="description"><div class="richtext"><div class="payload-richtext"><p>%[6]s <a href="https://men.treasureislandmedia.com/men/1">JOE</a> more.</p></div></div></section>
+<script>self.__next_f.push([1,"{\"sceneId\":%[4]s,\"contentId\":%[4]s}"])</script>
+</body></html>`, brand, slug, title, sceneID, uploaded, desc)
 }
 
 // ---- TestMatchesURL ----
@@ -123,40 +125,36 @@ func TestFetchListing(t *testing.T) {
 // ---- TestToScene ----
 
 func TestToScene(t *testing.T) {
-	orig := baseURL
-	defer func() { baseURL = orig }()
-
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = fmt.Fprint(w, detailHTML("timfuck", "jeff-carvalho-avatar",
-			"JEFF CARVALHO &amp; AVATAR", "1277836", "2026-06-20T07:00:00+00:00",
+		_, _ = fmt.Fprint(w, detailHTML("TIMFUCK", "jeff-carvalho-avatar",
+			"JEFF CARVALHO &amp; AVATAR", "7970", "2026-06-20T07:00:00.000Z",
 			"A full synopsis of the scene."))
 	}))
 	defer ts.Close()
-	baseURL = ts.URL
 
 	s := &Scraper{Client: ts.Client()}
 	now := time.Date(2026, 6, 25, 0, 0, 0, 0, time.UTC)
-	sc := s.toScene(context.Background(), "studioURL", ts.URL+"/scenes/jeff-carvalho-avatar", now)
+	sc, err := s.toScene(context.Background(), "studioURL", ts.URL+"/scenes/jeff-carvalho-avatar", now)
+	if err != nil {
+		t.Fatalf("toScene: %v", err)
+	}
 
-	if sc.ID != "1277836" {
-		t.Errorf("ID = %q, want 1277836", sc.ID)
+	if sc.ID != "7970" {
+		t.Errorf("ID = %q, want 7970", sc.ID)
 	}
 	if sc.Title != "JEFF CARVALHO & AVATAR" {
 		t.Errorf("Title = %q", sc.Title)
 	}
-	if sc.SiteID != "timfuck" {
-		t.Errorf("SiteID = %q, want timfuck", sc.SiteID)
+	if sc.SiteID != "timfuck" || sc.Studio != "TIM Fuck" {
+		t.Errorf("brand = (%q,%q), want (timfuck,TIM Fuck)", sc.SiteID, sc.Studio)
 	}
-	if sc.Studio != "TIM Fuck" {
-		t.Errorf("Studio = %q, want TIM Fuck", sc.Studio)
+	if sc.Description != "A full synopsis of the scene. JOE more." {
+		t.Errorf("Description = %q, want the untruncated richtext", sc.Description)
 	}
-	if sc.Description != "A full synopsis of the scene." {
-		t.Errorf("Description = %q", sc.Description)
-	}
-	if !strings.HasSuffix(sc.Thumbnail, "/covers/1277836.jpg") {
+	if !strings.HasSuffix(sc.Thumbnail, "/sliders/1284848.jpg") {
 		t.Errorf("Thumbnail = %q", sc.Thumbnail)
 	}
-	if sc.URL != "https://timfuck.treasureislandmedia.com/scenes/jeff-carvalho-avatar" {
+	if sc.URL != "https://treasureislandmedia.com/scenes/jeff-carvalho-avatar" {
 		t.Errorf("URL = %q", sc.URL)
 	}
 	wantDate := time.Date(2026, 6, 20, 7, 0, 0, 0, time.UTC)
@@ -166,8 +164,47 @@ func TestToScene(t *testing.T) {
 	if sc.Director != "Elliott Wilder" {
 		t.Errorf("Director = %q, want Elliott Wilder", sc.Director)
 	}
+	if sc.Duration != 18*60 {
+		t.Errorf("Duration = %d", sc.Duration)
+	}
+	if strings.Join(sc.Tags, ",") != "Sucking,Flip" {
+		t.Errorf("Tags = %v", sc.Tags)
+	}
 	if strings.Join(sc.Performers, ",") != "Joe Silver,Matt Coven" {
 		t.Errorf("Performers = %v", sc.Performers)
+	}
+}
+
+// A page without the scene id must surface as a parse failure, not vanish:
+// that silent drop is how two image-directory moves emptied the catalogue.
+func TestToSceneWithoutIDIsAParseError(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprint(w, `<html><head><meta property="og:title" content="X"/></head></html>`)
+	}))
+	defer ts.Close()
+
+	s := &Scraper{Client: ts.Client()}
+	_, err := s.toScene(context.Background(), "studioURL", ts.URL+"/scenes/x", time.Now())
+	if err == nil {
+		t.Fatal("want an error")
+	}
+	if k := scraper.Classify(err); k != scraper.FailureParse {
+		t.Errorf("kind = %v, want FailureParse", k)
+	}
+}
+
+func TestBrandFromLabel(t *testing.T) {
+	cases := map[string]string{
+		"TIMFUCK":      "timfuck",
+		"TIM CLASSICS": "classics",
+		"LATIN LOADS":  "latinloads",
+		"BRUTHALOAD":   "bruthaload",
+		"Paul Morris":  "",
+	}
+	for label, want := range cases {
+		if got, _ := brandFromLabel(label); got != want {
+			t.Errorf("brandFromLabel(%q) = %q, want %q", label, got, want)
+		}
 	}
 }
 
@@ -186,11 +223,11 @@ func TestListScenes(t *testing.T) {
 				_, _ = fmt.Fprint(w, emptyListingHTML())
 			}
 		case "/scenes/jeff-carvalho-avatar":
-			_, _ = fmt.Fprint(w, detailHTML("timfuck", "jeff-carvalho-avatar",
-				"Jeff Carvalho &amp; Avatar", "1277836", "2026-06-20T07:00:00+00:00", "Synopsis one."))
+			_, _ = fmt.Fprint(w, detailHTML("TIMFUCK", "jeff-carvalho-avatar",
+				"Jeff Carvalho &amp; Avatar", "1277836", "2026-06-20T07:00:00.000Z", "Synopsis one."))
 		case "/scenes/the-cum-union":
-			_, _ = fmt.Fprint(w, detailHTML("timsuck", "the-cum-union",
-				"The Cum Union", "998877", "2026-05-01T07:00:00+00:00", "Synopsis two."))
+			_, _ = fmt.Fprint(w, detailHTML("TIMSUCK", "the-cum-union",
+				"The Cum Union", "998877", "2026-05-01T07:00:00.000Z", "Synopsis two."))
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -226,9 +263,8 @@ func TestListScenes(t *testing.T) {
 	}
 }
 
-// The 2026 rebuild changed three things at once: the grid's scene links gained
-// a query string, the scene image moved from /covers/ to /splashes/ (and the
-// id is that filename), and the cast, director and runtime moved into new
+// The 2026 rebuild changed several things at once: the grid's scene links
+// gained a query string, and the cast, director and runtime moved into new
 // markup. Each one alone silently emptied the catalogue or a field.
 func TestParsesTheRebuiltMarkup(t *testing.T) {
 	const grid = `<a class="to-flip__art-link" href="/scenes/ro-d-luna-john-cortes-albert?from=grid&amp;n=1&amp;sort=released">` +
@@ -241,14 +277,6 @@ func TestParsesTheRebuiltMarkup(t *testing.T) {
 	}
 	if m[0][1] != "/scenes/ro-d-luna-john-cortes-albert" {
 		t.Errorf("captured %q, want the path without its query", m[0][1])
-	}
-
-	if got := coverIDRe.FindStringSubmatch("https://assets.example.com/scenes/images/splashes/1280834.jpg"); got == nil || got[1] != "1280834" {
-		t.Errorf("splashes id = %v", got)
-	}
-	// The older directory still resolves.
-	if got := coverIDRe.FindStringSubmatch("https://assets.example.com/covers/99.jpg"); got == nil || got[1] != "99" {
-		t.Errorf("covers id = %v", got)
 	}
 
 	const detail = `<div class="to-caststrip"><p class="to-caststrip__label">Starring</p>` +
@@ -271,5 +299,32 @@ func TestParsesTheRebuiltMarkup(t *testing.T) {
 	}
 	if r := metaRuntimeRe.FindStringSubmatch(detail); r == nil || r[1] != "18" {
 		t.Errorf("runtime = %v", r)
+	}
+}
+
+// A first listing page with no scene links is a broken parser, not an empty
+// catalogue, and must say so.
+func TestEmptyFirstPageIsAParseError(t *testing.T) {
+	orig := baseURL
+	defer func() { baseURL = orig }()
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprint(w, emptyListingHTML())
+	}))
+	defer ts.Close()
+	baseURL = ts.URL
+
+	s := &Scraper{Client: ts.Client()}
+	ch, err := s.ListScenes(context.Background(), "studioURL", scraper.ListOpts{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var kinds []scraper.FailureKind
+	for r := range ch {
+		if r.Kind == scraper.KindError {
+			kinds = append(kinds, scraper.Classify(r.Err))
+		}
+	}
+	if len(kinds) != 1 || kinds[0] != scraper.FailureParse {
+		t.Errorf("error kinds = %v, want one FailureParse", kinds)
 	}
 }

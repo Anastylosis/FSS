@@ -1,10 +1,10 @@
 // Package treasureislandmedia scrapes Treasure Island Media
-// (treasureislandmedia.com), a gay studio running a single Drupal catalog
-// whose sub-brands live on subdomains (timfuck, timsuck, timjack, bruthaload,
-// ghr, classics, latinloads). The /scenes listing yields scene detail links;
-// each detail page exposes anonymous OpenGraph metadata. The og:url host
-// identifies the sub-brand, the og:image cover filename supplies the numeric
-// scene ID, and og:updated_time gives the publish date.
+// (treasureislandmedia.com), a gay studio whose sub-brands (TIMFUCK, TIMSUCK,
+// TIMJACK, Bruthaload, TIM Classics, Latin Loads) once lived on subdomains and
+// are now categories of one Next.js catalog. The /scenes listing yields scene
+// detail links; each detail page carries the CMS scene id, OpenGraph tags, a
+// schema.org VideoObject with the release date, and the sub-brand in its
+// header. See docs/scrapers.md.
 package treasureislandmedia
 
 import (
@@ -78,11 +78,20 @@ var (
 	// links still do not match — they have no slug after the segment.
 	sceneLinkRe = regexp.MustCompile(`href="((?:https?://[^"]+)?/scenes/[^"?#]+)(?:[?#][^"]*)?"`)
 
-	// The scene id is the numeric filename of its own image. The site has
-	// moved that image between directories (`/covers/` → `/splashes/`), and
-	// with only the old spelling matched the id came out empty and every scene
-	// was dropped as a parse failure, so both are accepted.
-	coverIDRe = regexp.MustCompile(`/(?:covers|splashes)/(\d+)\.`)
+	// The scene id is the CMS content id the player is initialised with. It
+	// used to be the numeric filename of the scene image, which broke twice as
+	// the image moved directories (`/covers/` → `/splashes/` → `/sliders/`),
+	// each time silently dropping every scene. See docs/scrapers.md.
+	sceneIDRe = regexp.MustCompile(`\\?"sceneId\\?":(\d+)`)
+
+	// The sub-brand is the header brand block on a scene page (TIMFUCK,
+	// TIM CLASSICS, …); the sub-brand subdomains now redirect to categories.
+	brandLabelRe = regexp.MustCompile(`class="to-brandblock__label">([^<]+)<`)
+
+	// The full description; og:description is truncated with an ellipsis.
+	richtextRe   = regexp.MustCompile(`(?s)<div class="payload-richtext">(.*?)</div>`)
+	blockBreakRe = regexp.MustCompile(`(?i)</p>|<br\s*/?>`)
+	metaTagsRe   = regexp.MustCompile(`(?s)to-meta__label">Tags:</span>\s*<span class="to-meta__chips">(.*?)</span>`)
 
 	// Cast: the older template listed models as subtitle anchors to /men/{id};
 	// the 2026 rebuild renders a "Starring" strip of named cards instead.
@@ -110,6 +119,9 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 		if err != nil {
 			return scraper.PageResult{}, err
 		}
+		if page == 1 && len(urls) == 0 {
+			return scraper.PageResult{}, scraper.ParseError(pageURL, fmt.Errorf("no scene links on the first listing page"))
+		}
 		// Stop when a page yields no scene links.
 		fresh := urls[:0]
 		for _, u := range urls {
@@ -121,7 +133,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 		if len(fresh) == 0 {
 			return scraper.PageResult{Done: true}, nil
 		}
-		scenes := s.enrich(ctx, scraper.WorkerCount(opts, detailWorkers), studioURL, fresh, now, opts.Delay)
+		scenes := s.enrich(ctx, scraper.WorkerCount(opts, detailWorkers), studioURL, fresh, now, opts.Delay, out)
 		return scraper.PageResult{Scenes: scenes}, nil
 	})
 }
@@ -149,7 +161,7 @@ func (s *Scraper) fetchListing(ctx context.Context, pageURL string) ([]string, e
 	return urls, nil
 }
 
-func (s *Scraper) enrich(ctx context.Context, workers int, studioURL string, urls []string, now time.Time, delay time.Duration) []models.Scene {
+func (s *Scraper) enrich(ctx context.Context, workers int, studioURL string, urls []string, now time.Time, delay time.Duration, out chan<- scraper.SceneResult) []models.Scene {
 	scenes := make([]models.Scene, len(urls))
 	scraper.Debugf(1, "treasureislandmedia: fetching %d details with %d workers", len(urls), workers)
 	var wg sync.WaitGroup
@@ -167,25 +179,41 @@ func (s *Scraper) enrich(ctx context.Context, workers int, studioURL string, url
 			if !scraper.Pace(ctx, delay) {
 				return
 			}
-			scenes[i] = s.toScene(ctx, studioURL, u, now)
+			sc, err := s.toScene(ctx, studioURL, u, now)
+			if err != nil {
+				if ctx.Err() != nil {
+					return
+				}
+				select {
+				case out <- scraper.Error(err):
+				case <-ctx.Done():
+				}
+				return
+			}
+			scenes[i] = sc
 		}(i, u)
 	}
 	wg.Wait()
-	// Drop any scenes left zero-valued by a cancelled context or parse failure.
-	out := scenes[:0]
+	// Drop any scenes left zero-valued by a cancelled context or a failure,
+	// which has already been reported.
+	kept := scenes[:0]
 	for _, sc := range scenes {
 		if sc.ID != "" {
-			out = append(out, sc)
+			kept = append(kept, sc)
 		}
 	}
-	return out
+	return kept
 }
 
-func (s *Scraper) toScene(ctx context.Context, studioURL, sceneURL string, now time.Time) models.Scene {
+func (s *Scraper) toScene(ctx context.Context, studioURL, sceneURL string, now time.Time) (models.Scene, error) {
 	body, err := s.get(ctx, sceneURL)
 	if err != nil {
-		return models.Scene{}
+		return models.Scene{}, err
 	}
+	return parseDetail(body, studioURL, sceneURL, now)
+}
+
+func parseDetail(body []byte, studioURL, sceneURL string, now time.Time) (models.Scene, error) {
 	detail := string(body)
 	og := parseutil.OpenGraph(body)
 
@@ -197,30 +225,60 @@ func (s *Scraper) toScene(ctx context.Context, studioURL, sceneURL string, now t
 		ScrapedAt: now,
 	}
 
+	m := sceneIDRe.FindStringSubmatch(detail)
+	if m == nil {
+		return models.Scene{}, scraper.ParseError(sceneURL, fmt.Errorf("no scene id on the page"))
+	}
+	scene.ID = m[1]
+
 	if v := og["og:title"]; v != "" {
 		scene.Title = html.UnescapeString(strings.TrimSpace(v))
 	}
-	if v := og["og:description"]; v != "" {
-		scene.Description = strings.TrimSpace(html.UnescapeString(v))
+	if m := richtextRe.FindStringSubmatch(detail); m != nil {
+		scene.Description = cleanText(blockBreakRe.ReplaceAllString(m[1], " "))
+	}
+	if scene.Description == "" {
+		if v := og["og:description"]; v != "" {
+			scene.Description = strings.TrimSpace(html.UnescapeString(v))
+		}
 	}
 	if v := og["og:image"]; v != "" {
 		scene.Thumbnail = html.UnescapeString(strings.TrimSpace(v))
-		if m := coverIDRe.FindStringSubmatch(scene.Thumbnail); m != nil {
-			scene.ID = m[1]
-		}
 	}
-	if v := og["og:updated_time"]; v != "" {
-		if d, derr := parseutil.TryParseDate(strings.TrimSpace(v), time.RFC3339); derr == nil {
+
+	if vo := parseutil.ExtractVideoObject(body); vo != nil {
+		if scene.Title == "" {
+			scene.Title = strings.TrimSpace(vo.Name)
+		}
+		if d, derr := parseutil.TryParseDate(strings.TrimSpace(vo.UploadDate), time.RFC3339); derr == nil {
 			scene.Date = d.UTC()
 		}
 	}
+	if scene.Date.IsZero() {
+		if v := og["og:updated_time"]; v != "" {
+			if d, derr := parseutil.TryParseDate(strings.TrimSpace(v), time.RFC3339); derr == nil {
+				scene.Date = d.UTC()
+			}
+		}
+	}
+	if scene.Title == "" {
+		return models.Scene{}, scraper.ParseError(sceneURL, fmt.Errorf("no title on the page"))
+	}
+
 	if v := og["og:url"]; v != "" {
 		ogURL := html.UnescapeString(strings.TrimSpace(v))
 		scene.URL = ogURL
-		id, name := brandFromURL(ogURL)
-		if id != "" {
+		if id, name := brandFromURL(ogURL); id != "" {
 			scene.SiteID = id
 			scene.Studio = name
+		}
+	}
+	if scene.SiteID == siteID {
+		if m := brandLabelRe.FindStringSubmatch(detail); m != nil {
+			if id, name := brandFromLabel(m[1]); id != "" {
+				scene.SiteID = id
+				scene.Studio = name
+			}
 		}
 	}
 
@@ -238,6 +296,10 @@ func (s *Scraper) toScene(ctx context.Context, studioURL, sceneURL string, now t
 		}
 	}
 
+	if m := metaTagsRe.FindStringSubmatch(detail); m != nil {
+		scene.Tags = chipTexts(m[1])
+	}
+
 	var performers []string
 	seen := make(map[string]bool)
 	for _, re := range []*regexp.Regexp{castLinkRe, castStripNames} {
@@ -251,7 +313,47 @@ func (s *Scraper) toScene(ctx context.Context, studioURL, sceneURL string, now t
 	}
 	scene.Performers = performers
 
-	return scene
+	return scene, nil
+}
+
+func chipTexts(cell string) []string {
+	var out []string
+	seen := make(map[string]bool)
+	for _, c := range chipTextRe.FindAllStringSubmatch(cell, -1) {
+		v := cleanText(c[1])
+		if v != "" && !seen[v] {
+			seen[v] = true
+			out = append(out, v)
+		}
+	}
+	return out
+}
+
+// brandLabels maps a scene page's brand-block label, keyed lowercase with
+// non-alphanumerics removed, to its sub-brand subdomain. The parent studio's
+// own pages carry "Paul Morris", which is not listed and so stays the parent.
+var brandLabels = map[string]string{
+	"timfuck":       "timfuck",
+	"timsuck":       "timsuck",
+	"timjack":       "timjack",
+	"bruthaload":    "bruthaload",
+	"grindhouseraw": "ghr",
+	"timclassics":   "classics",
+	"latinloads":    "latinloads",
+}
+
+func brandFromLabel(label string) (string, string) {
+	var b strings.Builder
+	for _, r := range strings.ToLower(html.UnescapeString(label)) {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			b.WriteRune(r)
+		}
+	}
+	sub, ok := brandLabels[b.String()]
+	if !ok {
+		return "", ""
+	}
+	return sub, brandSubdomains[sub]
 }
 
 // brandSubdomains maps a sub-brand subdomain to its display name. The SiteID
