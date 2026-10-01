@@ -1001,6 +1001,7 @@ backlog files for the same reason.
 
 | Studio | Why | Checked |
 |---|---|---|
+| Karups (karups.com) | The network hub is a merged view of the three brands FSS already scrapes (KarupsOW, KarupsPC, KarupsHA), not a catalogue of its own: over the first three pages all 144 of its scene ids are among the 432 those sites return, so covering it would store the same scenes again under a fourth studio key. Its `/videos/` is the ordinary template, not a JS shell — the 11 KB page a cold request gets is the age gate, which the scraper passes with `Cookie: warningHidden=hide` | 2026-09-17 |
 | Cock Ninja Studios | No public tour at all: `cockninjastudios.com` 302s straight into an OAuth members-area login, and `/tour`, `/videos` and a `tour.` subdomain all 404 or fail to resolve | 2026-09-16 |
 | Miss Grace (missannabellegrace.com) | Domain no longer resolves | 2026-09-16 |
 | PinkVelvetVault tree — Nikki Sims, BellaXOXO, Meet Madden, Tiffany Alexis | The hub is an affiliate portal with no catalogue; `nikkisims.com` answers HTTP 500 and the other three serve 3–11 KB splash pages with no updates listing | 2026-09-16 |
