@@ -89,6 +89,8 @@ func (s *Scraper) Patterns() []string {
 		"sinx.com/videos/all",
 		"sinx.com/{Channel-Name}",
 		"sinx.com/channel/{Channel-Name}/all",
+		"sinx.com/girls/{id}-{slug}",
+		"sinx.com/tag/{id}-{slug}",
 		"madsexparty.com/",
 		"madsexparty.com/videos/all",
 	}

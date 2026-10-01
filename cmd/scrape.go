@@ -254,6 +254,16 @@ func scrapeOne(ctx context.Context, st store.Store, tgt scrapeTarget, name, dbPa
 		return err
 	}
 
+	// A scraper that does not recognise a filtered URL falls through to its
+	// whole catalogue and stores the result under the filtered URL's key,
+	// which reads as a successful scrape of something else entirely. Patterns()
+	// is what the scraper claims to accept, so a non-root URL matching none of
+	// its non-root patterns is worth saying out loud — it is either a URL form
+	// the scraper does not handle, or one it handles but never advertised.
+	if scraper.URLLooksUnhandled(sc, studioURL) {
+		scraper.WarnURLFallthrough(sc.ID(), studioURL)
+	}
+
 	unlock, err := st.Lock(studioURL)
 	if err != nil {
 		return fmt.Errorf("locking studio: %w", err)

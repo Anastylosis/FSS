@@ -57,6 +57,7 @@ func (s *Scraper) Patterns() []string {
 	return []string{
 		"megasite.meanworld.com",
 		"megasite.meanworld.com/categories/movies.html",
+		"megasite.meanworld.com/categories/movies_{page}_d.html",
 		"megasite.meanworld.com/{channel}/categories/movies.html",
 	}
 }

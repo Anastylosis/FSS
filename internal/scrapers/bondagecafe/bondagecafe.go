@@ -33,7 +33,7 @@ func init() { scraper.Register(New()) }
 
 func (s *Scraper) ID() string { return siteID }
 func (s *Scraper) Patterns() []string {
-	return []string{"bondagecafe.com", "bondagecafe.com/updates"}
+	return []string{"bondagecafe.com", "bondagecafe.com/updates", "bondagecafe.com/updates/page_{n}.html"}
 }
 
 var matchRe = regexp.MustCompile(`^https?://(?:www\.)?bondagecafe\.com(?:/|$)`)

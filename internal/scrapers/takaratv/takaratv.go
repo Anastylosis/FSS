@@ -33,6 +33,7 @@ func (s *Scraper) ID() string { return "takaratv" }
 
 func (s *Scraper) Patterns() []string {
 	return []string{
+		"takara-tv.jp/top_index.php",
 		"takara-tv.jp",
 		"takara-tv.jp/search.php?ac={id}",
 		"takara-tv.jp/search.php?lb={id}",

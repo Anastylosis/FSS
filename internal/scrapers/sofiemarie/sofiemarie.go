@@ -20,6 +20,7 @@ var site = latestupdateutil.SiteConfig{
 	AltDomains: []string{"yummysofie.com"},
 	Patterns: []string{
 		"sofiemariexxx.com",
+		"sofiemariexxx.com/categories/movies.html",
 		"sofiemariexxx.com/models/{slug}.html",
 		"sofiemariexxx.com/dvds/{slug}.html",
 		"yummysofie.com (rewritten to sofiemariexxx.com)",

@@ -53,6 +53,7 @@ func (s *Scraper) ID() string { return siteID }
 func (s *Scraper) Patterns() []string {
 	return []string{
 		"tadpolexstudio.com",
+		"tadpolexstudio.com/categories/movies.html",
 		"tadpolexstudio.com/categories/movies_{N}.html",
 		"tadpolexstudio.com/scenes/{slug}_vids.html",
 	}

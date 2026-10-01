@@ -66,7 +66,7 @@ func init() {
 
 func (s *Scraper) ID() string { return s.cfg.id }
 func (s *Scraper) Patterns() []string {
-	return []string{s.cfg.pattern, s.cfg.pattern + "/model/{slug}.html"}
+	return []string{s.cfg.pattern, s.cfg.pattern + "/videos/", s.cfg.pattern + "/model/{slug}.html"}
 }
 func (s *Scraper) MatchesURL(u string) bool { return s.cfg.matchRe.MatchString(u) }
 

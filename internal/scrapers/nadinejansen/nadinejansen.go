@@ -61,6 +61,7 @@ func (s *Scraper) ID() string { return siteID }
 
 func (s *Scraper) Patterns() []string {
 	return []string{
+		"nadine-j.de/models/videos",
 		"nadine-j.de",
 		"nadine-j.de/models/videos/{N}",
 		"nadine-j.de/nadine/videos/{N}",

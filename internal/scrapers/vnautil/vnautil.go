@@ -63,7 +63,10 @@ func NewWithBase(cfg SiteConfig, base string, client *http.Client) *Scraper {
 func (s *Scraper) ID() string { return s.cfg.SiteID }
 
 func (s *Scraper) Patterns() []string {
-	return []string{s.cfg.Domain + "/" + s.cfg.VideoPrefix}
+	return []string{
+		s.cfg.Domain + "/" + s.cfg.VideoPrefix,
+		s.cfg.Domain + "/sd3.php?show=recent_video_updates",
+	}
 }
 
 func BuildMatchRe(domain, prefix string) *regexp.Regexp {

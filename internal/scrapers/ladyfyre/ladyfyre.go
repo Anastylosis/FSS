@@ -35,6 +35,7 @@ func (s *Scraper) ID() string { return "ladyfyre" }
 func (s *Scraper) Patterns() []string {
 	return []string{
 		"ladyfyre.com",
+		"ladyfyre.com/tour/categories/movies.html",
 		"ladyfyre.com/tour/models/{slug}.html",
 	}
 }

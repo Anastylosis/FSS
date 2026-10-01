@@ -59,7 +59,7 @@ func init() { scraper.Register(New()) }
 func (s *Scraper) ID() string { return siteID }
 
 func (s *Scraper) Patterns() []string {
-	return []string{"muku.tv", "muku.tv/actress/detail/{id}"}
+	return []string{"muku.tv", "muku.tv/works/list/release/", "muku.tv/actress/detail/{id}"}
 }
 
 func (s *Scraper) MatchesURL(u string) bool { return matchRe.MatchString(u) }

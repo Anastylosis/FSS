@@ -14,7 +14,7 @@ func site(id, host, studio string) perfectgonzoutil.SiteConfig {
 		ID:       id,
 		SiteBase: "http://www." + host,
 		Studio:   studio,
-		Patterns: []string{host, host + "/movies/page-{N}/"},
+		Patterns: []string{host, host + "/movies", host + "/movies/page-{N}/"},
 		MatchRe:  regexp.MustCompile(`^https?://(?:www\.)?` + regexp.QuoteMeta(host) + `(?:/|$)`),
 	}
 }

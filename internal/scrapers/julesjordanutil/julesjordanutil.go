@@ -80,6 +80,7 @@ func (s *Scraper) Patterns() []string {
 	return []string{
 		d + "/",
 		d + "/categories/movies.html",
+		d + "/categories/movies_{page}_d.html",
 		d + "/models/{slug}.html",
 		d + "/dvds/dvds.html",
 	}

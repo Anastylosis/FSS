@@ -49,6 +49,7 @@ func (s *Scraper) ID() string { return siteID }
 
 func (s *Scraper) Patterns() []string {
 	return []string{
+		"pjgirls.com/sitemap.xml",
 		"pjgirls.com",
 		"pjgirls.com/en/video/{id}-{slug}/",
 	}
