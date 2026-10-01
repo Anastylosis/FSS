@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"html"
 	"net/http"
+	neturl "net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -16,7 +17,10 @@ import (
 	"github.com/Anastylosis/FSS/scraper"
 )
 
-const siteBase = "https://alisonangel.com"
+// siteBase is deliberately plain http: the https vhost answers every path,
+// robots.txt included, with a 302 to a CCBill join form, while the http vhost
+// still serves the public tour.
+const siteBase = "http://alisonangel.com"
 
 type Scraper struct {
 	client *http.Client
@@ -361,10 +365,18 @@ func (s *Scraper) fetchScene(ctx context.Context, ep episode, studioURL string, 
 		}
 	}
 
+	if strings.HasPrefix(scene.Thumbnail, "/") {
+		scene.Thumbnail = s.base + scene.Thumbnail
+	}
+
 	return scene, nil
 }
 
 func (s *Scraper) fetch(ctx context.Context, url string) ([]byte, error) {
+	want, err := neturl.Parse(url)
+	if err != nil {
+		return nil, err
+	}
 	resp, err := httpx.Do(ctx, s.client, httpx.Request{
 		URL:     url,
 		Headers: httpx.BrowserHeaders(httpx.UserAgentFirefox),
@@ -373,5 +385,8 @@ func (s *Scraper) fetch(ctx context.Context, url string) ([]byte, error) {
 		return nil, err
 	}
 	defer func() { _ = resp.Body.Close() }()
+	if final := resp.Request.URL; strings.TrimPrefix(final.Host, "www.") != strings.TrimPrefix(want.Host, "www.") {
+		return nil, fmt.Errorf("%s redirected off-site to %s", url, final)
+	}
 	return httpx.ReadBody(resp.Body)
 }

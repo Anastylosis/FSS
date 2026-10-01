@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -261,6 +262,9 @@ func TestListScenes(t *testing.T) {
 		if len(sc.Performers) != 1 || sc.Performers[0] != "Alison Angel" {
 			t.Errorf("performers = %v", sc.Performers)
 		}
+		if !strings.HasPrefix(sc.Thumbnail, ts.URL+"/") {
+			t.Errorf("thumbnail = %q, want absolute under %s", sc.Thumbnail, ts.URL)
+		}
 	}
 }
 
@@ -309,4 +313,33 @@ func TestListScenesEnrichment(t *testing.T) {
 
 func TestScraperInterface(t *testing.T) {
 	var _ scraper.StudioScraper = New()
+}
+
+func TestListScenesOffSiteRedirectIsReported(t *testing.T) {
+	billing := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprint(w, `<html><body><form class="place_order"></form></body></html>`)
+	}))
+	defer billing.Close()
+	site := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, billing.URL+"/flexforms/x", http.StatusFound)
+	}))
+	defer site.Close()
+
+	s := &Scraper{client: site.Client(), base: site.URL}
+	ch, err := s.ListScenes(context.Background(), site.URL, scraper.ListOpts{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var errs []error
+	for r := range ch {
+		if r.Kind == scraper.KindScene {
+			t.Errorf("unexpected scene %+v", r.Scene)
+		}
+		if r.Err != nil {
+			errs = append(errs, r.Err)
+		}
+	}
+	if len(errs) != 1 || !strings.Contains(errs[0].Error(), "redirected off-site") {
+		t.Fatalf("errors = %v, want one off-site redirect error", errs)
+	}
 }
