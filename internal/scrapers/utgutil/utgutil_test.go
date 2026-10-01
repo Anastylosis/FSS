@@ -271,7 +271,7 @@ func TestRunPaginated(t *testing.T) {
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case "/updates/videos/1/200":
+		case "/updates/videos":
 			_, _ = fmt.Fprint(w, page1)
 		default:
 			http.NotFound(w, r)
@@ -304,7 +304,7 @@ func TestRunModel(t *testing.T) {
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case "/models/jane-doe/1/200":
+		case "/models/jane-doe":
 			_, _ = fmt.Fprint(w, modelPage)
 		default:
 			http.NotFound(w, r)
@@ -402,7 +402,7 @@ func TestProgressSent(t *testing.T) {
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case "/updates/videos/1/200":
+		case "/updates/videos":
 			_, _ = fmt.Fprint(w, page)
 		default:
 			http.NotFound(w, r)
@@ -574,5 +574,218 @@ func TestRunLegacyYears(t *testing.T) {
 	}
 	if scenes != 2 {
 		t.Errorf("got %d scenes, want 2", scenes)
+	}
+}
+
+// --- Livewire template variants (2026 redesign) ---
+
+// Hayley's Secrets / Girlfolio / BreathTakers: absolute model and preview links.
+const lwArticleAbsolute = `<article
+    wire:key="update-2726"
+    class="flex flex-col lift relative"
+>
+    <a href="https://www.testsite.com/updates/previews/videos/seductions-of-water" class="relative block">
+        <img
+            src="https://assets.utgnetworks.com/testsite/images/category/videos/ruby_mae_seductions_of_water/ruby_mae_seductions_of_water.jpg?class=blurThumbNsfw"
+            alt="Seductions Of Water"
+            class="w-full aspect-3/2 h-auto object-cover blur-lg"
+        />
+    </a>
+    <div class="flex flex-1 flex-col py-2">
+        <h3 class="font-heading text-xl text-primary-600 mb-0!">
+            <a href="https://www.testsite.com/updates/previews/videos/seductions-of-water" class="hover:underline focus:underline">Seductions Of Water</a>
+        </h3>
+        <p class="mt-1 text-xs font-bold mb-0.5">09 September 2026</p>
+        <p class="text-xs text-primary-600 mb-0.5">
+            <a class="hover:underline focus:underline" href="https://www.testsite.com/models/ruby-mae">Ruby Mae</a>
+        </p>
+        <p class="text-xs mb-0.5">
+            8:25 Minutes | <a href="https://www.testsite.com/updates/previews/videos/seductions-of-water">View Video</a>
+        </p>
+    </div>
+    <div class="update_videos_banner"><a href="https://www.testsite.com/updates/previews/videos/seductions-of-water">Seductions Of Water</a></div>
+</article>`
+
+// More Than Nylons: no duration and no banner; a sub-category link.
+const lwArticleNoDuration = `<article class="lift">
+    <a href="https://www.testsite.com/updates/previews/videos/natures-secrets-bts" class="block relative">
+            <img
+                src="https://assets.utgnetworks.com/testsite/images/category/videos/blossom_may_natures_secrets_bts/blossom_may_natures_secrets_bts_l.jpg?class=smallThumb"
+                alt="Natures Secrets BTS"
+                class="w-full aspect-3/2 md:h-full object-cover"
+            />
+    </a>
+    <h3 class="mt-0.5 text-sm sm:text-xs font-bold mb-0!">
+        <a class="hover:underline focus:underline" href="https://www.testsite.com/models/blossom-may">Blossom May</a>
+    </h3>
+    <div class="flex justify-between">
+        <h3 class="mt-1 text-sm sm:text-xs font-bold sm:text-right">
+            Category:
+            <a class="hover:underline focus:underline" href="https://www.testsite.com/sub-category/stockings">Stockings</a>
+        </h3>
+        <h3 class="mt-1 text-sm sm:text-xs font-bold sm:text-right">15 September 2026</h3>
+    </div>
+</article>`
+
+// UK Tickling: links go to /join; the model is only named in an overlay span.
+const lwArticleAngel = `<article class="lift relative">
+    <a href="https://www.testsite.com/join" class="relative block">
+            <img
+                src="https://assets.utgnetworks.com/testsite/images/category/videos/shante_mai_ukt_1838/a16c6c7c.jpg?class=smallThumb"
+                alt="Ukt 1838"
+                class="border-2 rounded-xl w-full object-cover"
+            />
+                <div class="absolute bottom-0 right-4 max-w-[70%]">
+                    <span
+                        class="angel-name block text-right font-angel text-pink-400 whitespace-nowrap"
+                    >
+                        Shante Mai
+                    </span>
+                </div>
+    </a>
+    <div class="update_videos_banner"><a href="https://www.testsite.com/join">Ukt 1838</a></div>
+</article>`
+
+// A model page's photo set: must be filtered out.
+const lwArticlePhoto = `<article class="flex flex-col lift relative">
+    <a href="https://www.testsite.com/updates/previews/photos/style-and-skin" class="relative block">
+        <img
+            src="https://assets.utgnetworks.com/testsite/images/category/photos/ruby_mae_style/ruby_mae_style.jpg?class=smallThumb"
+            alt="Style and Skin"
+        />
+    </a>
+    <p class="mt-1 text-xs font-bold mb-0.5">01 September 2026</p>
+    <div class="update_gallery_banner"><a href="https://www.testsite.com/updates/previews/photos/style-and-skin">Style and Skin</a></div>
+</article>`
+
+func lwPager(last int) string {
+	return fmt.Sprintf(`<button type="button" wire:click="gotoPage(2, 'updates_page')">2</button><button type="button" wire:click="gotoPage(%d, 'updates_page')">%d</button>`, last, last)
+}
+
+func TestParseArticles_LivewireVariants(t *testing.T) {
+	body := buildPage(lwArticleAbsolute+lwArticleNoDuration+lwArticleAngel+lwArticlePhoto, 0)
+	arts := parseArticles([]byte(body), true)
+	if len(arts) != 3 {
+		t.Fatalf("got %d video articles, want 3 (photo set excluded)", len(arts))
+	}
+	now := time.Now().UTC()
+
+	a := arts[0].toScene(testCfg, "https://testsite.com/updates/videos", now)
+	if a.ID != "ruby_mae_seductions_of_water" || a.Title != "Seductions Of Water" {
+		t.Errorf("ID/Title = %q/%q", a.ID, a.Title)
+	}
+	if a.URL != "https://www.testsite.com/updates/previews/videos/seductions-of-water" {
+		t.Errorf("URL = %q, want the article's own preview link", a.URL)
+	}
+	if len(a.Performers) != 1 || a.Performers[0] != "Ruby Mae" {
+		t.Errorf("Performers = %v (absolute /models/ link)", a.Performers)
+	}
+	if a.Duration != 505 {
+		t.Errorf("Duration = %d, want 505", a.Duration)
+	}
+	if want := time.Date(2026, 9, 9, 0, 0, 0, 0, time.UTC); !a.Date.Equal(want) {
+		t.Errorf("Date = %v, want %v", a.Date, want)
+	}
+
+	b := arts[1].toScene(testCfg, "", now)
+	if b.ID != "blossom_may_natures_secrets_bts" || len(b.Performers) != 1 || b.Performers[0] != "Blossom May" {
+		t.Errorf("ID/Performers = %q/%v", b.ID, b.Performers)
+	}
+	if len(b.Categories) != 1 || b.Categories[0] != "Stockings" {
+		t.Errorf("Categories = %v", b.Categories)
+	}
+
+	c := arts[2].toScene(testCfg, "", now)
+	if c.ID != "shante_mai_ukt_1838" || len(c.Performers) != 1 || c.Performers[0] != "Shante Mai" {
+		t.Errorf("ID/Performers = %q/%v (angel-name overlay)", c.ID, c.Performers)
+	}
+	if c.URL != "https://testsite.com/updates/previews/videos/ukt-1838" {
+		t.Errorf("URL = %q, want the title-derived fallback when the card links to /join", c.URL)
+	}
+}
+
+func TestParseLastPage(t *testing.T) {
+	if got := parseLastPage([]byte(lwPager(26))); got != 26 {
+		t.Errorf("parseLastPage = %d, want 26", got)
+	}
+	if got := parseLastPage([]byte(`wire:click="gotoPage(7, &#039;updates_page&#039;)"`)); got != 7 {
+		t.Errorf("parseLastPage (escaped) = %d, want 7", got)
+	}
+	if got := parseLastPage([]byte(`<p>no pager</p>`)); got != 0 {
+		t.Errorf("parseLastPage = %d, want 0", got)
+	}
+}
+
+func TestRunListing_followsUpdatesPage(t *testing.T) {
+	var queries []string
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/updates/videos" {
+			http.NotFound(w, r)
+			return
+		}
+		queries = append(queries, r.URL.RawQuery)
+		switch r.URL.Query().Get("updates_page") {
+		case "":
+			_, _ = fmt.Fprint(w, buildPage(lwArticleAbsolute+lwPager(2), 0))
+		case "2":
+			_, _ = fmt.Fprint(w, buildPage(lwArticleNoDuration+lwPager(2), 0))
+		default:
+			t.Errorf("unexpected page %q", r.URL.RawQuery)
+		}
+	}))
+	defer ts.Close()
+
+	ch, err := testScraper(ts).ListScenes(context.Background(), ts.URL+"/updates/videos", scraper.ListOpts{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var ids []string
+	total := 0
+	for _, r := range collect(t, ch) {
+		switch r.Kind {
+		case scraper.KindScene:
+			ids = append(ids, r.Scene.ID)
+		case scraper.KindTotal:
+			total = r.Total
+		}
+	}
+	if fmt.Sprint(ids) != "[ruby_mae_seductions_of_water blossom_may_natures_secrets_bts]" {
+		t.Errorf("ids = %v", ids)
+	}
+	if fmt.Sprint(queries) != "[ updates_page=2]" {
+		t.Errorf("queries = %q, want page 1 bare then updates_page=2 and no further", queries)
+	}
+	if total != 2 {
+		t.Errorf("total = %d, want 2 (last page x page size)", total)
+	}
+}
+
+func TestRunListing_modelPageOfPhotosContinues(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/models/ruby-mae" {
+			http.NotFound(w, r)
+			return
+		}
+		switch r.URL.Query().Get("updates_page") {
+		case "":
+			_, _ = fmt.Fprint(w, buildPage(lwArticlePhoto+lwPager(2), 0))
+		case "2":
+			_, _ = fmt.Fprint(w, buildPage(lwArticleAbsolute+lwPager(2), 0))
+		}
+	}))
+	defer ts.Close()
+
+	ch, err := testScraper(ts).ListScenes(context.Background(), ts.URL+"/models/ruby-mae", scraper.ListOpts{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var ids []string
+	for _, r := range collect(t, ch) {
+		if r.Kind == scraper.KindScene {
+			ids = append(ids, r.Scene.ID)
+		}
+	}
+	if fmt.Sprint(ids) != "[ruby_mae_seductions_of_water]" {
+		t.Errorf("ids = %v, want the video from page 2 after a photo-only page 1", ids)
 	}
 }

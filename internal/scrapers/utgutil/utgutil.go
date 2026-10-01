@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -15,8 +16,6 @@ import (
 	"github.com/Anastylosis/FSS/parseutil"
 	"github.com/Anastylosis/FSS/scraper"
 )
-
-const perPage = 200
 
 type SiteConfig struct {
 	SiteID     string
@@ -101,40 +100,26 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 }
 
 func (s *Scraper) runPaginated(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
-	base := s.base()
-	now := time.Now().UTC()
-
-	scraper.Paginate(ctx, opts, s.cfg.SiteID, out, func(ctx context.Context, page int) (scraper.PageResult, error) {
-		pageURL := fmt.Sprintf("%s/updates/videos/%d/%d", base, page, perPage)
-		body, err := s.fetchPage(ctx, pageURL)
-		if err != nil {
-			return scraper.PageResult{}, err
-		}
-
-		articles := parseArticles(body, true)
-		if len(articles) == 0 {
-			return scraper.PageResult{}, nil
-		}
-
-		total := 0
-		if page == 1 {
-			total = parseVideoCount(body)
-		}
-
-		scenes := make([]models.Scene, len(articles))
-		for i, a := range articles {
-			scenes[i] = a.toScene(s.cfg, studioURL, now)
-		}
-		return scraper.PageResult{Scenes: scenes, Total: total, Done: len(articles) < perPage}, nil
-	})
+	s.runListing(ctx, studioURL, s.base()+"/updates/videos", true, opts, out)
 }
 
 func (s *Scraper) runModel(ctx context.Context, studioURL, slug string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
-	base := s.base()
+	s.runListing(ctx, studioURL, s.base()+"/models/"+slug, false, opts, out)
+}
+
+// runListing walks a Livewire listing (`all-updates-browser`). The component
+// pages through `?updates_page=N` at a fixed page size, and its pager names the
+// last page as `gotoPage(N, 'updates_page')`. A model page mixes photo sets
+// with videos, so a page that filters to zero videos does not end the walk.
+func (s *Scraper) runListing(ctx context.Context, studioURL, listURL string, videosOnly bool, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
 	now := time.Now().UTC()
+	lastPage := 1
 
 	scraper.Paginate(ctx, opts, s.cfg.SiteID, out, func(ctx context.Context, page int) (scraper.PageResult, error) {
-		pageURL := fmt.Sprintf("%s/models/%s/%d/%d", base, slug, page, perPage)
+		pageURL := listURL
+		if page > 1 {
+			pageURL = fmt.Sprintf("%s?updates_page=%d", listURL, page)
+		}
 		body, err := s.fetchPage(ctx, pageURL)
 		if err != nil {
 			return scraper.PageResult{}, err
@@ -145,21 +130,40 @@ func (s *Scraper) runModel(ctx context.Context, studioURL, slug string, opts scr
 			return scraper.PageResult{}, nil
 		}
 
-		videos := filterVideos(articles)
-
 		total := 0
-		if page == 1 && len(videos) > 0 {
-			total = len(videos)
+		if page == 1 {
+			lastPage = max(parseLastPage(body), 1)
+			if videosOnly {
+				total = parseVideoCount(body)
+				if total == 0 {
+					total = lastPage * len(articles)
+				}
+			}
 		}
 
+		videos := filterVideos(articles)
 		scenes := make([]models.Scene, len(videos))
 		for i, a := range videos {
 			scenes[i] = a.toScene(s.cfg, studioURL, now)
 		}
-		// A page of photo-only articles filters to zero videos but the listing
-		// continues; keep paginating until the page is short.
-		return scraper.PageResult{Scenes: scenes, Total: total, Continue: len(articles) > 0, Done: len(articles) < perPage}, nil
+		return scraper.PageResult{Scenes: scenes, Total: total, Continue: true, Done: page >= lastPage}, nil
 	})
+}
+
+var lastPageRe = regexp.MustCompile(`gotoPage\((\d+),\s*(?:'|&#0?39;)updates_page`)
+
+func parseLastPage(body []byte) int {
+	n := 0
+	for _, m := range lastPageRe.FindAllSubmatch(body, -1) {
+		v := 0
+		for _, c := range m[1] {
+			v = v*10 + int(c-'0')
+		}
+		if v > n {
+			n = v
+		}
+	}
+	return n
 }
 
 // --- Legacy template (Bootstrap 3, no <article> tags) ---
@@ -391,23 +395,28 @@ func (s *Scraper) fetchPage(ctx context.Context, pageURL string) ([]byte, error)
 }
 
 type article struct {
-	title     string
-	slug      string // from CDN path, e.g. "laura_hollyman_crimson_canvas_bts"
-	thumbnail string
-	date      string
-	duration  int
-	model     string
-	modelSlug string
-	isVideo   bool
+	title      string
+	slug       string // from CDN path, e.g. "laura_hollyman_crimson_canvas_bts"
+	thumbnail  string
+	date       string
+	duration   int
+	model      string
+	modelSlug  string
+	url        string // the article's own preview link, when it has one
+	categories []string
+	isVideo    bool
 }
 
 var (
 	articleRe    = regexp.MustCompile(`(?s)<article[^>]*>(.+?)</article>`)
 	imgRe        = regexp.MustCompile(`<img\s[^>]*src="([^"]+)"[^>]*alt="([^"]*)"`)
-	modelRe      = regexp.MustCompile(`href="/models/([^"]+)"[^>]*>([^<]+)</a>`)
+	modelRe      = regexp.MustCompile(`href="(?:https?://[^/"]+)?/models/([^"]+)"[^>]*>([^<]+)</a>`)
+	angelNameRe  = regexp.MustCompile(`class="angel-name[^"]*"\s*>\s*([^<]+?)\s*</span>`)
+	previewRe    = regexp.MustCompile(`href="([^"]*/updates/previews/videos/[^"]+)"`)
+	subCatRe     = regexp.MustCompile(`href="[^"]*/sub-category/[^"]+"[^>]*>([^<]+)</a>`)
 	dateRe       = regexp.MustCompile(`\b(\d{1,2}\s+(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4})\b`)
 	durationRe   = regexp.MustCompile(`(\d+:\d+)\s+Minutes`)
-	videoBanner  = regexp.MustCompile(`update_video_banner`)
+	videoBanner  = regexp.MustCompile(`update_videos?_banner`)
 	cdnSlugRe    = regexp.MustCompile(`/videos/([^/]+)/`)
 	videoCountRe = regexp.MustCompile(`HD\s*VIDEO:\s*([\d,]+)`)
 )
@@ -429,7 +438,20 @@ func parseArticles(body []byte, videosOnly bool) []article {
 
 		if mm := modelRe.FindSubmatch(block); mm != nil {
 			a.modelSlug = string(mm[1])
-			a.model = strings.TrimSpace(string(mm[2]))
+			a.model = strings.TrimSpace(html.UnescapeString(string(mm[2])))
+		} else if am := angelNameRe.FindSubmatch(block); am != nil {
+			a.model = strings.TrimSpace(html.UnescapeString(string(am[1])))
+		}
+
+		if pm := previewRe.FindSubmatch(block); pm != nil {
+			a.url = string(pm[1])
+			a.isVideo = true
+		}
+
+		for _, cm := range subCatRe.FindAllSubmatch(block, -1) {
+			if c := strings.TrimSpace(html.UnescapeString(string(cm[1]))); c != "" && !slices.Contains(a.categories, c) {
+				a.categories = append(a.categories, c)
+			}
 		}
 
 		if dm := dateRe.FindSubmatch(block); dm != nil {
@@ -442,6 +464,10 @@ func parseArticles(body []byte, videosOnly bool) []article {
 		}
 
 		if videoBanner.Match(block) {
+			a.isVideo = true
+		}
+
+		if strings.Contains(a.thumbnail, "/category/videos/") {
 			a.isVideo = true
 		}
 
@@ -487,10 +513,18 @@ func (a article) toScene(cfg SiteConfig, studioURL string, now time.Time) models
 	if idx := strings.Index(thumb, "?"); idx > 0 {
 		thumb = thumb[:idx]
 	}
+	if strings.HasPrefix(thumb, "/") && !strings.HasPrefix(thumb, "//") {
+		thumb = "https://" + cfg.Domain + thumb
+	}
 
 	var performers []string
 	if a.model != "" {
 		performers = []string{a.model}
+	}
+
+	sceneURL := a.url
+	if sceneURL == "" {
+		sceneURL = fmt.Sprintf("https://%s/updates/previews/videos/%s", cfg.Domain, slugify(a.title))
 	}
 
 	return models.Scene{
@@ -498,7 +532,8 @@ func (a article) toScene(cfg SiteConfig, studioURL string, now time.Time) models
 		SiteID:     cfg.SiteID,
 		StudioURL:  studioURL,
 		Title:      a.title,
-		URL:        fmt.Sprintf("https://%s/updates/previews/videos/%s", cfg.Domain, slugify(a.title)),
+		URL:        sceneURL,
+		Categories: a.categories,
 		Date:       parseDate(a.date),
 		Duration:   a.duration,
 		Performers: performers,

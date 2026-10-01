@@ -6,6 +6,7 @@ import (
 	"html"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -15,7 +16,7 @@ import (
 	"github.com/Anastylosis/FSS/scraper"
 )
 
-const portalBase = "https://www.glamose.com"
+var portalBase = "https://www.glamose.com"
 
 type portalScraper struct {
 	client *http.Client
@@ -36,42 +37,81 @@ func (s *portalScraper) ListScenes(ctx context.Context, studioURL string, opts s
 }
 
 var (
-	boxRe      = regexp.MustCompile(`(?s)<div class="box">(.*?)</div>\s*</div>`)
-	updateIDRe = regexp.MustCompile(`update_id=(\d+)`)
-	boxModelRe = regexp.MustCompile(`/model/[^"]*">([^<]+)</a>`)
-	boxSiteRe  = regexp.MustCompile(`<span class="site">([^<]+)</span>`)
-	boxDateRe  = regexp.MustCompile(`<span class="date">([^<]+)</span>`)
-	boxImgRe   = regexp.MustCompile(`(?:data-src|src)="(https?://cdn\.glamose\.com/[^"]+)"`)
-	boxVideoRe = regexp.MustCompile(`play-icon`)
+	boxSplitRe    = regexp.MustCompile(`<div class="box"[\s>]`)
+	updateIDRe    = regexp.MustCompile(`update_id=(\d+)`)
+	boxModelRe    = regexp.MustCompile(`/model/[^"]*"[^>]*>([^<]+)</a>`)
+	boxSiteRe     = regexp.MustCompile(`<span class="site">([^<]+)</span>`)
+	boxDateRe     = regexp.MustCompile(`<span class="date">([^<]+)</span>`)
+	boxImgRe      = regexp.MustCompile(`(?:data-src|src)="((?:https?:)?//cdn\.glamose\.com/[^"]+)"`)
+	boxVideoRe    = regexp.MustCompile(`play-icon|icons/play\.png`)
+	portalTotalRe = regexp.MustCompile(`<title>[^<]*\(([\d,]+)\)`)
 )
 
+// runPortal walks the portal's `?start=N` offset pager. The offset advances by
+// the number of boxes actually served rather than a fixed page size: the page
+// size has changed before (50 to 30), and a stale constant skips updates.
 func (s *portalScraper) runPortal(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
 	defer close(out)
 
+	offset := 0
 	scraper.Paginate(ctx, opts, "glamose", out, func(ctx context.Context, page int) (scraper.PageResult, error) {
-		start := (page - 1) * 50
-		u := fmt.Sprintf("%s/?start=%d", portalBase, start)
+		u := fmt.Sprintf("%s/?start=%d", portalBase, offset)
 
 		body, err := s.fetchPortalHTML(ctx, u)
 		if err != nil {
 			return scraper.PageResult{}, err
 		}
 
-		scenes := parsePortalPage(body, studioURL)
+		boxes := portalBoxes(body)
+		if len(boxes) == 0 {
+			return scraper.PageResult{}, nil
+		}
+		offset += len(boxes)
+
+		total := 0
+		if page == 1 {
+			total = parsePortalTotal(body)
+		}
 		return scraper.PageResult{
-			Scenes: scenes,
-			Done:   len(scenes) < 50,
+			Scenes:   parseBoxes(boxes, studioURL),
+			Total:    total,
+			Continue: true,
 		}, nil
 	})
 }
 
+func portalBoxes(body []byte) [][]byte {
+	idx := boxSplitRe.FindAllIndex(body, -1)
+	boxes := make([][]byte, len(idx))
+	for i, loc := range idx {
+		end := len(body)
+		if i+1 < len(idx) {
+			end = idx[i+1][0]
+		}
+		boxes[i] = body[loc[0]:end]
+	}
+	return boxes
+}
+
+func parsePortalTotal(body []byte) int {
+	m := portalTotalRe.FindSubmatch(body)
+	if m == nil {
+		return 0
+	}
+	n, _ := strconv.Atoi(strings.ReplaceAll(string(m[1]), ",", ""))
+	return n
+}
+
 func parsePortalPage(body []byte, studioURL string) []models.Scene {
-	boxes := boxRe.FindAllSubmatch(body, -1)
+	return parseBoxes(portalBoxes(body), studioURL)
+}
+
+func parseBoxes(boxes [][]byte, studioURL string) []models.Scene {
 	now := time.Now().UTC()
 	var scenes []models.Scene
 
 	for _, box := range boxes {
-		content := box[1]
+		content := box
 
 		m := updateIDRe.FindSubmatch(content)
 		if m == nil {
@@ -110,7 +150,11 @@ func parsePortalPage(body []byte, studioURL string) []models.Scene {
 		}
 
 		if m := boxImgRe.FindSubmatch(content); m != nil {
-			scene.Thumbnail = string(m[1])
+			thumb := string(m[1])
+			if strings.HasPrefix(thumb, "//") {
+				thumb = "https:" + thumb
+			}
+			scene.Thumbnail = thumb
 		}
 
 		if boxVideoRe.Match(content) {

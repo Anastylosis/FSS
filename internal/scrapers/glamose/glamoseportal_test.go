@@ -1,8 +1,15 @@
 package glamose
 
 import (
+	"context"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/Anastylosis/FSS/scraper"
 )
 
 const portalFixture = `
@@ -112,5 +119,97 @@ func TestPortalMatchesURL(t *testing.T) {
 		if s.MatchesURL(u) {
 			t.Errorf("MatchesURL(%q) = true, want false", u)
 		}
+	}
+}
+
+// currentBox is the portal's live markup: an inline-styled box, a popup link
+// through redirect.php, a protocol-relative data-src and a play.png overlay.
+func currentBox(id, model, site string, video bool) string {
+	play := ""
+	if video {
+		play = `<img src="/images/icons/play.png" alt="Play Button" width="50" height="31">`
+	}
+	return fmt.Sprintf(`		<div class="box" style="width:280px;">
+		<div id="new_today"><img src="/images/icons/new.png" width="75" height="75" alt="New Today!"></div>        <div style="position:relative;"><div class="popup"><p><a href="/redirect.php?update_id=%[1]s&site_id=18"><img src="/images/updates/transparent.png" data-src="//cdn.glamose.com/updates/%[1]s.webp" alt="%[2]s at %[3]s" width="260" height="390" class="lazyload">%[4]s</a></p></div></div>
+        <p><a href="/model/%[2]s" class="title">%[2]s</a><br><span class="site">%[3]s</span><br><span class="date">1st Oct 2026</span></p>
+				                </div>
+`, id, model, site, play)
+}
+
+func currentPage(total int, boxes ...string) string {
+	return fmt.Sprintf(`<html><head><title>Glamose Nude Photo & Video Galleries (%d) - Page 1 - Glamose</title></head><body><div id="container">%s</div><div class="pagination"><a href="/?start=30">2</a></div></body></html>`, total, strings.Join(boxes, ""))
+}
+
+func TestParsePortalPage_currentMarkup(t *testing.T) {
+	body := currentPage(3, currentBox("275606", "Miss_V", "Only Opaques", true), currentBox("275603", "Jorja", "Only Tease", false))
+	scenes := parsePortalPage([]byte(body), "https://www.glamose.com/")
+	if len(scenes) != 2 {
+		t.Fatalf("got %d scenes, want 2", len(scenes))
+	}
+	sc := scenes[0]
+	if sc.ID != "275606" || sc.Title != "Miss_V" || sc.Series != "Only Opaques" {
+		t.Errorf("ID/Title/Series = %q/%q/%q", sc.ID, sc.Title, sc.Series)
+	}
+	if sc.Thumbnail != "https://cdn.glamose.com/updates/275606.webp" {
+		t.Errorf("Thumbnail = %q, want the protocol-relative data-src made absolute", sc.Thumbnail)
+	}
+	if want := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC); !sc.Date.Equal(want) {
+		t.Errorf("Date = %v, want %v", sc.Date, want)
+	}
+	if len(sc.Tags) != 1 || sc.Tags[0] != "Video" {
+		t.Errorf("Tags = %v, want [Video] for a box with play.png", sc.Tags)
+	}
+	if len(scenes[1].Tags) != 0 {
+		t.Errorf("Tags = %v, want none without a play overlay", scenes[1].Tags)
+	}
+	if got := parsePortalTotal([]byte(body)); got != 3 {
+		t.Errorf("parsePortalTotal = %d, want 3", got)
+	}
+}
+
+func TestRunPortal_offsetFollowsServedBoxes(t *testing.T) {
+	var starts []string
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := r.URL.Query().Get("start")
+		starts = append(starts, start)
+		switch start {
+		case "0":
+			_, _ = fmt.Fprint(w, currentPage(3, currentBox("3", "A", "S", true), currentBox("2", "B", "S", true)))
+		case "2":
+			_, _ = fmt.Fprint(w, currentPage(3, currentBox("1", "C", "S", true)))
+		default:
+			_, _ = fmt.Fprint(w, currentPage(3))
+		}
+	}))
+	defer ts.Close()
+	orig := portalBase
+	portalBase = ts.URL
+	defer func() { portalBase = orig }()
+
+	s := &portalScraper{client: ts.Client()}
+	ch, err := s.ListScenes(context.Background(), "https://www.glamose.com/", scraper.ListOpts{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var ids []string
+	total := 0
+	for r := range ch {
+		switch r.Kind {
+		case scraper.KindScene:
+			ids = append(ids, r.Scene.ID)
+		case scraper.KindTotal:
+			total = r.Total
+		case scraper.KindError:
+			t.Errorf("unexpected error: %v", r.Err)
+		}
+	}
+	if fmt.Sprint(ids) != "[3 2 1]" {
+		t.Errorf("ids = %v, want [3 2 1]", ids)
+	}
+	if fmt.Sprint(starts) != "[0 2 3]" {
+		t.Errorf("start offsets = %v, want [0 2 3]", starts)
+	}
+	if total != 3 {
+		t.Errorf("total = %d, want 3", total)
 	}
 }
