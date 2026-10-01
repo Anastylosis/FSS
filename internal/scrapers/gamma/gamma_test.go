@@ -91,21 +91,17 @@ func TestURLRecognitionMatchesWhatRunDispatchesOn(t *testing.T) {
 		"https://www.adulttime.com/en/pornstar/view/someone/12345",
 		"https://www.adulttime.com/en/model/view/someone/12345",
 		"https://www.adulttime.com/en/serie/9876/",
+		"https://www.adulttime.com/en/channel/girlsway",
 	} {
 		if scraper.URLLooksUnhandled(s, u) {
 			t.Errorf("%s is dispatched on but reads as a fallthrough", u)
 		}
 	}
 
-	// No facet is derived from a channel or category, so these fall through to
-	// the segment's whole catalogue and must say so.
-	for _, u := range []string{
-		"https://www.adulttime.com/en/channel/some-channel",
-		"https://www.adulttime.com/en/category/anal",
-	} {
-		if !scraper.URLLooksUnhandled(s, u) {
-			t.Errorf("%s falls through to the full segment and must warn", u)
-		}
+	// A category is not a route on these sites and no facet is derived from
+	// one, so it would fall through to the segment's whole catalogue.
+	if !scraper.URLLooksUnhandled(s, "https://www.adulttime.com/en/category/anal") {
+		t.Error("a category URL falls through to the full segment and must warn")
 	}
 }
 
@@ -125,5 +121,27 @@ func TestPinnedRowsVouchForTheirOwnURL(t *testing.T) {
 		if scraper.URLLooksUnhandled(s, u) {
 			t.Errorf("%s routed to %s, which is scoped to it, but reads as a fallthrough", u, s.ID())
 		}
+	}
+}
+
+// The forms FilterForURL resolves must not warn about a fallthrough; the ones
+// it cannot resolve must.
+func TestChannelAndSubSiteFormsAreAdvertised(t *testing.T) {
+	s, err := scraper.ForURL("https://www.adulttime.com/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, u := range []string{
+		"https://www.adulttime.com/en/channel/girlsway",
+		"https://www.adulttime.com/en/studio/girlsway",
+		"https://www.adulttime.com/en/videos/sites/girlsway",
+	} {
+		if scraper.URLLooksUnhandled(s, u) {
+			t.Errorf("%s is dispatched on but reads as a fallthrough", u)
+		}
+	}
+	// Not a route on these sites, and no filter is derived from it.
+	if !scraper.URLLooksUnhandled(s, "https://www.adulttime.com/en/category/anal") {
+		t.Error("a category URL derives no filter and must warn")
 	}
 }

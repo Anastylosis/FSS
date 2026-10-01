@@ -58,6 +58,14 @@ var apiKeyRe = regexp.MustCompile(`"algolia"\s*:\s*\{[^}]*"apiKey"\s*:\s*"([^"]+
 var actorURLRe = regexp.MustCompile(`/(?:pornstar|model)/view/[^/]+/(\d+)`)
 var serieURLRe = regexp.MustCompile(`/en/serie/(\d+)/`)
 
+// A brand is addressed two ways. `/en/channel/{slug}` and `/en/studio/{slug}`
+// are aliases for the same marketing page (byte-identical responses), and
+// `/en/videos/sites/{slug}` is the sub-site listing the network hubs link to.
+var (
+	channelURLRe = regexp.MustCompile(`/(?:[a-z]{2}/)?(?:channel|studio)/([A-Za-z0-9._-]+)`)
+	siteURLRe    = regexp.MustCompile(`/(?:[a-z]{2}/)?videos/sites/([A-Za-z0-9._-]+)`)
+)
+
 func (s *Scraper) refererBase() string {
 	if s.cfg.RefererBase != "" {
 		return s.cfg.RefererBase
@@ -106,11 +114,13 @@ func (s *Scraper) Run(ctx context.Context, studioURL string, opts scraper.ListOp
 		return
 	}
 
-	extraFilter := ""
-	if m := actorURLRe.FindStringSubmatch(studioURL); m != nil {
-		extraFilter = "actors.actor_id:" + m[1]
-	} else if m := serieURLRe.FindStringSubmatch(studioURL); m != nil {
-		extraFilter = "serie_id:" + m[1]
+	extraFilter, err := s.FilterForURL(ctx, apiKey, studioURL)
+	if err != nil {
+		select {
+		case out <- scraper.Error(err):
+		case <-ctx.Done():
+		}
+		return
 	}
 
 	for page := 0; ; page++ {
@@ -171,25 +181,99 @@ func (s *Scraper) Run(ctx context.Context, studioURL string, opts scraper.ListOp
 	}
 }
 
+// FilterForURL turns a filtered studio URL into the Algolia filter that scopes
+// the index to it, or "" for the site's whole catalogue.
+//
+// A URL naming a channel, studio or sub-site used to produce no filter at all,
+// so the scrape returned the segment's entire catalogue — up to 70,051 scenes
+// on Adult Time — and stored it under that URL's key. The two ways a Gamma
+// index names a brand were checked live across four segments: `channels.id` is
+// the channel grouping (`/en/channel/girlsway` → 2,502) and `availableOnSite`
+// is what the brand's own tour serves (`/en/videos/sites/strokethatdick` → 78,
+// and identical to the `sitename` facet everywhere it was compared). Neither is
+// universal — ASGMAX indexes no `channels.id` at all, Adult Time indexes both —
+// so the form the URL used decides which to try first and the other is the
+// fallback.
+//
+// **A slug that matches neither is an error, never an unfiltered walk.** That is
+// the whole point: silently widening a filtered URL to its segment is what made
+// this worth fixing, and a 0-hit facet is indistinguishable from a typo.
+func (s *Scraper) FilterForURL(ctx context.Context, apiKey, studioURL string) (string, error) {
+	if m := actorURLRe.FindStringSubmatch(studioURL); m != nil {
+		return "actors.actor_id:" + m[1], nil
+	}
+	if m := serieURLRe.FindStringSubmatch(studioURL); m != nil {
+		return "serie_id:" + m[1], nil
+	}
+
+	var slug string
+	var order [2]string
+	switch {
+	case siteURLRe.MatchString(studioURL):
+		slug = siteURLRe.FindStringSubmatch(studioURL)[1]
+		order = [2]string{"availableOnSite", "channels.id"}
+	case channelURLRe.MatchString(studioURL):
+		slug = channelURLRe.FindStringSubmatch(studioURL)[1]
+		order = [2]string{"channels.id", "availableOnSite"}
+	default:
+		return "", nil
+	}
+
+	for _, facet := range order {
+		filter := facet + ":" + slug
+		n, err := s.CountHits(ctx, apiKey, filter)
+		if err != nil {
+			return "", fmt.Errorf("resolving %q: %w", slug, err)
+		}
+		if n > 0 {
+			scraper.Debugf(1, "%s: %s matches %d scenes", s.cfg.SiteID, filter, n)
+			return filter, nil
+		}
+	}
+	return "", scraper.ParseError(studioURL, fmt.Errorf(
+		"no scenes are indexed under %q as either %s or %s; refusing to fall back to the "+
+			"whole catalogue, which is not what this URL names", slug, order[0], order[1]))
+}
+
+// CountHits reports how many scenes a filter matches, without fetching any. An
+// empty filter counts the site's whole catalogue — joining it in would produce a
+// trailing "AND" that Algolia rejects.
+func (s *Scraper) CountHits(ctx context.Context, apiKey, filter string) (int, error) {
+	parts := s.baseFilters()
+	if filter != "" {
+		parts = append(parts, filter)
+	}
+	_, total, err := s.fetchQuery(ctx, apiKey, AlgoliaQuery{
+		Query: "", HitsPerPage: 0, Page: 0,
+		Filters: strings.Join(parts, " AND "),
+	})
+	return total, err
+}
+
+func (s *Scraper) baseFilters() []string {
+	if s.cfg.SiteName != "" {
+		return []string{fmt.Sprintf("availableOnSite:%s AND upcoming:0", s.cfg.SiteName)}
+	}
+	return []string{"upcoming:0"}
+}
+
 func (s *Scraper) FetchPage(ctx context.Context, apiKey string, page int, extraFilters ...string) ([]AlgoliaHit, int, error) {
 	var parts []string
-	if s.cfg.SiteName != "" {
-		parts = append(parts, fmt.Sprintf("availableOnSite:%s AND upcoming:0", s.cfg.SiteName))
-	} else {
-		parts = append(parts, "upcoming:0")
-	}
+	parts = append(parts, s.baseFilters()...)
 	for _, f := range extraFilters {
 		if f != "" {
 			parts = append(parts, f)
 		}
 	}
-	filters := strings.Join(parts, " AND ")
-	query := AlgoliaQuery{
+	return s.fetchQuery(ctx, apiKey, AlgoliaQuery{
 		Query:       "",
 		HitsPerPage: HitsPerPage,
 		Page:        page,
-		Filters:     filters,
-	}
+		Filters:     strings.Join(parts, " AND "),
+	})
+}
+
+func (s *Scraper) fetchQuery(ctx context.Context, apiKey string, query AlgoliaQuery) ([]AlgoliaHit, int, error) {
 	body, err := json.Marshal(query)
 	if err != nil {
 		return nil, 0, err

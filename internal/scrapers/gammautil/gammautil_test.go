@@ -7,8 +7,11 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/Anastylosis/FSS/scraper"
 )
 
 func TestParseDate(t *testing.T) {
@@ -422,5 +425,81 @@ func TestGoldenAlgoliaQuery(t *testing.T) {
 	}
 	if h.RatingsUp == 0 {
 		t.Error("RatingsUp is 0 (ratings_up)")
+	}
+}
+
+// A URL naming a channel, studio or sub-site used to produce no filter at all,
+// so the scrape returned the segment's whole catalogue and stored it under that
+// URL's key. Which facet answers depends on the segment — ASGMAX indexes no
+// channels.id, Adult Time indexes both — so the URL form picks the first to try
+// and the other is the fallback.
+func TestFilterForURL(t *testing.T) {
+	// The stub answers a filter only if it is one the "index" knows.
+	indexed := map[string]int{
+		"upcoming:0 AND channels.id:girlsway":           2502,
+		"upcoming:0 AND availableOnSite:strokethatdick": 78,
+	}
+	var asked []string
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var q AlgoliaQuery
+		_ = json.NewDecoder(r.Body).Decode(&q)
+		asked = append(asked, q.Filters)
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(AlgoliaResponse{NbHits: indexed[q.Filters]})
+	}))
+	defer ts.Close()
+
+	s := &Scraper{Client: ts.Client(), cfg: SiteConfig{SiteBase: "https://example.com"}, AlgoliaHost: ts.URL}
+
+	for _, tc := range []struct{ name, url, want string }{
+		{"channel", "https://example.com/en/channel/girlsway", "channels.id:girlsway"},
+		{"studio alias", "https://example.com/en/studio/girlsway", "channels.id:girlsway"},
+		{"sub-site listing", "https://example.com/en/videos/sites/strokethatdick", "availableOnSite:strokethatdick"},
+		{"performer", "https://example.com/en/pornstar/view/someone/4242", "actors.actor_id:4242"},
+		{"series", "https://example.com/en/serie/99/", "serie_id:99"},
+		{"catalogue", "https://example.com/en/videos", ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := s.FilterForURL(context.Background(), "k", tc.url)
+			if err != nil {
+				t.Fatalf("FilterForURL: %v", err)
+			}
+			if got != tc.want {
+				t.Errorf("filter = %q, want %q", got, tc.want)
+			}
+		})
+	}
+
+	// The sub-site form is asked availableOnSite first; the channel form is
+	// asked channels.id first. Getting that backwards costs a request per run
+	// and, on a slug both facets know, the wrong scope.
+	t.Run("tries the URL form's own facet first", func(t *testing.T) {
+		asked = nil
+		if _, err := s.FilterForURL(context.Background(), "k", "https://example.com/en/channel/girlsway"); err != nil {
+			t.Fatal(err)
+		}
+		if len(asked) != 1 || !strings.Contains(asked[0], "channels.id:girlsway") {
+			t.Errorf("asked %v, want one channels.id query", asked)
+		}
+	})
+}
+
+// A slug neither facet knows must be an error. Falling back to no filter would
+// scrape the whole segment — 70,051 scenes on Adult Time — under that URL's
+// store key, which is the bug this dispatch exists to prevent.
+func TestFilterForURLRefusesToWidenAnUnknownSlug(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(AlgoliaResponse{NbHits: 0})
+	}))
+	defer ts.Close()
+
+	s := &Scraper{Client: ts.Client(), cfg: SiteConfig{SiteBase: "https://example.com"}, AlgoliaHost: ts.URL}
+	got, err := s.FilterForURL(context.Background(), "k", "https://example.com/en/channel/nope")
+	if err == nil {
+		t.Fatalf("filter = %q, want an error rather than an unfiltered walk", got)
+	}
+	if kind := scraper.Classify(err); !kind.MissingData() {
+		t.Errorf("error classifies as %v, which would let --full delete the catalogue", kind)
 	}
 }

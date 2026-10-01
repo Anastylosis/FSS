@@ -345,10 +345,11 @@ var _ scraper.StudioScraper = (*siteScraper)(nil)
 func (s *siteScraper) ID() string { return s.config.SiteID }
 
 // Patterns lists what this scraper dispatches on, which the fallthrough warning
-// reads. The two filtered forms `gammautil.Run` understands are the performer
-// and the series; a channel, studio or category URL is *not* recognised and
-// falls through to the segment's whole catalogue, so it is deliberately absent
-// here and warns.
+// reads: the performer, the series, the channel/studio and the sub-site listing,
+// each of which `gammautil.FilterForURL` turns into an Algolia filter. A form
+// not listed here — `/en/category/{slug}`, say, which is not even a route on
+// these sites — would fall through to the segment's whole catalogue, so it is
+// deliberately absent and warns.
 func (s *siteScraper) Patterns() []string {
 	d := s.config.Domain
 	return []string{
@@ -358,7 +359,10 @@ func (s *siteScraper) Patterns() []string {
 		d + "/pornstar/view/{slug}/{id}",
 		d + "/model/view/{slug}/{id}",
 		d + "/en/serie/{id}/",
+		d + "/en/channel/{slug}",
+		d + "/en/studio/{slug}",
 		d + "/en/videos",
+		d + "/en/videos/sites/{slug}",
 	}
 }
 
