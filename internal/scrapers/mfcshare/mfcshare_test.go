@@ -43,6 +43,7 @@ func siteByID(t *testing.T, id string) SiteConfig {
 func TestMatchesURL(t *testing.T) {
 	kerri := New(siteByID(t, "kerriking"))
 	goddess := New(siteByID(t, "exquisitegoddess"))
+	natalia := New(siteByID(t, "nataliagrey"))
 	cases := []struct {
 		s    *Scraper
 		url  string
@@ -56,6 +57,8 @@ func TestMatchesURL(t *testing.T) {
 		{goddess, "https://share.myfreecams.com/ErectionRX/", true},
 		{goddess, "https://share.myfreecams.com/SomeoneElse", false},
 		{kerri, "https://share.myfreecams.com.evil.org/KerriKing", false},
+		{natalia, "https://share.myfreecams.com/NataliaGrey", true},
+		{natalia, "https://share.myfreecams.com/KerriKing", false},
 	}
 	for _, c := range cases {
 		if got := c.s.MatchesURL(c.url); got != c.want {
