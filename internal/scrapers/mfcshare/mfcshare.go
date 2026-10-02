@@ -47,6 +47,7 @@ var sites = []SiteConfig{
 	{SiteID: "alexcoal", Studio: "Alex Coal", Username: "AlexxxCoal"},
 	{SiteID: "kerriking", Studio: "Kerri King", Username: "KerriKing"},
 	{SiteID: "nataliagrey", Studio: "Natalia Grey", Username: "NataliaGrey"},
+	{SiteID: "nikkihugs", Studio: "Nikki Hugs", Username: "DelightfulHug"},
 	{SiteID: "reyasunshine", Studio: "Reya Sunshine", Username: "ReyasRoom"},
 	{
 		SiteID: "exquisitegoddess", Studio: "ExquisiteGoddess",

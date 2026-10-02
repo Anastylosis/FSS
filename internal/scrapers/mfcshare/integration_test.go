@@ -32,3 +32,7 @@ func TestLiveReyaSunshine(t *testing.T) {
 func TestLiveNataliaGrey(t *testing.T) {
 	testutil.RunLiveScrape(t, liveSite(t, "nataliagrey"), "https://share.myfreecams.com/NataliaGrey", 3)
 }
+
+func TestLiveNikkiHugs(t *testing.T) {
+	testutil.RunLiveScrape(t, liveSite(t, "nikkihugs"), "https://share.myfreecams.com/DelightfulHug", 3)
+}
