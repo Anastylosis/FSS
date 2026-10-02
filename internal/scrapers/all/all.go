@@ -372,6 +372,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/sexmexpro"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/sexunderwater"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/sexysaffron"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/sheerandlace"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/shinybound"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/shopmaker"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/sindrive"
