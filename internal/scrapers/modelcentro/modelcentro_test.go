@@ -7,8 +7,8 @@ import (
 )
 
 func TestSiteCount(t *testing.T) {
-	if len(sites) != 43 {
-		t.Errorf("expected 43 sites, got %d", len(sites))
+	if len(sites) != 44 {
+		t.Errorf("expected 44 sites, got %d", len(sites))
 	}
 }
 
@@ -55,6 +55,8 @@ func TestMatchesURL(t *testing.T) {
 		{"alias is not a wildcard", "naughtylada", "https://naughty-lada.org", false},
 		{"lilcandy base", "lilcandy", "https://www.lilcandy.com", true},
 		{"lilcandy videos", "lilcandy", "https://lilcandy.com/videos", true},
+		{"lonelymeow base", "lonelymeow", "https://www.lonelymeow.com", true},
+		{"lonelymeow videos", "lonelymeow", "https://lonelymeow.com/videos", true},
 	}
 
 	lookup := map[string]*siteScraper{}
