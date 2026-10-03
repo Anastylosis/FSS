@@ -162,3 +162,15 @@ func TestLiveCandymay(t *testing.T) {
 	}
 	testutil.RunLiveScrape(t, s, url, 3)
 }
+
+func TestLivePsychohenessy(t *testing.T) {
+	url := "https://psychohenessy.com/videos"
+	s, err := scraper.ForURL(url)
+	if err != nil {
+		t.Fatalf("no scraper matched %s: %v", url, err)
+	}
+	if s.ID() != "psychohenessy" {
+		t.Fatalf("expected psychohenessy, got %s", s.ID())
+	}
+	testutil.RunLiveScrape(t, s, url, 3)
+}
