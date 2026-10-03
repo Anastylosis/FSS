@@ -85,6 +85,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/coedproductions"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/colbyknox"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/collegeuniform"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/concoxxxion"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/corbinfisher"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/cosplayground"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/cruelgirlfriend"
