@@ -199,7 +199,7 @@ func (s *Scraper) listingURL(page int) string {
 	return fmt.Sprintf("%s/videos?page=%d", s.cfg.SiteBase, page)
 }
 
-func (s *Scraper) run(ctx context.Context, _ string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
+func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
 	defer close(out)
 	scraper.Debugf(1, "%s: scraping full catalog via __NEXT_DATA__", s.cfg.ID)
 
@@ -227,7 +227,7 @@ func (s *Scraper) run(ctx context.Context, _ string, opts scraper.ListOpts, out 
 
 		scenes := make([]models.Scene, len(contents.Data))
 		for i, entry := range contents.Data {
-			scenes[i] = s.toScene(entry, now)
+			scenes[i] = s.toScene(entry, studioURL, now)
 		}
 
 		// Stop when total_pages tells us we're done. We still validate by
@@ -243,13 +243,13 @@ func (s *Scraper) run(ctx context.Context, _ string, opts scraper.ListOpts, out 
 // parse it for completeness.
 const publishDateLayout = "2006/01/02 15:04:05"
 
-func (s *Scraper) toScene(e sceneEntry, now time.Time) models.Scene {
+func (s *Scraper) toScene(e sceneEntry, studioURL string, now time.Time) models.Scene {
 	id := strconv.Itoa(e.ID)
 
 	scene := models.Scene{
 		ID:        id,
 		SiteID:    s.cfg.ID,
-		StudioURL: s.cfg.SiteBase,
+		StudioURL: studioURL,
 		Title:     strings.TrimSpace(e.Title),
 		// No public detail page — synthesise a stable per-scene URL anchor for
 		// downstream matching. Mirrors the pattern used by other listing-only

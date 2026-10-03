@@ -361,13 +361,13 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 		s.enrichFromDetail(ctx, videos, opts, out)
 		scenes := make([]models.Scene, len(videos))
 		for i, v := range videos {
-			scenes[i] = v.toScene(s.cfg.ID, s.cfg.SiteBase, s.cfg.Studio, now)
+			scenes[i] = v.toScene(s.cfg.ID, s.cfg.SiteBase, studioURL, s.cfg.Studio, now)
 		}
 		return scraper.PageResult{Scenes: scenes}, nil
 	})
 }
 
-func (v videoObject) toScene(siteID, siteBase, studio string, now time.Time) models.Scene {
+func (v videoObject) toScene(siteID, siteBase, studioURL, studio string, now time.Time) models.Scene {
 	url := v.URL
 	if strings.HasPrefix(url, "/") {
 		url = siteBase + url
@@ -376,7 +376,7 @@ func (v videoObject) toScene(siteID, siteBase, studio string, now time.Time) mod
 	scene := models.Scene{
 		ID:          extractSceneID(v.URL),
 		SiteID:      siteID,
-		StudioURL:   siteBase,
+		StudioURL:   studioURL,
 		Title:       html.UnescapeString(v.Name),
 		URL:         url,
 		Thumbnail:   v.ThumbnailURL,

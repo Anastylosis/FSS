@@ -231,7 +231,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 		total := estimateTotal(body, len(items))
 		scenes := make([]models.Scene, len(items))
 		for i, item := range items {
-			scenes[i] = item.toScene(s.cfg.ID, s.cfg.SiteBase, s.cfg.Studio, now)
+			scenes[i] = item.toScene(s.cfg.ID, s.cfg.SiteBase, studioURL, s.cfg.Studio, now)
 		}
 		return scraper.PageResult{Scenes: scenes, Total: total}, nil
 	})
@@ -283,14 +283,14 @@ func (s *Scraper) scrapeModelPage(ctx context.Context, studioURL string, opts sc
 			return
 		}
 		select {
-		case out <- scraper.Scene(item.toScene(s.cfg.ID, s.cfg.SiteBase, s.cfg.Studio, now)):
+		case out <- scraper.Scene(item.toScene(s.cfg.ID, s.cfg.SiteBase, studioURL, s.cfg.Studio, now)):
 		case <-ctx.Done():
 			return
 		}
 	}
 }
 
-func (item sceneItem) toScene(siteID, siteBase, studio string, now time.Time) models.Scene {
+func (item sceneItem) toScene(siteID, siteBase, studioURL, studio string, now time.Time) models.Scene {
 	url := item.url
 	if strings.HasPrefix(url, "/") {
 		url = siteBase + url
@@ -302,7 +302,7 @@ func (item sceneItem) toScene(siteID, siteBase, studio string, now time.Time) mo
 	return models.Scene{
 		ID:         item.id,
 		SiteID:     siteID,
-		StudioURL:  siteBase,
+		StudioURL:  studioURL,
 		Title:      item.title,
 		URL:        url,
 		Thumbnail:  thumb,

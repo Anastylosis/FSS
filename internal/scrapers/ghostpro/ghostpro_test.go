@@ -150,7 +150,11 @@ func TestParseListing(t *testing.T) {
 func TestToScene_fullFields(t *testing.T) {
 	s := New(testConfig("https://asiansuckdolls.com"))
 	c, _ := parseListing([]byte(nextDataHTML))
-	scene := s.toScene(c.Data[0], testNow())
+	scene := s.toScene(c.Data[0], testStudioURL, testNow())
+
+	if scene.StudioURL != testStudioURL {
+		t.Errorf("StudioURL = %q", scene.StudioURL)
+	}
 
 	if scene.ID != "2076" {
 		t.Errorf("ID = %q", scene.ID)
@@ -206,7 +210,7 @@ func TestToScene_fallsBackToShortDescription(t *testing.T) {
 		ShortDescription: "just the short one",
 	}
 	s := New(cfg)
-	scene := s.toScene(entry, testNow())
+	scene := s.toScene(entry, testStudioURL, testNow())
 	if scene.Description != "just the short one" {
 		t.Errorf("Description = %q (should fall back to short_description)", scene.Description)
 	}
@@ -226,7 +230,7 @@ func TestToScene_durationVariants(t *testing.T) {
 		{"bogus", 0},
 	}
 	for _, c := range cases {
-		got := s.toScene(sceneEntry{ID: 1, VideosDuration: c.dur}, testNow()).Duration
+		got := s.toScene(sceneEntry{ID: 1, VideosDuration: c.dur}, testStudioURL, testNow()).Duration
 		if got != c.want {
 			t.Errorf("duration %q → %d, want %d", c.dur, got, c.want)
 		}
@@ -260,6 +264,8 @@ func TestMatchesURL(t *testing.T) {
 	}
 }
 
+const testStudioURL = "https://example.com/videos"
+
 func TestListScenes_endToEnd(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
@@ -290,6 +296,9 @@ func TestListScenes_endToEnd(t *testing.T) {
 		switch r.Kind {
 		case scraper.KindScene:
 			scenes++
+			if want := ts.URL + "/videos"; r.Scene.StudioURL != want {
+				t.Errorf("StudioURL = %q, want %q", r.Scene.StudioURL, want)
+			}
 		case scraper.KindTotal:
 			total = r.Total
 		case scraper.KindError:
@@ -413,7 +422,7 @@ func TestSiteTableIntegrity(t *testing.T) {
 func TestStudioAndSeriesNaming(t *testing.T) {
 	base := SiteConfig{ID: "x", SiteBase: "https://x.com", SiteName: "Tussinee"}
 	s := New(base)
-	sc := s.toScene(sceneEntry{ID: 1, Title: "T"}, time.Now().UTC())
+	sc := s.toScene(sceneEntry{ID: 1, Title: "T"}, testStudioURL, time.Now().UTC())
 	if sc.Studio != defaultStudioName {
 		t.Errorf("studio = %q, want %q", sc.Studio, defaultStudioName)
 	}
@@ -422,7 +431,7 @@ func TestStudioAndSeriesNaming(t *testing.T) {
 	}
 
 	own := SiteConfig{ID: "y", SiteBase: "https://y.com", SiteName: "Severe Sex Films", StudioName: "Severe Sex Films"}
-	sc = New(own).toScene(sceneEntry{ID: 2, Title: "T"}, time.Now().UTC())
+	sc = New(own).toScene(sceneEntry{ID: 2, Title: "T"}, testStudioURL, time.Now().UTC())
 	if sc.Studio != "Severe Sex Films" {
 		t.Errorf("studio = %q", sc.Studio)
 	}
@@ -437,15 +446,15 @@ func TestContentPriceIsOptional(t *testing.T) {
 	s := New(SiteConfig{ID: "x", SiteBase: "https://x.com", SiteName: "X"})
 	now := time.Now().UTC()
 
-	if sc := s.toScene(sceneEntry{ID: 1, Title: "T"}, now); len(sc.PriceHistory) != 0 {
+	if sc := s.toScene(sceneEntry{ID: 1, Title: "T"}, testStudioURL, now); len(sc.PriceHistory) != 0 {
 		t.Errorf("price history = %v, want none", sc.PriceHistory)
 	}
 	zero := 0.0
-	if sc := s.toScene(sceneEntry{ID: 2, Title: "T", ContentPrice: &zero}, now); len(sc.PriceHistory) != 0 {
+	if sc := s.toScene(sceneEntry{ID: 2, Title: "T", ContentPrice: &zero}, testStudioURL, now); len(sc.PriceHistory) != 0 {
 		t.Errorf("zero price recorded: %v", sc.PriceHistory)
 	}
 	fifteen := 15.0
-	sc := s.toScene(sceneEntry{ID: 3, Title: "T", ContentPrice: &fifteen}, now)
+	sc := s.toScene(sceneEntry{ID: 3, Title: "T", ContentPrice: &fifteen}, testStudioURL, now)
 	if len(sc.PriceHistory) != 1 || sc.PriceHistory[0].Regular != 15 {
 		t.Errorf("price history = %v", sc.PriceHistory)
 	}

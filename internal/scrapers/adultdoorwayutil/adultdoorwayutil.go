@@ -320,7 +320,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 
 	// Stage 2: bounded worker pool fetches detail pages and emits the
 	// enriched Scene to the consumer.
-	s.fetchDetails(ctx, items, opts, out)
+	s.fetchDetails(ctx, studioURL, items, opts, out)
 }
 
 // collectListing walks pages until either a known ID is hit (early stop), the
@@ -403,7 +403,7 @@ func (s *Scraper) collectListing(ctx context.Context, lc listConfig, opts scrape
 // or the user's opts.Workers; either way the cleanup pattern
 // `defer wg.Wait(); defer close(work)` guarantees no goroutine leak on
 // context cancellation (see AUDIT.md §Concurrency #1 for prior art).
-func (s *Scraper) fetchDetails(ctx context.Context, items []sceneItem, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
+func (s *Scraper) fetchDetails(ctx context.Context, studioURL string, items []sceneItem, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
 	workers := opts.Workers
 	if workers <= 0 {
 		workers = 4
@@ -437,7 +437,7 @@ func (s *Scraper) fetchDetails(ctx context.Context, items []sceneItem, opts scra
 				}
 				enrichFromDetail(body, &item)
 				select {
-				case out <- scraper.Scene(item.toScene(s.cfg.ID, s.cfg.SiteBase, s.cfg.Studio, now)):
+				case out <- scraper.Scene(item.toScene(s.cfg.ID, s.cfg.SiteBase, studioURL, s.cfg.Studio, now)):
 				case <-ctx.Done():
 					return
 				}
@@ -454,7 +454,7 @@ func (s *Scraper) fetchDetails(ctx context.Context, items []sceneItem, opts scra
 	}
 }
 
-func (item sceneItem) toScene(siteID, siteBase, studio string, now time.Time) models.Scene {
+func (item sceneItem) toScene(siteID, siteBase, studioURL, studio string, now time.Time) models.Scene {
 	url := item.url
 	if strings.HasPrefix(url, "/") {
 		url = siteBase + url
@@ -462,7 +462,7 @@ func (item sceneItem) toScene(siteID, siteBase, studio string, now time.Time) mo
 	return models.Scene{
 		ID:          item.id,
 		SiteID:      siteID,
-		StudioURL:   siteBase,
+		StudioURL:   studioURL,
 		Title:       item.title,
 		URL:         url,
 		Thumbnail:   item.thumb,

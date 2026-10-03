@@ -402,6 +402,9 @@ func TestListScenes_endToEnd(t *testing.T) {
 		case scraper.KindScene:
 			scenes++
 			titles = append(titles, r.Scene.Title)
+			if want := ts.URL + "/en/videos"; r.Scene.StudioURL != want {
+				t.Errorf("StudioURL = %q, want %q", r.Scene.StudioURL, want)
+			}
 			if r.Scene.Studio != "Citebeur" {
 				t.Errorf("Studio = %q", r.Scene.Studio)
 			}

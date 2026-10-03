@@ -176,7 +176,8 @@ func TestListScenes_endToEnd(t *testing.T) {
 		MatchRe:  regexp.MustCompile(`.*`),
 	})
 
-	ch, err := s.ListScenes(context.Background(), ts.URL, scraper.ListOpts{})
+	studioURL := ts.URL + "/studio/"
+	ch, err := s.ListScenes(context.Background(), studioURL, scraper.ListOpts{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -184,6 +185,9 @@ func TestListScenes_endToEnd(t *testing.T) {
 	for r := range ch {
 		if r.Kind == scraper.KindScene {
 			scenes++
+			if r.Scene.StudioURL != studioURL {
+				t.Errorf("StudioURL = %q, want %q", r.Scene.StudioURL, studioURL)
+			}
 		}
 		if r.Kind == scraper.KindError {
 			t.Errorf("error: %v", r.Err)
@@ -245,7 +249,8 @@ func TestListScenes_modelPage(t *testing.T) {
 		ID: "spartavideo", SiteBase: ts.URL, Studio: "Sparta Video",
 		MatchRe: regexp.MustCompile(`.*`),
 	})
-	ch, err := s.ListScenes(context.Background(), ts.URL+"/models/Sophie-Strauss.html", scraper.ListOpts{})
+	studioURL := ts.URL + "/models/Sophie-Strauss.html"
+	ch, err := s.ListScenes(context.Background(), studioURL, scraper.ListOpts{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -254,6 +259,9 @@ func TestListScenes_modelPage(t *testing.T) {
 		switch r.Kind {
 		case scraper.KindScene:
 			scenes++
+			if r.Scene.StudioURL != studioURL {
+				t.Errorf("StudioURL = %q, want %q", r.Scene.StudioURL, studioURL)
+			}
 		case scraper.KindError:
 			t.Errorf("error: %v", r.Err)
 		}
