@@ -110,3 +110,19 @@ func TestLiveVOYR(t *testing.T) {
 func TestLiveDeviante(t *testing.T) {
 	testutil.RunLiveScrape(t, newTestScraper(siteByID(t, "deviante")), "https://www.deviante.com/", 3)
 }
+
+// Culioneros' ten StashDB brands are collections on its own instance, reached
+// by id or by /sites/{slug}.
+func TestLiveCulioneros(t *testing.T) {
+	s := newTestScraper(siteByID(t, "culioneros"))
+	for name, u := range map[string]string{
+		"all":          "https://culioneros.com/",
+		"collectionID": "https://culioneros.com/site/115961/sexo-en-publico",
+		"slug":         "https://culioneros.com/sites/mi-primer-porno",
+		"slugLast":     "https://culioneros.com/sites/cuchi-mami",
+	} {
+		t.Run(name, func(t *testing.T) {
+			testutil.RunLiveScrape(t, s, u, 3)
+		})
+	}
+}

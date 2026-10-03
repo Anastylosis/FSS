@@ -25,6 +25,7 @@ var sites = []siteConfig{
 	{"brazzers", "brazzers.com", "Brazzers", nil, nil, ""},
 	{"bromo", "bromo.com", "Bromo", nil, nil, "scene"},
 	{"deviante", "deviante.com", "Deviante", nil, nil, ""},
+	{"culioneros", "culioneros.com", "Culioneros", nil, nil, ""},
 	{"digitalplayground", "digitalplayground.com", "Digital Playground", []string{"digitalplayground.com/modelprofile/{id}/{slug}"}, []string{"digitalplaygroundnetwork.com"}, ""},
 	{"erito", "erito.com", "Erito", nil, nil, ""},
 	{"fakehub", "fakehub.com", "FakeHub", nil, []string{"publicagent.com", "faketaxi.com", "fakehostel.com", "fakedrivingschool.com", "femalefaketaxi.com", "fakeagent.com", "fakehospital.com", "femaleagent.com", "fakecop.com", "fakeagentuk.com", "fakehuboriginals.com"}, "scene"},
