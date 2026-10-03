@@ -16,6 +16,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/africanbucks"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/alettaoceanlive"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/alexandrasnow"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/alexsisfaye"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/alisonangel"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/allover30"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/alsangels"
