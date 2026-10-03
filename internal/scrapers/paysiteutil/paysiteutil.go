@@ -1,6 +1,6 @@
 // Package paysiteutil scrapes sites running the Paysite.com Next.js template:
 // a server-rendered app whose listing ships as a `<script id="__NEXT_DATA__">`
-// JSON blob under `props.pageProps.contents` — total, total_pages and a `data`
+// JSON blob under `props.pageProps.contents` (or `.videos`) — total, total_pages and a `data`
 // array whose items already carry title, slug, publish_date, seconds_duration,
 // thumb, tags, models and description. There is no public detail page: the
 // card's own `link` redirects through the site's NATS join domain, so every
@@ -36,6 +36,7 @@ type SiteConfig struct {
 	StudioName string // fallback studio name; the payload's own `site` wins
 	// ListPath is the listing path segment, without slashes. Empty means
 	// "videos"; a few sites (Yes Girlz) serve the same template at "scenes".
+	// RootListPath serves the paged listing from the home page instead.
 	ListPath string
 	// Aliases are extra domains that serve the same site — an apex that
 	// redirects to a tour subdomain, say. They widen MatchesURL only: Domain
@@ -48,12 +49,25 @@ type SiteConfig struct {
 	ModelPattern string
 }
 
+// RootListPath is the ListPath value for a site whose home page is the paged
+// listing (`/?page=N`) and which has no /videos route.
+const RootListPath = "/"
+
 // listPath returns the configured listing segment, defaulting to "videos".
 func (c SiteConfig) listPath() string {
 	if c.ListPath == "" {
 		return "videos"
 	}
 	return c.ListPath
+}
+
+func (c SiteConfig) rootListing() bool { return c.ListPath == RootListPath }
+
+func (s *Scraper) listingURL(base string, page int) string {
+	if s.cfg.rootListing() {
+		return fmt.Sprintf("%s/?page=%d", base, page)
+	}
+	return fmt.Sprintf("%s/%s?page=%d", base, s.cfg.listPath(), page)
 }
 
 // New builds a registered-ready scraper for one site.
@@ -110,6 +124,9 @@ func (s *Scraper) Patterns() []string {
 	if model == "" {
 		model = s.cfg.Domain + "/models/{slug}"
 	}
+	if s.cfg.rootListing() {
+		return []string{s.cfg.Domain, model}
+	}
 	return []string{
 		s.cfg.Domain,
 		s.cfg.Domain + "/" + s.cfg.listPath(),
@@ -129,16 +146,33 @@ func (s *Scraper) ListScenes(ctx context.Context, studioURL string, opts scraper
 
 type nextData struct {
 	Props struct {
-		PageProps struct {
-			Contents contentResponse `json:"contents"`
-			Model    *modelData      `json:"model"`
-			// ModelContents is the current model-page shape: a bare array
-			// beside `model`, rather than the paged object that used to sit
-			// under `model.contents`. Both are read — not every tour on the
-			// template has been rebuilt.
-			ModelContents []contentItem `json:"model_contents"`
-		} `json:"pageProps"`
+		PageProps pageProps `json:"pageProps"`
 	} `json:"props"`
+}
+
+type pageProps struct {
+	Contents contentResponse `json:"contents"`
+	// Videos carries the same payload under another key on some sites (Jamie
+	// Young's /videos). Raw because other sites' `videos` is not a listing.
+	Videos json.RawMessage `json:"videos"`
+	Model  *modelData      `json:"model"`
+	// ModelContents is the current model-page shape: a bare array beside
+	// `model`, rather than the paged object that used to sit under
+	// `model.contents`. Both are read — not every tour on the template has
+	// been rebuilt.
+	ModelContents []contentItem `json:"model_contents"`
+}
+
+// listing returns the paged payload from whichever key holds it.
+func (p *pageProps) listing() contentResponse {
+	if len(p.Contents.Data) > 0 || p.Contents.Total > 0 {
+		return p.Contents
+	}
+	var v contentResponse
+	if len(p.Videos) > 0 && json.Unmarshal(p.Videos, &v) == nil {
+		return v
+	}
+	return p.Contents
 }
 
 type contentResponse struct {
@@ -148,9 +182,12 @@ type contentResponse struct {
 }
 
 type contentItem struct {
-	ID              int    `json:"id"`
-	Title           string `json:"title"`
-	Slug            string `json:"slug"`
+	ID    int    `json:"id"`
+	Title string `json:"title"`
+	Slug  string `json:"slug"`
+	// Link is the NATS join redirect — the only per-scene URL a root-listing
+	// site has, since it serves no detail pages.
+	Link            string `json:"link"`
 	PublishDate     string `json:"publish_date"`
 	SecondsDuration int    `json:"seconds_duration"`
 	// VideosDuration is the same runtime as a decimal-seconds string. Some
@@ -226,7 +263,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 	}
 
 	scraper.Paginate(ctx, opts, s.cfg.SiteID, out, func(ctx context.Context, page int) (scraper.PageResult, error) {
-		pageURL := fmt.Sprintf("%s/%s?page=%d", base, s.cfg.listPath(), page)
+		pageURL := s.listingURL(base, page)
 		items, total, totalPages, err := s.fetchListing(ctx, pageURL)
 		if err != nil {
 			return scraper.PageResult{}, err
@@ -269,7 +306,7 @@ func (s *Scraper) scrapeModelPage(ctx context.Context, studioURL string, _ scrap
 		items = nd.Props.PageProps.Model.Contents.Data
 	}
 	if len(items) == 0 {
-		items = nd.Props.PageProps.Contents.Data
+		items = nd.Props.PageProps.listing().Data
 	}
 	if len(items) == 0 {
 		// A model with no scenes is possible, but so is a template change that
@@ -309,7 +346,7 @@ func (s *Scraper) fetchListing(ctx context.Context, pageURL string) ([]contentIt
 	if err != nil {
 		return nil, 0, 0, err
 	}
-	c := nd.Props.PageProps.Contents
+	c := nd.Props.PageProps.listing()
 	return c.Data, c.Total, c.TotalPages, nil
 }
 
@@ -335,6 +372,13 @@ func parseNextData(body []byte) (nextData, error) {
 		return nextData{}, fmt.Errorf("parsing __NEXT_DATA__: %w", err)
 	}
 	return nd, nil
+}
+
+func (s *Scraper) sceneURL(item contentItem) string {
+	if s.cfg.rootListing() {
+		return firstNonEmpty(item.Link, "https://"+s.cfg.Domain+"/")
+	}
+	return fmt.Sprintf("https://%s/%s/%s", s.cfg.Domain, s.cfg.listPath(), item.Slug)
 }
 
 func (s *Scraper) toScene(item contentItem, studioURL string, now time.Time) models.Scene {
@@ -364,7 +408,7 @@ func (s *Scraper) toScene(item contentItem, studioURL string, now time.Time) mod
 		SiteID:      s.cfg.SiteID,
 		StudioURL:   studioURL,
 		Title:       item.Title,
-		URL:         fmt.Sprintf("https://%s/%s/%s", s.cfg.Domain, s.cfg.listPath(), item.Slug),
+		URL:         s.sceneURL(item),
 		Thumbnail:   absoluteURL(firstNonEmpty(item.Thumb, item.Thumbnail)),
 		Duration:    item.duration(),
 		Date:        date,
