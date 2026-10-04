@@ -205,6 +205,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/insexarchives"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/interracialpass"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/ishotmyself"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/islandstuds"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/itspov"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/iwantclips"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/jacquieetmichel"

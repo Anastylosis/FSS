@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"html"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -81,6 +82,7 @@ func (s *Scraper) Patterns() []string {
 		d + "/",
 		d + "/categories/movies.html",
 		d + "/categories/movies_{page}_d.html",
+		d + "/categories/{slug}.html",
 		d + "/models/{slug}.html",
 		d + "/dvds/dvds.html",
 	}
@@ -175,7 +177,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 			scraper.Debugf(1, "%s: detected DVD listing", s.cfg.SiteID)
 			s.enqueueDVDPages(ctx, delay, opts, out, work)
 		default:
-			s.enqueueListingPages(ctx, delay, opts, out, work)
+			s.enqueueListingPages(ctx, delay, opts, out, work, categoryName(studioURL))
 		}
 	}()
 
@@ -184,7 +186,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 
 // --- listing pages ---
 
-func (s *Scraper) enqueueListingPages(ctx context.Context, delay time.Duration, opts scraper.ListOpts, out chan<- scraper.SceneResult, work chan<- workItem) {
+func (s *Scraper) enqueueListingPages(ctx context.Context, delay time.Duration, opts scraper.ListOpts, out chan<- scraper.SceneResult, work chan<- workItem, category string) {
 	// The walk ends on an empty page, but this CMS clamps an out-of-range page
 	// back to the last real one rather than serving nothing, so it would
 	// otherwise repeat that page forever. A page yielding no slug the walk has
@@ -199,7 +201,7 @@ func (s *Scraper) enqueueListingPages(ctx context.Context, delay time.Duration, 
 		}
 
 		scraper.Debugf(1, "%s: fetching page %d", s.cfg.SiteID, page)
-		pageURL := fmt.Sprintf("%s/categories/movies_%d_d.html", s.base, page)
+		pageURL := fmt.Sprintf("%s/categories/%s_%d_d.html", s.base, category, page)
 		body, err := s.fetchPage(ctx, pageURL)
 		if err != nil {
 			select {
@@ -253,6 +255,17 @@ func (s *Scraper) enqueueListingPages(ctx context.Context, delay time.Duration, 
 		}
 	}
 	scraper.Debugf(1, "%s: stopped at the %d-page cap", s.cfg.SiteID, maxListingPages)
+}
+
+var categoryPathRe = regexp.MustCompile(`/categories/([^/?#]+?)(?:_\d+_d)?\.html`)
+
+// categoryName returns the category slug a studio URL points at, defaulting
+// to the full "movies" catalogue.
+func categoryName(studioURL string) string {
+	if m := categoryPathRe.FindStringSubmatch(studioURL); m != nil {
+		return m[1]
+	}
+	return "movies"
 }
 
 // --- model page ---
@@ -422,7 +435,7 @@ var (
 	sceneURLRe  = regexp.MustCompile(`href="([^"]*scenes/[^"]*_vids\.html)"`)
 	slugRe      = regexp.MustCompile(`/scenes/([^/]+?)_vids\.html`)
 	performerRe = regexp.MustCompile(`href="[^"]*models/[^"]*">([^<]+)</a>`)
-	thumbRe     = regexp.MustCompile(`<img[^>]*id="set-target-\d+"[^>]*src="([^"]+)"`)
+	thumbRe     = regexp.MustCompile(`<img[^>]*id="set-target-\d+"[^>]*src(?:0_1x)?="([^"]+)"`)
 )
 
 // --- template dispatch ---
@@ -469,6 +482,18 @@ func (s *Scraper) parseDVDListing(body []byte) []dvdEntry {
 	}
 }
 
+// absoluteURL resolves a host-relative path against the site origin.
+func (s *Scraper) absoluteURL(p string) string {
+	if !strings.HasPrefix(p, "/") || strings.HasPrefix(p, "//") {
+		return p
+	}
+	u, err := url.Parse(s.base)
+	if err != nil {
+		return p
+	}
+	return u.Scheme + "://" + u.Host + p
+}
+
 // --- fetchDetail ---
 
 func (s *Scraper) fetchDetail(ctx context.Context, item workItem, studioURL string, delay time.Duration) (models.Scene, error) {
@@ -484,7 +509,7 @@ func (s *Scraper) fetchDetail(ctx context.Context, item workItem, studioURL stri
 		Title:      item.title,
 		Date:       item.date,
 		Performers: item.performers,
-		Thumbnail:  item.thumb,
+		Thumbnail:  s.absoluteURL(item.thumb),
 		Studio:     s.cfg.StudioName,
 		Series:     item.series,
 		ScrapedAt:  time.Now().UTC(),
@@ -601,7 +626,7 @@ func parseDetailJJ(body []byte) detailData {
 		d.title = strings.TrimSpace(html.UnescapeString(m[1]))
 	}
 	if m := jjDetailDescRe.FindStringSubmatch(page); m != nil {
-		d.description = strings.TrimSpace(html.UnescapeString(m[1]))
+		d.description = strings.TrimSpace(html.UnescapeString(tagStripRe.ReplaceAllString(m[1], "")))
 	}
 	for _, m := range jjCatTagRe.FindAllStringSubmatch(page, -1) {
 		tag := strings.TrimSpace(html.UnescapeString(m[1]))
@@ -712,7 +737,7 @@ func parseDetailClassic(body []byte) detailData {
 		d.title = strings.TrimSpace(html.UnescapeString(raw))
 	}
 	if m := classicDetailDescRe.FindStringSubmatch(page); m != nil {
-		d.description = strings.TrimSpace(html.UnescapeString(m[1]))
+		d.description = strings.TrimSpace(html.UnescapeString(tagStripRe.ReplaceAllString(m[1], "")))
 	}
 	for _, m := range classicTagRe.FindAllStringSubmatch(page, -1) {
 		tag := strings.TrimSpace(html.UnescapeString(m[1]))
@@ -796,7 +821,7 @@ func parseDetailModern(body []byte) detailData {
 		d.title = strings.TrimSpace(html.UnescapeString(m[1]))
 	}
 	if m := modernDescRe.FindStringSubmatch(page); m != nil {
-		d.description = strings.TrimSpace(html.UnescapeString(m[1]))
+		d.description = strings.TrimSpace(html.UnescapeString(tagStripRe.ReplaceAllString(m[1], "")))
 	}
 	for _, m := range classicTagRe.FindAllStringSubmatch(page, -1) {
 		tag := strings.TrimSpace(html.UnescapeString(m[1]))
