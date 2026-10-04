@@ -10,12 +10,14 @@ import (
 )
 
 var sites = []paysiteutil.SiteConfig{
+	{SiteID: "benefitmonkey", Domain: "benefitmonkey.com", StudioName: "Benefit Monkey", ListPath: "scenes", OnlySiteDomain: "benefitmonkey.com", Aliases: []string{"thebenefitmonkey.com"}},
 	{SiteID: "bjraw", Domain: "bjraw.com", StudioName: "BJ Raw"},
 	{SiteID: "dickhddaily", Domain: "dickhddaily.com", StudioName: "DickHDDaily"},
 	{SiteID: "gotfilled", Domain: "gotfilled.com", StudioName: "Got Filled"},
 	{SiteID: "hardwerk", Domain: "hardwerk.com", StudioName: "HardWerk Pictures", ListPath: "films"},
 	{SiteID: "inserted", Domain: "inserted.com", StudioName: "Inserted"},
 	{SiteID: "jamieyoung", Domain: "jamie-young.com", StudioName: "Jamie Young"},
+	{SiteID: "lezkey", Domain: "lezkey.com", StudioName: "LezKey", ListPath: "scenes"},
 	{SiteID: "lollipoptwinks", Domain: "lollipoptwinks.com", StudioName: "Lollipop Twinks", ListPath: paysiteutil.RootListPath},
 	{SiteID: "missmalorieswitch", Domain: "missmalorieswitch.com", StudioName: "Miss Malorie Switch"},
 	{SiteID: "nickmarxx", Domain: "nickmarxx.com", StudioName: "Nick Marxx"},

@@ -38,6 +38,10 @@ type SiteConfig struct {
 	// "videos"; a few sites (Yes Girlz) serve the same template at "scenes".
 	// RootListPath serves the paged listing from the home page instead.
 	ListPath string
+	// OnlySiteDomain keeps just the items whose `site_domain` equals it, for
+	// a feed merged with a sister site (benefitmonkey.com also lists every
+	// LezKey scene). Empty keeps everything.
+	OnlySiteDomain string
 	// Aliases are extra domains that serve the same site — an apex that
 	// redirects to a tour subdomain, say. They widen MatchesURL only: Domain
 	// stays what gets fetched and what `fss list-scrapers` shows.
@@ -59,6 +63,10 @@ func (c SiteConfig) listPath() string {
 		return "videos"
 	}
 	return c.ListPath
+}
+
+func (c SiteConfig) skips(item contentItem) bool {
+	return c.OnlySiteDomain != "" && !strings.EqualFold(item.SiteDomain, c.OnlySiteDomain)
 }
 
 func (c SiteConfig) rootListing() bool { return c.ListPath == RootListPath }
@@ -202,6 +210,7 @@ type contentItem struct {
 	Description  string      `json:"description"`
 	ContentPrice float64     `json:"content_price"`
 	Site         string      `json:"site"`
+	SiteDomain   string      `json:"site_domain"`
 }
 
 // duration returns the runtime in whole seconds from whichever of the two
@@ -268,15 +277,19 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 		if err != nil {
 			return scraper.PageResult{}, err
 		}
-		scenes := make([]models.Scene, len(items))
-		for i, item := range items {
-			scenes[i] = s.toScene(item, studioURL, now)
+		done := len(items) == 0 || (totalPages > 0 && page >= totalPages)
+		scenes := make([]models.Scene, 0, len(items))
+		for _, item := range items {
+			if s.cfg.skips(item) {
+				continue
+			}
+			scenes = append(scenes, s.toScene(item, studioURL, now))
 		}
-		return scraper.PageResult{
-			Scenes: scenes,
-			Total:  total,
-			Done:   len(items) == 0 || (totalPages > 0 && page >= totalPages),
-		}, nil
+		if s.cfg.OnlySiteDomain != "" {
+			// The feed total counts the sister site's scenes too.
+			total = 0
+		}
+		return scraper.PageResult{Scenes: scenes, Total: total, Done: done, Continue: !done}, nil
 	})
 }
 
