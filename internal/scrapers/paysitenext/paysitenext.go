@@ -16,6 +16,7 @@ var sites = []paysiteutil.SiteConfig{
 	{SiteID: "hardwerk", Domain: "hardwerk.com", StudioName: "HardWerk Pictures", ListPath: "films"},
 	{SiteID: "inserted", Domain: "inserted.com", StudioName: "Inserted"},
 	{SiteID: "jamieyoung", Domain: "jamie-young.com", StudioName: "Jamie Young"},
+	{SiteID: "lollipoptwinks", Domain: "lollipoptwinks.com", StudioName: "Lollipop Twinks", ListPath: paysiteutil.RootListPath},
 	{SiteID: "missmalorieswitch", Domain: "missmalorieswitch.com", StudioName: "Miss Malorie Switch"},
 	{SiteID: "nickmarxx", Domain: "nickmarxx.com", StudioName: "Nick Marxx"},
 	{SiteID: "queercrush", Domain: "queercrush.com", StudioName: "QueerCrush"},
