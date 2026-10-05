@@ -256,10 +256,11 @@ type parsedScene struct {
 var (
 	sceneStartRe = regexp.MustCompile(`<div\s+class="latestUpdateB"\s+data-setid="(\d+)">`)
 	titleRe      = regexp.MustCompile(`(?s)<h4\s+class="link_bright">\s*<a\s+[^>]*href="([^"]*)"[^>]*>([^<]+)</a>`)
-	thumbRe      = regexp.MustCompile(`src0_4x="([^"]+)"`)
-	thumbFallRe  = regexp.MustCompile(`src0_1x="([^"]+)"`)
+	thumbRe      = regexp.MustCompile(`(?:src0|poster)_4x="([^"]+)"`)
+	thumbFallRe  = regexp.MustCompile(`(?:src0|poster)_1x="([^"]+)"`)
 	performerRe  = regexp.MustCompile(`<a\s+class="[^"]*infolink[^"]*"\s+href="[^"]*">([^<]+)</a>`)
-	dateRe       = regexp.MustCompile(`<!-- Date -->\s*(\d{2}/\d{2}/\d{4})`)
+	dateRe       = regexp.MustCompile(`<!-- Date -->\s*(\d{2}[/-]\d{2}[/-]\d{4})`)
+	availDateRe  = regexp.MustCompile(`Available to Members\s+(\d{2}/\d{2}/\d{4})`)
 	durationRe   = regexp.MustCompile(`fa-video"></i>(\d+)\s*min`)
 	paginationRe = regexp.MustCompile(`(?s)<div\s+class="pagination[^"]*">(.*?)</div>`)
 	maxPageRe    = regexp.MustCompile(`(?:movies_|page=)(\d+)`)
@@ -300,6 +301,8 @@ func parseSceneBlocks(body []byte) []parsedScene {
 		}
 
 		if dm := dateRe.FindSubmatch(block); dm != nil {
+			ps.date = string(dm[1])
+		} else if dm := availDateRe.FindSubmatch(block); dm != nil {
 			ps.date = string(dm[1])
 		}
 
@@ -394,7 +397,7 @@ func toScene(ps parsedScene, siteBase, siteID, studioName, studioURL string, now
 }
 
 func parseDate(s string) time.Time {
-	t, err := time.Parse("01/02/2006", s)
+	t, err := time.Parse("01/02/2006", strings.ReplaceAll(s, "-", "/"))
 	if err != nil {
 		return time.Time{}
 	}

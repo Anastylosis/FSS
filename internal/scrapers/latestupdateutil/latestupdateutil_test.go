@@ -238,6 +238,7 @@ func TestParseDate(t *testing.T) {
 	}{
 		{"04/25/2026", "2026-04-25"},
 		{"12/31/2025", "2025-12-31"},
+		{"10-16-2026", "2026-10-16"},
 		{"", "0001-01-01"},
 		{"not-a-date", "0001-01-01"},
 	}
@@ -583,5 +584,40 @@ func TestAliasDomainUsesTheCanonicalSiteBase(t *testing.T) {
 	}
 	if s.ID() != "sofiemarie" {
 		t.Errorf("ID() = %q — the alias must not introduce a second SiteID", s.ID())
+	}
+}
+
+func TestParseSceneBlockDashDateAndPosterThumb(t *testing.T) {
+	block := `<div class="latestUpdateB" data-setid="233">
+<a href="https://darkkotv.com/scenes/x_vids.html"><video class="update_thumb" poster_1x="/c/1-1x.jpg" poster_4x="/c/1-4x.jpg"></video></a>
+<h4 class="link_bright"><a  href="https://darkkotv.com/scenes/x_vids.html">X</a></h4>
+<ul class="videoInfo"><li class="text_med"><!-- Date -->
+		10-16-2026</li></ul>
+</div>`
+	ps := parseSceneBlocks([]byte(block))[0]
+	if ps.date != "10-16-2026" {
+		t.Errorf("date = %q", ps.date)
+	}
+	if ps.thumbnail != "/c/1-4x.jpg" {
+		t.Errorf("thumbnail = %q", ps.thumbnail)
+	}
+	if got := parseDate(ps.date).Format("2006-01-02"); got != "2026-10-16" {
+		t.Errorf("parsed date = %s", got)
+	}
+}
+
+func TestParseSceneBlockUpcomingDate(t *testing.T) {
+	block := `<div class="latestUpdateB" data-setid="43">
+<h4 class="link_bright"><a  href="/scenes/y_vids.html">Y</a></h4>
+<div class="avail_date">
+	Available to Members 10/30/2026
+</div></div>`
+	ps := parseSceneBlocks([]byte(block))[0]
+	if ps.date != "10/30/2026" {
+		t.Errorf("date = %q", ps.date)
+	}
+	released := `<div class="latestUpdateB" data-setid="44"><div class="avail_date">Available to Members Now!</div></div>`
+	if d := parseSceneBlocks([]byte(released))[0].date; d != "" {
+		t.Errorf("released date = %q, want empty", d)
 	}
 }
