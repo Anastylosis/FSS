@@ -99,6 +99,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/czechav"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/czechvr"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/d2pass"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/darkkotv"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/darkreach"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/data18"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/deeps"
