@@ -234,6 +234,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/kmproduce"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/kocompany"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/kristenbjorn"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/kvssitemap"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/ladyboygold"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/ladyfyre"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/latinboyz"
