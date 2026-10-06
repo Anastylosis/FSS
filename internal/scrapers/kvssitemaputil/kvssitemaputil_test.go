@@ -2,6 +2,8 @@ package kvssitemaputil
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"regexp"
 	"strings"
@@ -218,5 +220,39 @@ func TestParseSitemapEmpty(t *testing.T) {
 	s := New(testConfig("https://barbisinclair.com"))
 	if _, err := s.parseSitemap([]byte(`<urlset></urlset>`), "x", time.Now()); err == nil {
 		t.Error("empty sitemap must be an error")
+	}
+}
+
+func TestApplyDetailLaFranceAPoil(t *testing.T) {
+	s := New(SiteConfig{
+		SiteID:      "lafranceapoil",
+		Base:        "https://www.lafranceapoil.com",
+		Region:      regexp.MustCompile(`(?s)<div class="block buttons-row[^"]*">(.*?)</div>`),
+		PerformerRe: regexp.MustCompile(`(?s)<a[^>]*href="[^"]*/models/[^"/]+/"[^>]*>(.*?)</a>`),
+		TagRe:       regexp.MustCompile(`(?s)<a[^>]*href="[^"]*/categories/[^"/]+/"[^>]*>(.*?)</a>`),
+	})
+	sc := models.Scene{Tags: []string{"Amatrice"}}
+	s.applyDetail(&sc, string(fixture(t, "detail_lfap.html")))
+	if got := strings.Join(sc.Performers, ","); got != "Phoebe" {
+		t.Errorf("performers = %q (nav and related links must be excluded)", got)
+	}
+	if got := strings.Join(sc.Tags, ","); got != "Amatrice,Fist Anal,Fist Fucking,Gonzo Hard,Grosse" {
+		t.Errorf("tags = %q", got)
+	}
+}
+
+func TestAcceptLanguageOverride(t *testing.T) {
+	var got string
+	srv := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		got = r.Header.Get("Accept-Language")
+	}))
+	defer srv.Close()
+	cfg := testConfig(srv.URL)
+	cfg.AcceptLanguage = "fr-FR,fr;q=0.9"
+	if _, err := New(cfg).fetch(context.Background(), srv.URL); err != nil {
+		t.Fatal(err)
+	}
+	if got != "fr-FR,fr;q=0.9" {
+		t.Errorf("Accept-Language = %q", got)
 	}
 }

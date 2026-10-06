@@ -42,6 +42,9 @@ type SiteConfig struct {
 	PerformerRe    *regexp.Regexp
 	TagRe          *regexp.Regexp
 	SkipPerformers []string
+	// AcceptLanguage replaces the default header; lafranceapoil.com 302s any
+	// non-French one onto its /en/ tree, which has no sitemap.
+	AcceptLanguage string
 }
 
 type Scraper struct {
@@ -328,10 +331,11 @@ func (s *Scraper) applyDetail(sc *models.Scene, page string) {
 }
 
 func (s *Scraper) fetch(ctx context.Context, u string) ([]byte, error) {
-	resp, err := httpx.Do(ctx, s.Client, httpx.Request{
-		URL:     u,
-		Headers: httpx.BrowserHeaders(httpx.UserAgentFirefox),
-	})
+	h := httpx.BrowserHeaders(httpx.UserAgentFirefox)
+	if s.cfg.AcceptLanguage != "" {
+		h["Accept-Language"] = s.cfg.AcceptLanguage
+	}
+	resp, err := httpx.Do(ctx, s.Client, httpx.Request{URL: u, Headers: h})
 	if err != nil {
 		return nil, err
 	}

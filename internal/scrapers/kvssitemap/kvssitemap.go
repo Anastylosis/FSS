@@ -18,6 +18,16 @@ var sites = []kvssitemaputil.SiteConfig{
 		TagRe:          regexp.MustCompile(`(?s)<a class="btn" href="[^"]*/tags/[^"]*">(.*?)</a>`),
 		SkipPerformers: []string{"Lucky Guy"},
 	},
+	{
+		SiteID:         "lafranceapoil",
+		Base:           "https://www.lafranceapoil.com",
+		StudioName:     "La France à Poil",
+		AcceptLanguage: "fr-FR,fr;q=0.9",
+		Filters:        []string{"models", "categories", "series"},
+		Region:         regexp.MustCompile(`(?s)<div class="block buttons-row[^"]*">(.*?)</div>`),
+		PerformerRe:    regexp.MustCompile(`(?s)<a[^>]*href="[^"]*/models/[^"/]+/"[^>]*>(.*?)</a>`),
+		TagRe:          regexp.MustCompile(`(?s)<a[^>]*href="[^"]*/categories/[^"/]+/"[^>]*>(.*?)</a>`),
+	},
 }
 
 func init() {
