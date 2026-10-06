@@ -81,6 +81,16 @@ func TestSplitKeywords(t *testing.T) {
 	}
 }
 
+func TestSplitKeywordsTrimsHandleUnderscores(t *testing.T) {
+	performers, tags := SplitKeywords("Zlatexa_, Latex", map[string]bool{"zlatexa_": true})
+	if len(performers) != 1 || performers[0] != "Zlatexa" {
+		t.Errorf("performers = %v", performers)
+	}
+	if len(tags) != 1 || tags[0] != "Latex" {
+		t.Errorf("tags = %v", tags)
+	}
+}
+
 func TestSplitKeywordsEmpty(t *testing.T) {
 	performers, tags := SplitKeywords("", testPerformers)
 	if len(performers) != 0 || len(tags) != 0 {

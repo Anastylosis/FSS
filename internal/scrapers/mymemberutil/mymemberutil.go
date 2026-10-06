@@ -373,7 +373,8 @@ func SplitKeywords(keywords string, known map[string]bool) (performers, tags []s
 			continue
 		}
 		if known[strings.ToLower(kw)] {
-			performers = append(performers, kw)
+			// Keywords double as handles; "Zlatexa_" is a name, not a new performer.
+			performers = append(performers, strings.Trim(kw, "_"))
 		} else {
 			tags = append(tags, kw)
 		}
