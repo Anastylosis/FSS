@@ -118,7 +118,8 @@ func TestListScenes_endToEnd(t *testing.T) {
 		ID: "clubkayden", SiteBase: ts.URL, Studio: "Club Kayden",
 		MatchRe: regexp.MustCompile(`.*`),
 	})
-	ch, err := s.ListScenes(context.Background(), ts.URL, scraper.ListOpts{})
+	studioURL := ts.URL + "/studio/"
+	ch, err := s.ListScenes(context.Background(), studioURL, scraper.ListOpts{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -126,6 +127,9 @@ func TestListScenes_endToEnd(t *testing.T) {
 	for r := range ch {
 		if r.Kind == scraper.KindScene {
 			scenes++
+			if r.Scene.StudioURL != studioURL {
+				t.Errorf("StudioURL = %q, want %q", r.Scene.StudioURL, studioURL)
+			}
 			if !strings.HasPrefix(r.Scene.URL, ts.URL+"/#scene-") {
 				t.Errorf("URL = %q (expected synthesised anchor)", r.Scene.URL)
 			}

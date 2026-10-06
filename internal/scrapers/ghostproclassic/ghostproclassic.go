@@ -202,7 +202,7 @@ func (s *Scraper) listingURL(page int) string {
 	return fmt.Sprintf("%s/categories/updates_%d_p.html", s.cfg.SiteBase, page)
 }
 
-func (s *Scraper) run(ctx context.Context, _ string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
+func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
 	defer close(out)
 	scraper.Debugf(1, "%s: scraping full catalog", s.cfg.ID)
 
@@ -231,17 +231,17 @@ func (s *Scraper) run(ctx context.Context, _ string, opts scraper.ListOpts, out 
 
 		scenes := make([]models.Scene, len(items))
 		for i, item := range items {
-			scenes[i] = s.toScene(item, now)
+			scenes[i] = s.toScene(item, studioURL, now)
 		}
 		return scraper.PageResult{Scenes: scenes, Total: total}, nil
 	})
 }
 
-func (s *Scraper) toScene(item sceneItem, now time.Time) models.Scene {
+func (s *Scraper) toScene(item sceneItem, studioURL string, now time.Time) models.Scene {
 	return models.Scene{
 		ID:          item.id,
 		SiteID:      s.cfg.ID,
-		StudioURL:   s.cfg.SiteBase,
+		StudioURL:   studioURL,
 		Title:       item.title,
 		Description: item.description,
 		// No public detail page — synthesise a stable per-scene URL anchor.

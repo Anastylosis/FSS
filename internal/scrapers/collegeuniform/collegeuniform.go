@@ -181,7 +181,7 @@ func (s *Scraper) listingURL(page int) string {
 	return fmt.Sprintf("%s/categories/updates_%d_d.html", s.base, page)
 }
 
-func (s *Scraper) run(ctx context.Context, _ string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
+func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
 	defer close(out)
 	scraper.Debugf(1, "collegeuniform: scraping full catalog")
 
@@ -201,13 +201,13 @@ func (s *Scraper) run(ctx context.Context, _ string, opts scraper.ListOpts, out 
 		total := estimateTotal(body, len(items))
 		scenes := make([]models.Scene, len(items))
 		for i, item := range items {
-			scenes[i] = item.toScene(s.base, now)
+			scenes[i] = item.toScene(s.base, studioURL, now)
 		}
 		return scraper.PageResult{Scenes: scenes, Total: total}, nil
 	})
 }
 
-func (item sceneItem) toScene(base string, now time.Time) models.Scene {
+func (item sceneItem) toScene(base, studioURL string, now time.Time) models.Scene {
 	url := item.url
 	if strings.HasPrefix(url, "/") {
 		url = base + url
@@ -221,7 +221,7 @@ func (item sceneItem) toScene(base string, now time.Time) models.Scene {
 	return models.Scene{
 		ID:         item.id,
 		SiteID:     "collegeuniform",
-		StudioURL:  base,
+		StudioURL:  studioURL,
 		Title:      item.title,
 		URL:        url,
 		Thumbnail:  thumb,

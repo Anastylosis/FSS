@@ -213,6 +213,9 @@ func TestListScenes_endToEnd(t *testing.T) {
 		switch r.Kind {
 		case scraper.KindScene:
 			scenes++
+			if r.Scene.StudioURL != ts.URL+"/" {
+				t.Errorf("StudioURL = %q, want %q", r.Scene.StudioURL, ts.URL+"/")
+			}
 			if r.Scene.Studio != "Ghost Pro Productions" {
 				t.Errorf("Studio = %q", r.Scene.Studio)
 			}

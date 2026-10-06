@@ -246,6 +246,8 @@ func testScraper(ts *httptest.Server) *Scraper {
 	return s
 }
 
+const testStudioURL = "https://www.example.com/tour/"
+
 func TestRun(t *testing.T) {
 	ts := newTestServer([][]int{{100, 200}})
 	defer ts.Close()
@@ -262,6 +264,9 @@ func TestRun(t *testing.T) {
 	got := testutil.CollectScenes(t, ch)
 	if len(got) != 2 {
 		t.Fatalf("got %d scenes, want 2", len(got))
+	}
+	if want := ts.URL + "/tour/"; got[0].StudioURL != want {
+		t.Errorf("StudioURL = %q, want %q", got[0].StudioURL, want)
 	}
 	if got[0].Title != "Scene 100" {
 		t.Errorf("title = %q, want Scene 100", got[0].Title)
@@ -334,6 +339,9 @@ func TestModelPage(t *testing.T) {
 	if len(got) != 3 {
 		t.Fatalf("got %d scenes, want 3", len(got))
 	}
+	if want := ts.URL + "/tour/models/TestModel.html"; got[0].StudioURL != want {
+		t.Errorf("StudioURL = %q, want %q", got[0].StudioURL, want)
+	}
 }
 
 func TestToSceneRelativeURLs(t *testing.T) {
@@ -343,7 +351,10 @@ func TestToSceneRelativeURLs(t *testing.T) {
 		url:   "/tour/trailers/test.html",
 		thumb: "/content/thumbs/42.jpg",
 	}
-	scene := item.toScene("testid", "Test Studio", "https://www.example.com", time.Now())
+	scene := item.toScene("testid", "Test Studio", "https://www.example.com", testStudioURL, time.Now())
+	if scene.StudioURL != testStudioURL {
+		t.Errorf("StudioURL = %q, want %q", scene.StudioURL, testStudioURL)
+	}
 	if scene.URL != "https://www.example.com/tour/trailers/test.html" {
 		t.Errorf("URL = %q, want absolute", scene.URL)
 	}
@@ -359,7 +370,7 @@ func TestToSceneAbsoluteURLs(t *testing.T) {
 		url:   "https://www.example.com/tour/trailers/test.html",
 		thumb: "https://cdn.example.com/thumbs/42.jpg",
 	}
-	scene := item.toScene("testid", "Test Studio", "https://www.example.com", time.Now())
+	scene := item.toScene("testid", "Test Studio", "https://www.example.com", testStudioURL, time.Now())
 	if scene.URL != "https://www.example.com/tour/trailers/test.html" {
 		t.Errorf("URL = %q, should not be modified", scene.URL)
 	}
@@ -595,7 +606,7 @@ func TestToSceneSchemeRelativeURLs(t *testing.T) {
 		url:   "//tour.example.com/trailers/test.html",
 		thumb: "//cdn.example.com/thumbs/42.jpg",
 	}
-	scene := item.toScene("testid", "Test Studio", "https://tour.example.com", time.Now())
+	scene := item.toScene("testid", "Test Studio", "https://tour.example.com", testStudioURL, time.Now())
 	if scene.URL != "https://tour.example.com/trailers/test.html" {
 		t.Errorf("URL = %q", scene.URL)
 	}
@@ -631,7 +642,7 @@ func TestToSceneRewritesTheAffiliateRedirect(t *testing.T) {
 		title: "Test",
 		url:   "https://join.transerotica.com/track/MC4wLjEwOS4xODAuMC4wLjAuMC4w/trailers/Some-Scene.html",
 	}
-	scene := item.toScene("cherrymavrik", "Cherry Mavrik", "https://www.cherrymavrik.com", time.Now())
+	scene := item.toScene("cherrymavrik", "Cherry Mavrik", "https://www.cherrymavrik.com", testStudioURL, time.Now())
 	if want := "https://www.cherrymavrik.com/trailers/Some-Scene.html"; scene.URL != want {
 		t.Errorf("URL = %q, want %q", scene.URL, want)
 	}
@@ -646,7 +657,7 @@ func TestToSceneLeavesOtherAbsoluteURLsAlone(t *testing.T) {
 		"https://cdn.example.com/thumbs/1.jpg",
 	} {
 		item := sceneItem{id: "1", title: "T", url: u}
-		if got := item.toScene("x", "X", "https://www.example.com", time.Now()).URL; got != u {
+		if got := item.toScene("x", "X", "https://www.example.com", testStudioURL, time.Now()).URL; got != u {
 			t.Errorf("URL %q was rewritten to %q", u, got)
 		}
 	}

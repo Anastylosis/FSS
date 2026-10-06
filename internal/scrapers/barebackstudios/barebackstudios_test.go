@@ -172,7 +172,8 @@ func TestListScenes(t *testing.T) {
 	defer ts.Close()
 
 	s := newTestScraper(ts)
-	ch, err := s.ListScenes(context.Background(), ts.URL, scraper.ListOpts{})
+	studioURL := ts.URL + "/studio/"
+	ch, err := s.ListScenes(context.Background(), studioURL, scraper.ListOpts{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -183,6 +184,9 @@ func TestListScenes(t *testing.T) {
 	for _, r := range results {
 		if r.Kind == scraper.KindScene {
 			scenes++
+			if r.Scene.StudioURL != studioURL {
+				t.Errorf("StudioURL = %q, want %q", r.Scene.StudioURL, studioURL)
+			}
 		}
 	}
 

@@ -123,7 +123,8 @@ func TestListScenes_endToEnd(t *testing.T) {
 	s := New()
 	s.base = ts.URL
 
-	ch, err := s.ListScenes(context.Background(), ts.URL, scraper.ListOpts{})
+	studioURL := ts.URL + "/studio/"
+	ch, err := s.ListScenes(context.Background(), studioURL, scraper.ListOpts{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -131,6 +132,9 @@ func TestListScenes_endToEnd(t *testing.T) {
 	for r := range ch {
 		if r.Kind == scraper.KindScene {
 			scenes++
+			if r.Scene.StudioURL != studioURL {
+				t.Errorf("StudioURL = %q, want %q", r.Scene.StudioURL, studioURL)
+			}
 			// Fixture contains absolute college-uniform.com URLs (matches real
 			// site markup); they survive the parse intact.
 			if !strings.Contains(r.Scene.URL, "/updates/") {

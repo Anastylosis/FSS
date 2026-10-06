@@ -154,7 +154,7 @@ func parseRelativeDate(s string, now time.Time) time.Time {
 	return now.AddDate(-years, -months, -(weeks*7 + days))
 }
 
-func (s *Scraper) run(ctx context.Context, _ string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
+func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
 	defer close(out)
 
 	if err := s.verifyAge(ctx); err != nil {
@@ -193,17 +193,17 @@ func (s *Scraper) run(ctx context.Context, _ string, opts scraper.ListOpts, out 
 				continue
 			}
 			seen[e.id] = true
-			scenes = append(scenes, toScene(s.base, e, now))
+			scenes = append(scenes, toScene(s.base, studioURL, e, now))
 		}
 		return scraper.PageResult{Scenes: scenes}, nil
 	})
 }
 
-func toScene(base string, e entry, now time.Time) models.Scene {
+func toScene(base, studioURL string, e entry, now time.Time) models.Scene {
 	sc := models.Scene{
 		ID:          e.id,
 		SiteID:      "barebackstudios",
-		StudioURL:   base,
+		StudioURL:   studioURL,
 		Title:       e.title,
 		URL:         base + "/en/",
 		Description: e.description,

@@ -253,7 +253,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 		return
 	}
 
-	s.scrapeListingPages(ctx, opts, out, now, base)
+	s.scrapeListingPages(ctx, studioURL, opts, out, now, base)
 }
 
 func (s *Scraper) scrapeModelPage(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult, now time.Time, base string) {
@@ -293,14 +293,14 @@ func (s *Scraper) scrapeModelPage(ctx context.Context, studioURL string, opts sc
 			return
 		}
 		select {
-		case out <- scraper.Scene(item.toScene(s.cfg.SiteID, s.cfg.StudioName, base, now)):
+		case out <- scraper.Scene(item.toScene(s.cfg.SiteID, s.cfg.StudioName, base, studioURL, now)):
 		case <-ctx.Done():
 			return
 		}
 	}
 }
 
-func (s *Scraper) scrapeListingPages(ctx context.Context, opts scraper.ListOpts, out chan<- scraper.SceneResult, now time.Time, base string) {
+func (s *Scraper) scrapeListingPages(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult, now time.Time, base string) {
 	firstPage := true
 	scraper.Paginate(ctx, opts, s.cfg.SiteID, out, func(ctx context.Context, page int) (scraper.PageResult, error) {
 		pageURL := fmt.Sprintf("%s%s/categories/movies_%d_d.html", base, s.cfg.TourPrefix, page)
@@ -320,19 +320,19 @@ func (s *Scraper) scrapeListingPages(ctx context.Context, opts scraper.ListOpts,
 
 		scenes := make([]models.Scene, len(items))
 		for i, item := range items {
-			scenes[i] = item.toScene(s.cfg.SiteID, s.cfg.StudioName, base, now)
+			scenes[i] = item.toScene(s.cfg.SiteID, s.cfg.StudioName, base, studioURL, now)
 		}
 		return scraper.PageResult{Scenes: scenes, Total: total}, nil
 	})
 }
 
-func (item sceneItem) toScene(siteID, studio, base string, now time.Time) models.Scene {
+func (item sceneItem) toScene(siteID, studio, base, studioURL string, now time.Time) models.Scene {
 	url := absolutize(item.url, base)
 	thumb := absolutize(item.thumb, base)
 	return models.Scene{
 		ID:          item.id,
 		SiteID:      siteID,
-		StudioURL:   base,
+		StudioURL:   studioURL,
 		Title:       item.title,
 		URL:         url,
 		Thumbnail:   thumb,
