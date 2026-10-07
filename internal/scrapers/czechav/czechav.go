@@ -55,6 +55,15 @@ var sites = []czechavutil.SiteConfig{
 	{SiteID: "selfiefetish", Domain: "selfiefetish.com", Studio: "Selfie Fetish"},
 	{SiteID: "xvirtual", Domain: "xvirtual.com", Studio: "xVirtual"},
 
+	// Czech Gay Authentic Videos
+	{SiteID: "czechgayamateurs", Domain: "czechgayamateurs.com", Studio: "Czech Gay Amateurs"},
+	{SiteID: "czechgaycasting", Domain: "czechgaycasting.com", Studio: "Czech Gay Casting"},
+	{SiteID: "czechgaycouples", Domain: "czechgaycouples.com", Studio: "Czech Gay Couples"},
+	{SiteID: "czechgayfantasy", Domain: "czechgayfantasy.com", Studio: "Czech Gay Fantasy"},
+	{SiteID: "czechgaymassage", Domain: "czechgaymassage.com", Studio: "Czech Gay Massage"},
+	{SiteID: "czechgaysolarium", Domain: "czechgaysolarium.com", Studio: "Czech Gay Solarium"},
+	{SiteID: "gayhorrorporn", Domain: "gayhorrorporn.com", Studio: "Gay Horror Porn"},
+
 	// Other
 	{SiteID: "annalovesshemale", Domain: "annalovesshemale.com", Studio: "Anna Loves Shemale"},
 	{SiteID: "creativeporn", Domain: "creativeporn.com", Studio: "Creative Porn"},

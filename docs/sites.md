@@ -1,6 +1,6 @@
 # Covered Sites — All Domains
 
-1825 scrapers covering 1906 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
+1832 scrapers covering 1913 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
 
 Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scraper ID(s)** column lists every scraper that claims URLs on that domain — most domains have one entry, but table-driven networks (`adultprime`, `tmw`, `nextdoorstudios`, etc.) host many sub-studios on a single root domain. See [`scrapers.md`](scrapers.md) for what each ID covers.
 
@@ -411,6 +411,12 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | czechfirstvideo.com | `czechfirstvideo` |
 | czechgangbang.com | `czechgangbang` |
 | czechgardenparty.com | `czechgardenparty` |
+| czechgayamateurs.com | `czechgayamateurs` |
+| czechgaycasting.com | `czechgaycasting` |
+| czechgaycouples.com | `czechgaycouples` |
+| czechgayfantasy.com | `czechgayfantasy` |
+| czechgaymassage.com | `czechgaymassage` |
+| czechgaysolarium.com | `czechgaysolarium` |
 | czechgfs.com | `czechgfs` |
 | czechharem.com | `czechharem` |
 | czechhomeorgy.com | `czechhomeorgy` |
@@ -656,6 +662,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | gayfrenchkiss.com | `gayfrenchkiss` |
 | gayfrenchkiss.fr | `gayfrenchkiss` |
 | gayhoopla.com | `gayhoopla` |
+| gayhorrorporn.com | `gayhorrorporn` |
 | gaypatrol.com | `gaypatrol` |
 | gaypawn.com | `gaypawn` |
 | gayrevenge.com | `realitydudes` |
