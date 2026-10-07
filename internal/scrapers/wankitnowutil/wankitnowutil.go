@@ -144,7 +144,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 
 	if m := modelSlugRe.FindStringSubmatch(studioURL); m != nil {
 		scraper.Debugf(1, "%s: detected model page: %s", s.cfg.ID, m[1])
-		s.scrapeModelPage(ctx, m[1], opts, out)
+		s.scrapeModelPage(ctx, m[1], studioURL, opts, out)
 		return
 	}
 
@@ -170,7 +170,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 		contents := data.PageProps.Contents
 		scenes := make([]models.Scene, 0, len(contents.Data))
 		for _, sc := range contents.Data {
-			scenes = append(scenes, toScene(sc, s.cfg.ID, siteBase, s.cfg.Studio, now))
+			scenes = append(scenes, toScene(sc, s.cfg.ID, siteBase, studioURL, s.cfg.Studio, now))
 		}
 
 		return scraper.PageResult{
@@ -181,7 +181,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 	})
 }
 
-func (s *Scraper) scrapeModelPage(ctx context.Context, slug string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
+func (s *Scraper) scrapeModelPage(ctx context.Context, slug, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
 	buildID, err := s.fetchBuildID(ctx)
 	if err != nil {
 		select {
@@ -240,14 +240,14 @@ func (s *Scraper) scrapeModelPage(ctx context.Context, slug string, opts scraper
 			return
 		}
 		select {
-		case out <- scraper.Scene(toScene(sc, s.cfg.ID, siteBase, s.cfg.Studio, now)):
+		case out <- scraper.Scene(toScene(sc, s.cfg.ID, siteBase, studioURL, s.cfg.Studio, now)):
 		case <-ctx.Done():
 			return
 		}
 	}
 }
 
-func toScene(sc sceneJSON, siteID, siteBase, studio string, now time.Time) models.Scene {
+func toScene(sc sceneJSON, siteID, siteBase, studioURL, studio string, now time.Time) models.Scene {
 	var date time.Time
 	if sc.PublishDate != "" {
 		if t, err := time.Parse("2006/01/02 15:04:05", sc.PublishDate); err == nil {
@@ -266,7 +266,7 @@ func toScene(sc sceneJSON, siteID, siteBase, studio string, now time.Time) model
 	return models.Scene{
 		ID:          strconv.Itoa(sc.ID),
 		SiteID:      siteID,
-		StudioURL:   siteBase,
+		StudioURL:   studioURL,
 		Title:       sc.Title,
 		Description: sc.Description,
 		URL:         siteBase + "/videos/" + sc.Slug,

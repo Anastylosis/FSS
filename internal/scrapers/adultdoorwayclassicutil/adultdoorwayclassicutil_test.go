@@ -285,7 +285,8 @@ func TestListScenes_endToEnd(t *testing.T) {
 		MatchRe:    regexp.MustCompile(`.*`),
 	})
 
-	ch, err := s.ListScenes(context.Background(), ts.URL, scraper.ListOpts{Workers: 2})
+	studioURL := ts.URL + "/studio/"
+	ch, err := s.ListScenes(context.Background(), studioURL, scraper.ListOpts{Workers: 2})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -299,6 +300,9 @@ func TestListScenes_endToEnd(t *testing.T) {
 		switch r.Kind {
 		case scraper.KindScene:
 			scenes++
+			if r.Scene.StudioURL != studioURL {
+				t.Errorf("StudioURL = %q, want %q", r.Scene.StudioURL, studioURL)
+			}
 			titles = append(titles, r.Scene.Title)
 			if r.Scene.Description == "" {
 				t.Errorf("scene %q has empty description — detail fetch didn't enrich", r.Scene.Title)

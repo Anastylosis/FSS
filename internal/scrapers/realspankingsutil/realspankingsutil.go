@@ -62,9 +62,9 @@ func (s *Scraper) MatchesURL(u string) bool {
 	return scraper.HostMatches(u, s.cfg.Domain)
 }
 
-func (s *Scraper) ListScenes(ctx context.Context, _ string, opts scraper.ListOpts) (<-chan scraper.SceneResult, error) {
+func (s *Scraper) ListScenes(ctx context.Context, studioURL string, opts scraper.ListOpts) (<-chan scraper.SceneResult, error) {
 	out := make(chan scraper.SceneResult)
-	go s.run(ctx, opts, out)
+	go s.run(ctx, studioURL, opts, out)
 	return out, nil
 }
 
@@ -76,25 +76,25 @@ type listingItem struct {
 	description string
 }
 
-func (s *Scraper) run(ctx context.Context, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
+func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
 	defer close(out)
 
 	scraper.Debugf(1, "%s: starting scrape (type=%d)", s.cfg.SiteID, s.cfg.Type)
 	switch s.cfg.Type {
 	case TypeRSI:
-		s.runPaged(ctx, opts, out, 0, s.buildRSIURL, parseRSI)
+		s.runPaged(ctx, studioURL, opts, out, 0, s.buildRSIURL, parseRSI)
 	case TypeSpankedCoeds:
-		s.runPaged(ctx, opts, out, 1, s.buildSCURL, parseSpankedCoeds)
+		s.runPaged(ctx, studioURL, opts, out, 1, s.buildSCURL, parseSpankedCoeds)
 	case TypeSTJ:
-		s.runPaged(ctx, opts, out, 1, s.buildSTJURL, parseSTJ)
+		s.runPaged(ctx, studioURL, opts, out, 1, s.buildSTJURL, parseSTJ)
 	case TypeSTB:
-		s.runYears(ctx, opts, out)
+		s.runYears(ctx, studioURL, opts, out)
 	case TypeBailey:
-		s.runSingle(ctx, opts, out)
+		s.runSingle(ctx, studioURL, opts, out)
 	}
 }
 
-func (s *Scraper) runPaged(ctx context.Context, opts scraper.ListOpts, out chan<- scraper.SceneResult,
+func (s *Scraper) runPaged(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult,
 	startPage int, buildURL func(int) string, parse func([]byte, string) []listingItem) {
 
 	// The walk ends on an empty page, but a CMS that clamps an out-of-range
@@ -135,7 +135,7 @@ func (s *Scraper) runPaged(ctx context.Context, opts scraper.ListOpts, out chan<
 			return
 		}
 
-		if !s.sendItems(ctx, opts, out, fresh, pageURL) {
+		if !s.sendItems(ctx, studioURL, opts, out, fresh, pageURL) {
 			return
 		}
 
@@ -146,7 +146,7 @@ func (s *Scraper) runPaged(ctx context.Context, opts scraper.ListOpts, out chan<
 	}
 }
 
-func (s *Scraper) runYears(ctx context.Context, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
+func (s *Scraper) runYears(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
 	currentYear := time.Now().Year()
 	for year := currentYear; year >= 2001; year-- {
 		if ctx.Err() != nil {
@@ -169,7 +169,7 @@ func (s *Scraper) runYears(ctx context.Context, opts scraper.ListOpts, out chan<
 			continue
 		}
 
-		if !s.sendItems(ctx, opts, out, items, url) {
+		if !s.sendItems(ctx, studioURL, opts, out, items, url) {
 			return
 		}
 
@@ -179,7 +179,7 @@ func (s *Scraper) runYears(ctx context.Context, opts scraper.ListOpts, out chan<
 	}
 }
 
-func (s *Scraper) runSingle(ctx context.Context, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
+func (s *Scraper) runSingle(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
 	body, err := s.fetchPage(ctx, s.base+"/updates.php")
 	if err != nil {
 		select {
@@ -190,14 +190,14 @@ func (s *Scraper) runSingle(ctx context.Context, opts scraper.ListOpts, out chan
 	}
 
 	items := parseBailey(body, s.base)
-	s.sendItems(ctx, opts, out, items, s.base+"/updates.php")
+	s.sendItems(ctx, studioURL, opts, out, items, s.base+"/updates.php")
 }
 
 // sendItems emits the scenes from one listing page. pageURL is where they were
 // found: these sites publish no per-scene page, so it becomes the scene URL
 // with the scene's own id as the anchor — the same shape the other
 // listing-only scrapers here use. See docs/scrapers.md.
-func (s *Scraper) sendItems(ctx context.Context, opts scraper.ListOpts, out chan<- scraper.SceneResult, items []listingItem, pageURL string) bool {
+func (s *Scraper) sendItems(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult, items []listingItem, pageURL string) bool {
 	for _, item := range items {
 		if opts.KnownIDs[item.id] {
 			scraper.Debugf(1, "%s: hit known ID, stopping early", s.cfg.SiteID)
@@ -207,7 +207,7 @@ func (s *Scraper) sendItems(ctx context.Context, opts scraper.ListOpts, out chan
 			}
 			return false
 		}
-		scene := s.buildScene(item, pageURL)
+		scene := s.buildScene(item, pageURL, studioURL)
 		select {
 		case out <- scraper.Scene(scene):
 		case <-ctx.Done():
@@ -217,11 +217,11 @@ func (s *Scraper) sendItems(ctx context.Context, opts scraper.ListOpts, out chan
 	return true
 }
 
-func (s *Scraper) buildScene(item listingItem, pageURL string) models.Scene {
+func (s *Scraper) buildScene(item listingItem, pageURL, studioURL string) models.Scene {
 	return models.Scene{
 		ID:          item.id,
 		SiteID:      s.cfg.SiteID,
-		StudioURL:   s.base,
+		StudioURL:   studioURL,
 		Title:       item.title,
 		URL:         sceneURL(pageURL, s.base, item.id),
 		Thumbnail:   item.thumb,

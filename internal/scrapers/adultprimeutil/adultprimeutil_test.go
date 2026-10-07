@@ -321,7 +321,8 @@ func TestListScenesNicheFilter(t *testing.T) {
 	defer ts.Close()
 
 	s := newTestScraper(ts)
-	ch, err := s.ListScenes(context.Background(), ts.URL+"/studios/videos?website=TestStudio&niche=Blowjob", scraper.ListOpts{})
+	studioURL := ts.URL + "/studios/videos?website=TestStudio&niche=Blowjob"
+	ch, err := s.ListScenes(context.Background(), studioURL, scraper.ListOpts{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -331,6 +332,9 @@ func TestListScenesNicheFilter(t *testing.T) {
 		switch r.Kind {
 		case scraper.KindScene:
 			sceneCount++
+			if r.Scene.StudioURL != studioURL {
+				t.Errorf("StudioURL = %q, want %q", r.Scene.StudioURL, studioURL)
+			}
 		case scraper.KindError:
 			t.Errorf("unexpected error: %v", r.Err)
 		}

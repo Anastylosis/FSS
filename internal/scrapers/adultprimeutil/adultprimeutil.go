@@ -98,7 +98,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 		go func() {
 			defer wg.Done()
 			for dw := range work {
-				scene, err := s.fetchDetail(ctx, dw.listing, opts.Delay)
+				scene, err := s.fetchDetail(ctx, studioURL, dw.listing, opts.Delay)
 				if err != nil {
 					select {
 					case out <- scraper.Error(err):
@@ -273,7 +273,7 @@ var (
 	detailDurRe   = regexp.MustCompile(`class="description-duration[^"]*"><i class="fa fa-clock-o"></i>\s*(\d+)\s*min`)
 )
 
-func (s *Scraper) fetchDetail(ctx context.Context, item listingItem, delay time.Duration) (models.Scene, error) {
+func (s *Scraper) fetchDetail(ctx context.Context, studioURL string, item listingItem, delay time.Duration) (models.Scene, error) {
 	if !scraper.Pace(ctx, delay) {
 		return models.Scene{}, ctx.Err()
 	}
@@ -287,7 +287,7 @@ func (s *Scraper) fetchDetail(ctx context.Context, item listingItem, delay time.
 	scene := models.Scene{
 		ID:        item.id,
 		SiteID:    s.cfg.SiteID,
-		StudioURL: fmt.Sprintf("%s/studios/studio/%s", s.base, s.cfg.Slug),
+		StudioURL: studioURL,
 		Title:     item.title,
 		URL:       fmt.Sprintf("%s/studios/video/%s?site=%s", s.base, item.id, strings.ToLower(s.cfg.Slug)),
 		Thumbnail: item.thumb,

@@ -59,8 +59,11 @@ func TestToScene(t *testing.T) {
 		Tags:            []string{"tag1", "tag2"},
 	}
 
-	scene := toScene(sc, "testsite", "https://www.testsite.com", "Test Studio", now)
+	scene := toScene(sc, "testsite", "https://www.testsite.com", testStudioURL, "Test Studio", now)
 
+	if scene.StudioURL != testStudioURL {
+		t.Errorf("StudioURL = %q, want %q", scene.StudioURL, testStudioURL)
+	}
 	if scene.ID != "42" {
 		t.Errorf("ID = %q, want %q", scene.ID, "42")
 	}
@@ -96,7 +99,7 @@ func TestToScene(t *testing.T) {
 func TestToSceneEmptyDate(t *testing.T) {
 	now := time.Date(2026, 5, 6, 12, 0, 0, 0, time.UTC)
 	sc := sceneJSON{ID: 1, Title: "No Date"}
-	scene := toScene(sc, "testsite", "https://www.testsite.com", "Test Studio", now)
+	scene := toScene(sc, "testsite", "https://www.testsite.com", testStudioURL, "Test Studio", now)
 	if !scene.Date.IsZero() {
 		t.Errorf("Date should be zero for empty publish_date, got %v", scene.Date)
 	}
@@ -105,7 +108,7 @@ func TestToSceneEmptyDate(t *testing.T) {
 func TestToSceneEmptyModels(t *testing.T) {
 	now := time.Date(2026, 5, 6, 12, 0, 0, 0, time.UTC)
 	sc := sceneJSON{ID: 1, Title: "No Models", Models: []string{"", "  "}}
-	scene := toScene(sc, "testsite", "https://www.testsite.com", "Test Studio", now)
+	scene := toScene(sc, "testsite", "https://www.testsite.com", testStudioURL, "Test Studio", now)
 	if len(scene.Performers) != 0 {
 		t.Errorf("Performers should be empty for blank models, got %v", scene.Performers)
 	}
@@ -179,7 +182,7 @@ func TestRun(t *testing.T) {
 	cfg.BaseURL = srv.URL
 
 	s := New(cfg)
-	ch, err := s.ListScenes(context.Background(), srv.URL, scraper.ListOpts{})
+	ch, err := s.ListScenes(context.Background(), srv.URL+"/", scraper.ListOpts{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -187,6 +190,9 @@ func TestRun(t *testing.T) {
 	got := testutil.CollectScenes(t, ch)
 	if len(got) != 2 {
 		t.Fatalf("got %d scenes, want 2", len(got))
+	}
+	if want := srv.URL + "/"; got[0].StudioURL != want {
+		t.Errorf("StudioURL = %q, want %q", got[0].StudioURL, want)
 	}
 	if got[0].Title != "Scene One" {
 		t.Errorf("scenes[0].Title = %q, want %q", got[0].Title, "Scene One")
@@ -259,6 +265,9 @@ func TestModelPage(t *testing.T) {
 	if len(got) != 2 {
 		t.Fatalf("got %d scenes, want 2", len(got))
 	}
+	if want := srv.URL + "/models/jane-doe"; got[0].StudioURL != want {
+		t.Errorf("StudioURL = %q, want %q", got[0].StudioURL, want)
+	}
 	if got[0].Title != "Model Scene One" {
 		t.Errorf("scenes[0].Title = %q, want %q", got[0].Title, "Model Scene One")
 	}
@@ -319,7 +328,7 @@ func TestGoldenNextData(t *testing.T) {
 	}
 
 	now := time.Date(2026, 7, 26, 0, 0, 0, 0, time.UTC)
-	sc := toScene(j, "wankitnow", "https://www.wankitnow.com", "Wank It Now", now)
+	sc := toScene(j, "wankitnow", "https://www.wankitnow.com", testStudioURL, "Wank It Now", now)
 
 	if sc.Title != "CUCK TALES" {
 		t.Errorf("scene Title = %q", sc.Title)
@@ -341,3 +350,5 @@ func TestGoldenNextData(t *testing.T) {
 		t.Error("scene Performers is empty (models)")
 	}
 }
+
+const testStudioURL = "https://www.testsite.com/studio"

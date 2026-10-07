@@ -343,7 +343,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 		}
 	}
 
-	s.fetchDetails(ctx, items, opts, out)
+	s.fetchDetails(ctx, studioURL, items, opts, out)
 }
 
 func (s *Scraper) collectListing(ctx context.Context, lc listConfig, opts scraper.ListOpts, out chan<- scraper.SceneResult) (items []sceneItem, sentTotal bool) {
@@ -421,7 +421,7 @@ func (s *Scraper) collectListing(ctx context.Context, lc listConfig, opts scrape
 	return items, sentTotal
 }
 
-func (s *Scraper) fetchDetails(ctx context.Context, items []sceneItem, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
+func (s *Scraper) fetchDetails(ctx context.Context, studioURL string, items []sceneItem, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
 	workers := opts.Workers
 	if workers <= 0 {
 		workers = 4
@@ -453,7 +453,7 @@ func (s *Scraper) fetchDetails(ctx context.Context, items []sceneItem, opts scra
 				}
 				enrichFromDetail(body, &item)
 				select {
-				case out <- scraper.Scene(item.toScene(s.cfg.ID, s.cfg.SiteBase, s.cfg.Studio, now)):
+				case out <- scraper.Scene(item.toScene(s.cfg.ID, s.cfg.SiteBase, studioURL, s.cfg.Studio, now)):
 				case <-ctx.Done():
 					return
 				}
@@ -470,7 +470,7 @@ func (s *Scraper) fetchDetails(ctx context.Context, items []sceneItem, opts scra
 	}
 }
 
-func (item sceneItem) toScene(siteID, siteBase, studio string, now time.Time) models.Scene {
+func (item sceneItem) toScene(siteID, siteBase, studioURL, studio string, now time.Time) models.Scene {
 	url := item.url
 	if strings.HasPrefix(url, "/") {
 		url = siteBase + url
@@ -478,7 +478,7 @@ func (item sceneItem) toScene(siteID, siteBase, studio string, now time.Time) mo
 	return models.Scene{
 		ID:          item.id,
 		SiteID:      siteID,
-		StudioURL:   siteBase,
+		StudioURL:   studioURL,
 		Title:       item.title,
 		URL:         url,
 		Thumbnail:   absURL(siteBase, item.thumb),

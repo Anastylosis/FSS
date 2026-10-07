@@ -225,7 +225,8 @@ func TestListScenesRSI(t *testing.T) {
 		base:   ts.URL,
 		cfg:    SiteConfig{SiteID: "test-rsi", Domain: "test.com", StudioName: "Test RSI", Type: TypeRSI},
 	}
-	ch, err := s.ListScenes(context.Background(), ts.URL, scraper.ListOpts{})
+	studioURL := ts.URL + "/studio"
+	ch, err := s.ListScenes(context.Background(), studioURL, scraper.ListOpts{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -235,6 +236,9 @@ func TestListScenesRSI(t *testing.T) {
 		switch r.Kind {
 		case scraper.KindScene:
 			sceneCount++
+			if r.Scene.StudioURL != studioURL {
+				t.Errorf("StudioURL = %q, want %q", r.Scene.StudioURL, studioURL)
+			}
 		case scraper.KindError:
 			t.Errorf("unexpected error: %v", r.Err)
 		}
@@ -344,9 +348,12 @@ func TestSceneURLAnchorsTheListingPage(t *testing.T) {
 
 func TestBuildSceneUsesTheListingPage(t *testing.T) {
 	s := New(SiteConfig{SiteID: "spankingbailey", Domain: "spankingbailey.com", StudioName: "Spanking Bailey", Type: TypeBailey})
-	scene := s.buildScene(listingItem{id: "42", title: "A Scene"}, "https://spankingbailey.com/updates.php")
+	scene := s.buildScene(listingItem{id: "42", title: "A Scene"}, "https://spankingbailey.com/updates.php", "https://spankingbailey.com/studio")
 	if scene.URL != "https://spankingbailey.com/updates.php#42" {
 		t.Errorf("URL = %q", scene.URL)
+	}
+	if scene.StudioURL != "https://spankingbailey.com/studio" {
+		t.Errorf("StudioURL = %q", scene.StudioURL)
 	}
 	if scene.ID != "42" || scene.Title != "A Scene" {
 		t.Errorf("ID/Title = %q/%q", scene.ID, scene.Title)

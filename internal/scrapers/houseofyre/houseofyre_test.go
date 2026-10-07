@@ -182,7 +182,8 @@ func TestRun(t *testing.T) {
 
 	s := &Scraper{client: ts.Client(), siteBase: ts.URL}
 	out := make(chan scraper.SceneResult)
-	go s.run(context.Background(), ts.URL, scraper.ListOpts{Workers: 2}, out)
+	studioURL := ts.URL + "/studio/"
+	go s.run(context.Background(), studioURL, scraper.ListOpts{Workers: 2}, out)
 
 	var scenes []string
 	for r := range out {
@@ -194,6 +195,9 @@ func TestRun(t *testing.T) {
 			continue
 		}
 		scenes = append(scenes, r.Scene.ID)
+		if r.Scene.StudioURL != studioURL {
+			t.Errorf("StudioURL = %q, want %q", r.Scene.StudioURL, studioURL)
+		}
 		if r.Scene.Description != "Full scene description with all the details." {
 			t.Errorf("scene %s description = %q", r.Scene.ID, r.Scene.Description)
 		}
@@ -285,6 +289,9 @@ func TestModelURL(t *testing.T) {
 			continue
 		}
 		scenes = append(scenes, r.Scene.ID)
+		if r.Scene.StudioURL != modelURL {
+			t.Errorf("StudioURL = %q, want %q", r.Scene.StudioURL, modelURL)
+		}
 	}
 	if total != 2 {
 		t.Errorf("total = %d, want 2", total)

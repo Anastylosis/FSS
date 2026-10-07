@@ -68,7 +68,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 		go func() {
 			defer wg.Done()
 			for ls := range work {
-				scene, err := s.fetchDetail(ctx, ls, opts.Delay)
+				scene, err := s.fetchDetail(ctx, ls, studioURL, opts.Delay)
 				if err != nil {
 					select {
 					case out <- scraper.Error(err):
@@ -331,7 +331,7 @@ func parseDetailPage(body []byte) detailData {
 	return d
 }
 
-func (s *Scraper) fetchDetail(ctx context.Context, ls listingScene, delay time.Duration) (models.Scene, error) {
+func (s *Scraper) fetchDetail(ctx context.Context, ls listingScene, studioURL string, delay time.Duration) (models.Scene, error) {
 	if !scraper.Pace(ctx, delay) {
 		return models.Scene{}, ctx.Err()
 	}
@@ -340,7 +340,7 @@ func (s *Scraper) fetchDetail(ctx context.Context, ls listingScene, delay time.D
 	scene := models.Scene{
 		ID:         ls.id,
 		SiteID:     "houseofyre",
-		StudioURL:  s.siteBase,
+		StudioURL:  studioURL,
 		Title:      ls.title,
 		URL:        ls.url,
 		Date:       ls.date,
