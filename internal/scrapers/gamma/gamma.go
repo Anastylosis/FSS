@@ -335,6 +335,9 @@ var sites = []siteConfig{
 
 	// Maskurbate — own segment:maskurbate key from /en/videos.
 	{"maskurbate", "maskurbate.com", "Maskurbate", "", "", "", "", ""},
+
+	// InterracialVision — own segment:interracialvision key from /en/videos.
+	{"interracialvision", "interracialvision.com", "InterracialVision", "", "", "", "", ""},
 }
 
 type siteScraper struct {

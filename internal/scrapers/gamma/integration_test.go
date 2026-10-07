@@ -280,3 +280,7 @@ func TestLiveBSkow(t *testing.T) {
 func TestLiveMaskurbate(t *testing.T) {
 	testutil.RunLiveScrape(t, newTestScraper(findSite("maskurbate")), "https://www.maskurbate.com/", 3)
 }
+
+func TestLiveInterracialVision(t *testing.T) {
+	testutil.RunLiveScrape(t, newTestScraper(findSite("interracialvision")), "https://www.interracialvision.com/", 3)
+}
