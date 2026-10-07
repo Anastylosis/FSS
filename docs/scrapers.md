@@ -1063,6 +1063,47 @@ backlog files for the same reason.
 | Jerk to My Feet (Feet on Demand network) | Retired from `feetondemand`: the site is dead. | 2026-07-26 |
 | Randy Pass (ARX network hub) | Retired from `arx`: rebuilt as a portal whose `/scenes` lists the member sites and whose sitemap lists no scenes. Its catalogue is covered through the ARX member sites. | 2026-09-27 |
 | Puba network (puba.com and its ~72 per-pornstar sub-sites, e.g. Abigail Mac, Asa Akira, Samantha Saint, 1 Girl 1 Camera) | Retired the `puba` scraper: every `puba.com/pornstarnetwork/` URL now 301s to a `join.puba.com/track/…` splash page, the sub-site tours are static splashes with only join/login links, and the catalogue exists only in the members-only NATS area — `join.puba.com/tour_api.php` answers 403 | 2026-10-01 |
+| DareRing | `darering.com` is a parked for-sale page; the old `/videos.html` tour is gone | 2026-10-16 |
+| Sweety X | `sweetyx.com` redirects to the unrelated Sexpacker join page; no titles, dates or detail pages | 2026-10-16 |
+| Photodromm | No per-scene metadata: `/videos/` shows a handful of model tiles, the WP REST API exposes no posts, and there is no sitemap | 2026-10-16 |
+| Gynarchy Goddess | `gynarchygoddess.com` serves a 10-byte "Online..." stub with `Disallow: /`; it never hosted a video catalogue | 2026-10-16 |
+| Goddess Kaylie | Findom brochure site with no videos; the scenes are sold on clip stores | 2026-10-16 |
+| STAXXX (Tranny Candy and siblings) | Every brand is a join splash on `{brand}.staxxx.com` with no titles, listing or sitemap; `trannycandy.com` now redirects to Trans Bliss | 2026-10-16 |
+| Webtolove | `webto.love` is a Linktree pointing at clip stores; UViU has shut down | 2026-10-16 |
+| Michel's World | Members-only WordPress site; the public shop shows only preview images with no text metadata | 2026-10-16 |
+| Satin Fun Taboo | The domain no longer resolves | 2026-10-16 |
+| MontysPOV | `montyspov.com` serves a 10-byte "Online..." stub | 2026-10-16 |
+| Fantasy Girl Pass (Catalina Cruz, Cindy Behr, StuffedVR, …) | Every domain is a single CCBill landing page; the `tour.` subdomains render empty shells and their sitemaps redirect onto them, so no title is publicly reachable | 2026-10-16 |
+| Alexextreme | Every path answers HTTP 403 to every client tried | 2026-10-16 |
+| Scary Fuckers | Every path redirects to `/en/login`; no free tour | 2026-10-16 |
+| La Sublime | `tours.lasublimexxx.com` no longer resolves and the main domain is a cam funnel | 2026-10-16 |
+| Tushy Cash (Tushy School, Strapon Lesbians, Tushy Massage) | Every domain is a Cloudflare redirect loop onto itself or does not answer | 2026-10-16 |
+| Sweet Bunny | StashDB lists no URL and no official site could be found; `sweetbunny.com` is a parked lander | 2026-10-16 |
+| Busty Buffy | Join splash only; no tour, update or model pages | 2026-10-16 |
+| Nasty Rubber Girls | The domain serves a parking redirect | 2026-10-16 |
+| Mistress AE | Wix brochure site and a Loverfans profile; no clip listing | 2026-10-16 |
+| RubberVita | The domain redirects to a survey click-tracker | 2026-10-16 |
+| Creampie Cathy | Every public page renders the same join splash with sample images; no titles | 2026-10-16 |
+| Swimsuit Heaven | The domain no longer resolves | 2026-10-16 |
+| GwenMedia | `gwenmedia.com` completes a TLS handshake and then never answers | 2026-10-16 |
+| Keziah | Squarespace link page; the catalogue is on clip stores FSS already scrapes | 2026-10-16 |
+| Dommelia | Wix link page; the catalogue is on clip stores FSS already scrapes | 2026-10-16 |
+| Screwbox | A tube aggregating other studios' content, not a catalogue of its own | 2026-10-16 |
+| Little Puck | WordPress marketing site; the scenes are on her ManyVids store | 2026-10-16 |
+| Airerose Entertainment (Airerose, HDV Pass, Busty Network, Seymore Butts) | Login pages only; the network domains answer 403 or 522, and Busty Network is now a blog | 2026-10-16 |
+| HoloGirlsVR | The domain resolves but every connection times out | 2026-10-16 |
+| MS Pictures | The domain is parked | 2026-10-16 |
+| JB Video | Only 28 of roughly 81 titles are public; the rest are behind the shop login | 2026-10-16 |
+| Gina Gerson | Personal site and shop with no scene catalogue; the `.xxx` domain is a cam-affiliate landing page | 2026-10-16 |
+| Aussie POV | The host is unreachable (no route) | 2026-10-16 |
+| Diana Daniels | UViU, the only storefront StashDB lists, has shut down | 2026-10-16 |
+| Valentina Fox | `ineedvalentina.com` is an Ecwid store rendered entirely in JavaScript, with no listing API reachable anonymously | 2026-10-16 |
+| My Little Swallow | Hubzter profile only, rendered client-side | 2026-10-16 |
+| Sugarcookie | The domain resolves but refuses connections | 2026-10-16 |
+| American Pornstar | The host times out; its last archived page is the CMS's "licence key expired" error | 2026-10-16 |
+| Jolie and Friends | The host times out and the domain has expired | 2026-10-16 |
+| Akinori | `aknr.com` is a domain-for-sale page | 2026-10-16 |
+| Yonitale (Orgasm World Championship) | Both domains are parked or redirect to an ad network | 2026-10-16 |
 
 ## Adding a new scraper
 
