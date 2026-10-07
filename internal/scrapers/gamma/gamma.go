@@ -332,6 +332,9 @@ var sites = []siteConfig{
 
 	// BSkow — own segment:bskow key from /en/videos, one site in it.
 	{"bskow", "bskow.com", "BSkow", "", "", "", "", ""},
+
+	// Maskurbate — own segment:maskurbate key from /en/videos.
+	{"maskurbate", "maskurbate.com", "Maskurbate", "", "", "", "", ""},
 }
 
 type siteScraper struct {

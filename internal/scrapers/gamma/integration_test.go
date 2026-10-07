@@ -274,3 +274,9 @@ func TestLiveFantasyMassage(t *testing.T) {
 func TestLiveBSkow(t *testing.T) {
 	testutil.RunLiveScrape(t, newTestScraper(findSite("bskow")), "https://www.bskow.com/", 2)
 }
+
+// Maskurbate is its own segment with one site in it, so the key carries no
+// availableOnSite filter.
+func TestLiveMaskurbate(t *testing.T) {
+	testutil.RunLiveScrape(t, newTestScraper(findSite("maskurbate")), "https://www.maskurbate.com/", 3)
+}
