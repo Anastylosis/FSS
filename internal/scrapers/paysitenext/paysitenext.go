@@ -13,6 +13,7 @@ var sites = []paysiteutil.SiteConfig{
 	{SiteID: "benefitmonkey", Domain: "benefitmonkey.com", StudioName: "Benefit Monkey", ListPath: "scenes", OnlySiteDomain: "benefitmonkey.com", Aliases: []string{"thebenefitmonkey.com"}},
 	{SiteID: "bjraw", Domain: "bjraw.com", StudioName: "BJ Raw"},
 	{SiteID: "dickhddaily", Domain: "dickhddaily.com", StudioName: "DickHDDaily"},
+	{SiteID: "dripdropprod", Domain: "dripdropprod.net", StudioName: "DripDrop Productions", ListPath: "scenes"},
 	{SiteID: "gotfilled", Domain: "gotfilled.com", StudioName: "Got Filled"},
 	{SiteID: "hardwerk", Domain: "hardwerk.com", StudioName: "HardWerk Pictures", ListPath: "films"},
 	{SiteID: "inserted", Domain: "inserted.com", StudioName: "Inserted"},
