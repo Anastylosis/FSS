@@ -1,6 +1,6 @@
 # Covered Sites — All Domains
 
-1840 scrapers covering 1921 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
+1851 scrapers covering 1929 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
 
 Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scraper ID(s)** column lists every scraper that claims URLs on that domain — most domains have one entry, but table-driven networks (`adultprime`, `tmw`, `nextdoorstudios`, etc.) host many sub-studios on a single root domain. See [`scrapers.md`](scrapers.md) for what each ID covers.
 
@@ -237,6 +237,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | bouncychicks.com | `bouncychicks` |
 | boundhoneys.com | `boundhoneys` |
 | boundmusclejocks.com | `boundmusclejocks` |
+| boundtwinks.com | `boundtwinks` |
 | bountyhunterporn.com | `nubiles` |
 | boyforsale.com | `boyforsale` |
 | boyfriendsharing.com | `boyfriendsharing` |
@@ -383,6 +384,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | cumbuffet.com | `cumbuffet` |
 | cumclinic.com | `cumclinic` |
 | cumcountdown.com | `cumcountdown` |
+| cumdumpsluts.com | `cumdumpsluts` |
 | cumdumpsterteens.com | `cumdumpsterteens` |
 | cumeatingcuckolds.com | `cumeatingcuckolds` |
 | cumflation.com | `cumflation` |
@@ -494,6 +496,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | dirty-coach.com | `tmw-dirty-coach` |
 | dirty-doctor.com | `tmw-dirty-doctor` |
 | dirtyauditions.com | `dirtyauditions` |
+| dirtyboysociety.com | `dirtyboysociety` |
 | dirtyflix.com | `dirtyflix` |
 | dirtysarah.com | `dirtysarah` |
 | dirtyscout.com | `bigstr` |
@@ -814,6 +817,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | humiliationpov.com | `humiliationpov` |
 | humiliatrix.com | `humiliatrix` |
 | hungarianhoneys.com | `hungarianhoneys` |
+| hungfuckers.com | `hungfuckers` |
 | hungyoungbrit.com | `hungyoungbrit` |
 | hushpass.com | `hushpass` |
 | hussiepass.com | `hussiepass` |
@@ -867,6 +871,8 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | jizzorgy.com | `men` |
 | joanabliss.com | `joanabliss` |
 | joannajet.com | `joannajet` |
+| jockbreeders.com | `jockbreeders` |
+| jockpack.com | `betabetapi`, `jasonsparkslive`, `jockpack` (+1 more) |
 | jodiwest.com | `jodiwest` |
 | joethepervert.com | `joethepervert` |
 | joibabes.com | `joibabes` |
@@ -1351,6 +1357,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | rawcouples.com | `tmw-rawcouples` |
 | rawerotic.com | `rawerotic` |
 | rawfuck.com | `rawfuck` |
+| rawfuckboys.com | `rawfuckboys` |
 | rawfuckclub.com | `rawfuckclub` |
 | rawhole.com | `rawhole` |
 | rawrio.com | `rawrio` |
@@ -1738,6 +1745,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | tushyraw.com | `tushyraw` |
 | tussinee.com | `tussinee` |
 | tussineegold.com | `tussineegold` |
+| twinkloads.com | `twinkloads` |
 | twinkpop.com | `twinkpop` |
 | twinks.com | `twinks` |
 | twinktop.com | `twinktop` |

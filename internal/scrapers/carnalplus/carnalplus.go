@@ -18,6 +18,11 @@
 //     carrying `<a href="{slug}/"><img …minilogo/{slug}.png></a>` which
 //     identifies the source brand — that drives `Scene.Series`.
 //
+//   - jockpack.com portal (VariantGrid with ListPath): `/videos?site=&page=N`
+//     with `grid-vid-item` cards. Hosts BetaBetaPi, StudLoads and Jason
+//     Sparks Live, which have no domain of their own, so they are rows with
+//     a SiteFilter.
+//
 //   - VariantWordPress: growlboys.com is the lone WordPress site in the
 //     network. We pull `/wp-json/wp/v2/posts?per_page=100&_embed=1` and
 //     map the standard REST fields onto models.Scene, same as the
@@ -36,6 +41,7 @@ import (
 	"fmt"
 	"html"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -66,9 +72,15 @@ type SiteConfig struct {
 	// SubPath is non-empty only for grid-item sub-brands hosted on the
 	// parent at `/baptistboys/` etc. Pagination then targets
 	// `{SiteBase}{SubPath}?page={N}` instead of `?page={N}` at the root.
-	SubPath  string
-	Patterns []string
-	MatchRe  *regexp.Regexp
+	SubPath string
+	// ListPath/SiteFilter select the jockpack.com listing: `{ListPath}?site={SiteFilter}&page=N`.
+	// With an empty SiteFilter the `site` query of the URL passed in is used.
+	ListPath   string
+	SiteFilter string
+	Patterns   []string
+	MatchRe    *regexp.Regexp
+	// ExcludeRe carves URLs out of MatchRe that a sibling row owns.
+	ExcludeRe *regexp.Regexp
 }
 
 type Scraper struct {
@@ -88,6 +100,9 @@ var _ scraper.StudioScraper = (*Scraper)(nil)
 func (s *Scraper) ID() string         { return s.cfg.ID }
 func (s *Scraper) Patterns() []string { return s.cfg.Patterns }
 func (s *Scraper) MatchesURL(u string) bool {
+	if s.cfg.ExcludeRe != nil && s.cfg.ExcludeRe.MatchString(u) {
+		return false
+	}
 	return s.cfg.MatchRe.MatchString(u)
 }
 
@@ -108,6 +123,10 @@ var (
 	// (siteName + title); we want the one inside updateDetails. Anchoring
 	// on `updateDetails` first guarantees that.
 	natsTitleRe = regexp.MustCompile(`(?s)<div class="updateDetails">\s*<h4>\s*([^<]+?)\s*</h4>`)
+	// Some brands nest `<span class="sceneTitle">` inside the h4 beside the series
+	// and chapter, which natsTitleRe cannot match.
+	natsH4Re         = regexp.MustCompile(`(?s)<div class="updateDetails">\s*<h4>(.*?)</h4>`)
+	natsSceneTitleRe = regexp.MustCompile(`<span class="sceneTitle">\s*([^<]+?)\s*</span>`)
 	// Performers — `<span><div>Starring Name1 and Name2</div></span>`
 	natsPerformerRe = regexp.MustCompile(`(?s)<div class="updateDetails">.*?Starring\s+([^<]+?)\s*</div>`)
 	// Thumbnail — the `<video … poster="…">` attribute. The webp variant is
@@ -122,7 +141,7 @@ var (
 // ---- Variant Grid (carnalplus.com portal) regexes ----
 
 var (
-	gridCardStartRe = regexp.MustCompile(`<div class="grid-item-eight[^"]*">`)
+	gridCardStartRe = regexp.MustCompile(`<div class="grid-(?:item-eight|vid-item)[^"]*">`)
 	// ID is encoded in the thumbnail filename: `contentthumbs/{A}/{B}/{id}-1x.jpg`.
 	gridIDRe = regexp.MustCompile(`contentthumbs/\d+/\d+/(\d+)-1x`)
 	// Detail URL — `<a href="https://carnalplus.com/videos/{slug}.html" class="control_thumb">`.
@@ -197,7 +216,7 @@ type sceneItem struct {
 
 // ---- Listing URL builder ----
 
-func (s *Scraper) listingURL(page int) string {
+func (s *Scraper) listingURL(page int, studioURL string) string {
 	switch s.cfg.Variant {
 	case VariantNATS:
 		// Page 1 used to be the bare homepage, which cost half of it. The
@@ -212,6 +231,20 @@ func (s *Scraper) listingURL(page int) string {
 		// funsizeboys. The categories listing is the real page 1.
 		return fmt.Sprintf("%s/categories/movies_%d_d.html", s.cfg.SiteBase, page)
 	case VariantGrid:
+		if s.cfg.ListPath != "" {
+			q := url.Values{}
+			if site := s.siteFilter(studioURL); site != "" {
+				q.Set("site", site)
+			}
+			if page > 1 {
+				q.Set("page", strconv.Itoa(page))
+			}
+			u := s.cfg.SiteBase + s.cfg.ListPath
+			if len(q) > 0 {
+				u += "?" + q.Encode()
+			}
+			return u
+		}
 		base := s.cfg.SiteBase + s.cfg.SubPath
 		if !strings.HasSuffix(base, "/") {
 			base += "/"
@@ -224,6 +257,17 @@ func (s *Scraper) listingURL(page int) string {
 		return s.cfg.SiteBase + fmt.Sprintf(wpPostsPathF, wpPerPage, page)
 	}
 	return s.cfg.SiteBase + "/"
+}
+
+func (s *Scraper) siteFilter(studioURL string) string {
+	if s.cfg.SiteFilter != "" {
+		return s.cfg.SiteFilter
+	}
+	u, err := url.Parse(studioURL)
+	if err != nil {
+		return ""
+	}
+	return u.Query().Get("site")
 }
 
 const (
@@ -257,7 +301,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 
 	siteLabel := "carnalplus/" + s.cfg.ID
 	scraper.Paginate(ctx, opts, siteLabel, out, func(ctx context.Context, page int) (scraper.PageResult, error) {
-		pageURL := s.listingURL(page)
+		pageURL := s.listingURL(page, studioURL)
 
 		var (
 			items   []sceneItem
@@ -351,6 +395,12 @@ func parseNATSListing(body []byte) []sceneItem {
 		}
 		if m := natsTitleRe.FindStringSubmatch(block); m != nil {
 			item.title = html.UnescapeString(strings.TrimSpace(m[1]))
+		} else if m := natsH4Re.FindStringSubmatch(block); m != nil {
+			if t := natsSceneTitleRe.FindStringSubmatch(m[1]); t != nil {
+				item.title = html.UnescapeString(strings.TrimSpace(t[1]))
+			} else {
+				item.title = cleanHTML(m[1])
+			}
 		}
 		if m := natsPerformerRe.FindStringSubmatch(block); m != nil {
 			item.performers = splitPerformers(m[1])
@@ -530,13 +580,23 @@ var subsiteDisplay = map[string]string{
 	"americanmusclehunks": "American Muscle Hunks",
 	"bangbangboys":        "BangBangBoys",
 	"baptistboys":         "Baptist Boys",
+	"betabetapi":          "BetaBetaPi",
 	"boyforsale":          "Boy For Sale",
 	"carnaloriginals":     "Carnal+ Originals",
 	"catholicboys":        "Catholic Boys",
+	"boundtwinks":         "BoundTwinks",
+	"cumdumpsluts":        "Cum Dump Sluts",
+	"dirtyboysociety":     "Dirty Boy Society",
 	"funsizeboys":         "Fun-Size Boys",
 	"gaycest":             "Gaycest",
 	"growlboys":           "GrowlBoys",
+	"hungfuckers":         "Hung Fuckers",
 	"jalifstudio":         "Jalif Studio",
+	"jasonsparkslive":     "Jason Sparks Live",
+	"jockbreeders":        "JockBreeders",
+	"rawfuckboys":         "Raw Fuck Boys",
+	"studloads":           "StudLoads",
+	"twinkloads":          "TwinkLoads",
 	"masonicboys":         "Masonic Boys",
 	"scoutboys":           "Scout Boys",
 	"staghomme":           "Stag Homme",
@@ -568,9 +628,9 @@ func (s *Scraper) toScene(item sceneItem, studioURL string, now time.Time) model
 	if series == "" {
 		series = s.cfg.SiteName
 	}
-	url := item.url
-	if url == "" {
-		url = fmt.Sprintf("%s/#scene-%s", s.cfg.SiteBase, item.id)
+	sceneURL := item.url
+	if sceneURL == "" {
+		sceneURL = fmt.Sprintf("%s/#scene-%s", s.cfg.SiteBase, item.id)
 	}
 	return models.Scene{
 		ID:          item.id,
@@ -578,7 +638,7 @@ func (s *Scraper) toScene(item sceneItem, studioURL string, now time.Time) model
 		StudioURL:   studioURL,
 		Title:       item.title,
 		Description: item.description,
-		URL:         url,
+		URL:         sceneURL,
 		Thumbnail:   item.thumb,
 		Preview:     item.preview,
 		Date:        item.date,
@@ -591,7 +651,7 @@ func (s *Scraper) toScene(item sceneItem, studioURL string, now time.Time) model
 
 // ---- HTTP ----
 
-func (s *Scraper) fetchPage(ctx context.Context, url string) ([]byte, http.Header, error) {
+func (s *Scraper) fetchPage(ctx context.Context, pageURL string) ([]byte, http.Header, error) {
 	headers := httpx.BrowserHeaders(httpx.UserAgentFirefox)
 	if s.cfg.Variant == VariantWordPress {
 		headers = map[string]string{
@@ -600,7 +660,7 @@ func (s *Scraper) fetchPage(ctx context.Context, url string) ([]byte, http.Heade
 		}
 	}
 	resp, err := httpx.Do(ctx, s.client, httpx.Request{
-		URL:     url,
+		URL:     pageURL,
 		Headers: headers,
 	})
 	if err != nil {

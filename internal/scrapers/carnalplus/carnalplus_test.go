@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"regexp"
 	"testing"
 	"time"
 
+	"github.com/Anastylosis/FSS/models"
 	"github.com/Anastylosis/FSS/scraper"
 )
 
@@ -265,18 +267,18 @@ func TestListingURL(t *testing.T) {
 	// NATS: every page is /categories/movies_N_d.html — including page 1,
 	// which used to be the homepage and lost half of movies_1 to featured cards.
 	nats := New(SiteConfig{ID: "x", SiteBase: "https://x.example", Variant: VariantNATS})
-	if got := nats.listingURL(1); got != "https://x.example/categories/movies_1_d.html" {
+	if got := nats.listingURL(1, ""); got != "https://x.example/categories/movies_1_d.html" {
 		t.Errorf("NATS page 1 → %q", got)
 	}
-	if got := nats.listingURL(3); got != "https://x.example/categories/movies_3_d.html" {
+	if got := nats.listingURL(3, ""); got != "https://x.example/categories/movies_3_d.html" {
 		t.Errorf("NATS page 3 → %q", got)
 	}
 	// Grid root: page 1 → "/" ; page N → /?page=N.
 	grid := New(SiteConfig{ID: "p", SiteBase: "https://carnalplus.com", Variant: VariantGrid})
-	if got := grid.listingURL(1); got != "https://carnalplus.com/" {
+	if got := grid.listingURL(1, ""); got != "https://carnalplus.com/" {
 		t.Errorf("Grid root page 1 → %q", got)
 	}
-	if got := grid.listingURL(2); got != "https://carnalplus.com/?page=2" {
+	if got := grid.listingURL(2, ""); got != "https://carnalplus.com/?page=2" {
 		t.Errorf("Grid root page 2 → %q", got)
 	}
 	// Grid sub-path: page 1 → /baptistboys/ ; page N → /baptistboys/?page=N.
@@ -284,15 +286,15 @@ func TestListingURL(t *testing.T) {
 		ID: "bb", SiteBase: "https://carnalplus.com", SubPath: "/baptistboys",
 		Variant: VariantGrid,
 	})
-	if got := sub.listingURL(1); got != "https://carnalplus.com/baptistboys/" {
+	if got := sub.listingURL(1, ""); got != "https://carnalplus.com/baptistboys/" {
 		t.Errorf("Grid sub page 1 → %q", got)
 	}
-	if got := sub.listingURL(2); got != "https://carnalplus.com/baptistboys/?page=2" {
+	if got := sub.listingURL(2, ""); got != "https://carnalplus.com/baptistboys/?page=2" {
 		t.Errorf("Grid sub page 2 → %q", got)
 	}
 	// WP.
 	wp := New(SiteConfig{ID: "gb", SiteBase: "https://growlboys.com", Variant: VariantWordPress})
-	if got := wp.listingURL(2); got != "https://growlboys.com/wp-json/wp/v2/posts?per_page=100&_embed=1&page=2" {
+	if got := wp.listingURL(2, ""); got != "https://growlboys.com/wp-json/wp/v2/posts?per_page=100&_embed=1&page=2" {
 		t.Errorf("WP page 2 → %q", got)
 	}
 }
@@ -325,6 +327,19 @@ func TestMatchesURL(t *testing.T) {
 		{"baptistboys", "https://carnalplus.com/", false},
 		// WP
 		{"growlboys", "https://growlboys.com/", true},
+		// Jockpack brands
+		{"cumdumpsluts", "https://cumdumpsluts.com/", true},
+		{"twinkloads", "https://www.twinkloads.com/categories/movies_2_d.html", true},
+		{"twinkloads", "https://twinks.com/", false},
+		{"jockpack", "https://jockpack.com/", true},
+		{"jockpack", "https://jockpack.com/videos?page=2", true},
+		{"jockpack", "https://jockpack.com/videos?site=hungfuckers", true},
+		{"jockpack", "https://jockpack.com/videos?site=betabetapi", false},
+		{"betabetapi", "https://jockpack.com/videos?site=betabetapi&page=2", true},
+		{"betabetapi", "https://jockpack.com/videos?site=studloads", false},
+		{"studloads", "https://jockpack.com/videos?site=studloads", true},
+		{"jasonsparkslive", "https://jockpack.com/videos?page=2&site=jasonsparkslive", true},
+		{"jasonsparkslive", "https://jockpack.com/", false},
 	}
 	for _, c := range cases {
 		s := get(c.scraperID)
@@ -345,8 +360,8 @@ func TestSitesTable(t *testing.T) {
 		}
 		seen[cfg.ID] = true
 	}
-	if len(sites) != 17 {
-		t.Errorf("expected 17 sites, got %d", len(sites))
+	if len(sites) != 28 {
+		t.Errorf("expected 28 sites, got %d", len(sites))
 	}
 }
 
@@ -466,7 +481,7 @@ func TestNATSListingURLStartsAtMoviesPage1(t *testing.T) {
 		2: "https://example.test/categories/movies_2_d.html",
 	}
 	for page, want := range cases {
-		if got := s.listingURL(page); got != want {
+		if got := s.listingURL(page, ""); got != want {
 			t.Errorf("listingURL(%d) = %q, want %q", page, got, want)
 		}
 	}
@@ -509,5 +524,96 @@ func TestGridWalkTerminatesOnRepeats(t *testing.T) {
 	// One fresh page plus gridDryPages repeats, and no more.
 	if want := 1 + gridDryPages; pages != want {
 		t.Errorf("fetched %d pages, want %d (stop after %d dry pages)", pages, want, gridDryPages)
+	}
+}
+
+func TestJockpackListingURL(t *testing.T) {
+	get := func(id string) *Scraper {
+		for _, cfg := range sites {
+			if cfg.ID == id {
+				return New(cfg)
+			}
+		}
+		t.Fatalf("no site %q", id)
+		return nil
+	}
+	cases := []struct {
+		id, studioURL string
+		page          int
+		want          string
+	}{
+		{"jockpack", "https://jockpack.com/", 1, "https://jockpack.com/videos"},
+		{"jockpack", "https://jockpack.com/", 3, "https://jockpack.com/videos?page=3"},
+		{"jockpack", "https://jockpack.com/videos?site=hungfuckers", 2, "https://jockpack.com/videos?page=2&site=hungfuckers"},
+		{"betabetapi", "https://jockpack.com/videos?site=betabetapi", 1, "https://jockpack.com/videos?site=betabetapi"},
+		{"jasonsparkslive", "https://jockpack.com/videos?site=jasonsparkslive", 7, "https://jockpack.com/videos?page=7&site=jasonsparkslive"},
+	}
+	for _, c := range cases {
+		if got := get(c.id).listingURL(c.page, c.studioURL); got != c.want {
+			t.Errorf("%s page %d = %q, want %q", c.id, c.page, got, c.want)
+		}
+	}
+}
+
+func TestJockpackListScenes(t *testing.T) {
+	fixture, err := os.ReadFile("testdata/jockpack_list.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var queries []string
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		queries = append(queries, r.URL.RawQuery)
+		if r.URL.Path == "/videos" && r.URL.Query().Get("page") == "" {
+			_, _ = w.Write(fixture)
+			return
+		}
+		_, _ = fmt.Fprint(w, "<html></html>")
+	}))
+	defer ts.Close()
+
+	s := New(SiteConfig{
+		ID: "betabetapi", SiteBase: ts.URL, ListPath: "/videos", SiteFilter: "betabetapi",
+		SiteName: "BetaBetaPi", Variant: VariantGrid, MatchRe: regexp.MustCompile(`.*`),
+	})
+	studioURL := ts.URL + "/videos?site=betabetapi"
+	ch, err := s.ListScenes(context.Background(), studioURL, scraper.ListOpts{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var scenes []models.Scene
+	for r := range ch {
+		if r.Kind == scraper.KindScene {
+			scenes = append(scenes, r.Scene)
+		}
+	}
+	if len(scenes) != 2 {
+		t.Fatalf("got %d scenes, want 2", len(scenes))
+	}
+	got := scenes[0]
+	if got.ID != "86262" || got.Title != "perks of brotherhood" || got.Series != "BetaBetaPi" {
+		t.Errorf("scene = %+v", got)
+	}
+	if got.URL != "https://jockpack.com/videos/perks-of-brotherhood-pledge-oliver-vol-1.html" {
+		t.Errorf("URL = %q", got.URL)
+	}
+	if got.StudioURL != studioURL || got.SiteID != "betabetapi" || got.Thumbnail == "" {
+		t.Errorf("scene = %+v", got)
+	}
+	if len(queries) == 0 || queries[0] != "site=betabetapi" {
+		t.Errorf("first query = %v", queries)
+	}
+}
+
+func TestParseNATSListingNestedTitle(t *testing.T) {
+	const page = `<div class="col-12 sceneTourBase" data-setid="2885" >
+<a  href="https://twinkloads.com/videos/x.html" class="control_thumb"></a>
+<div class="updateDetails"><h4>connor taylor <span class="chapterNumber ">Encounter 2</span> <span class="sceneTitle">braden rush bottoms</span></h4>
+<span><div>Starring Braden Rush and Connor Taylor</div></span></div></div>`
+	items := parseNATSListing([]byte(page))
+	if len(items) != 1 || items[0].title != "braden rush bottoms" {
+		t.Fatalf("items = %+v", items)
+	}
+	if len(items[0].performers) != 2 || items[0].performers[1] != "Connor Taylor" {
+		t.Errorf("performers = %v", items[0].performers)
 	}
 }

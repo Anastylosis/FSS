@@ -8,7 +8,7 @@ import (
 
 // sites enumerates every Carnal+ network site we cover.
 //
-//   - 13 NATS sister domains (Variant NATS).
+//   - 20 NATS sister domains (Variant NATS), 7 of them the Jockpack brands.
 //   - 1 grid-item portal (the parent carnalplus.com) — its homepage
 //     aggregates scenes from every sub-brand, each card carrying its
 //     source brand via the minilogo alt-text which we lift onto
@@ -17,9 +17,9 @@ import (
 //     `/carnaloriginals/` on the parent (Variant Grid + SubPath).
 //   - 1 WordPress site, growlboys.com (Variant WordPress).
 //
-// 17 sister sites total — full Carnal+ stashdb tree.
+// Plus the jockpack.com portal and its 3 portal-only brands.
 var sites = []SiteConfig{
-	// ---- VariantNATS — 13 standalone sister domains ----
+	// ---- VariantNATS — 20 standalone sister domains ----
 	{
 		ID: "americanmusclehunks", SiteBase: "https://americanmusclehunks.com",
 		SiteName: "American Muscle Hunks", Variant: VariantNATS,
@@ -98,6 +98,48 @@ var sites = []SiteConfig{
 		Patterns: []string{"twinks.com/", "twinks.com/categories/movies_{N}_d.html"},
 		MatchRe:  regexp.MustCompile(`^https?://(?:www\.)?twinks\.com(?:/|$)`),
 	},
+	{
+		ID: "boundtwinks", SiteBase: "https://boundtwinks.com",
+		SiteName: "BoundTwinks", Variant: VariantNATS,
+		Patterns: []string{"boundtwinks.com/", "boundtwinks.com/categories/movies_{N}_d.html"},
+		MatchRe:  regexp.MustCompile(`^https?://(?:www\.)?boundtwinks\.com(?:/|$)`),
+	},
+	{
+		ID: "cumdumpsluts", SiteBase: "https://cumdumpsluts.com",
+		SiteName: "Cum Dump Sluts", Variant: VariantNATS,
+		Patterns: []string{"cumdumpsluts.com/", "cumdumpsluts.com/categories/movies_{N}_d.html"},
+		MatchRe:  regexp.MustCompile(`^https?://(?:www\.)?cumdumpsluts\.com(?:/|$)`),
+	},
+	{
+		ID: "dirtyboysociety", SiteBase: "https://dirtyboysociety.com",
+		SiteName: "Dirty Boy Society", Variant: VariantNATS,
+		Patterns: []string{"dirtyboysociety.com/", "dirtyboysociety.com/categories/movies_{N}_d.html"},
+		MatchRe:  regexp.MustCompile(`^https?://(?:www\.)?dirtyboysociety\.com(?:/|$)`),
+	},
+	{
+		ID: "hungfuckers", SiteBase: "https://hungfuckers.com",
+		SiteName: "Hung Fuckers", Variant: VariantNATS,
+		Patterns: []string{"hungfuckers.com/", "hungfuckers.com/categories/movies_{N}_d.html"},
+		MatchRe:  regexp.MustCompile(`^https?://(?:www\.)?hungfuckers\.com(?:/|$)`),
+	},
+	{
+		ID: "jockbreeders", SiteBase: "https://jockbreeders.com",
+		SiteName: "JockBreeders", Variant: VariantNATS,
+		Patterns: []string{"jockbreeders.com/", "jockbreeders.com/categories/movies_{N}_d.html"},
+		MatchRe:  regexp.MustCompile(`^https?://(?:www\.)?jockbreeders\.com(?:/|$)`),
+	},
+	{
+		ID: "rawfuckboys", SiteBase: "https://rawfuckboys.com",
+		SiteName: "Raw Fuck Boys", Variant: VariantNATS,
+		Patterns: []string{"rawfuckboys.com/", "rawfuckboys.com/categories/movies_{N}_d.html"},
+		MatchRe:  regexp.MustCompile(`^https?://(?:www\.)?rawfuckboys\.com(?:/|$)`),
+	},
+	{
+		ID: "twinkloads", SiteBase: "https://twinkloads.com",
+		SiteName: "TwinkLoads", Variant: VariantNATS,
+		Patterns: []string{"twinkloads.com/", "twinkloads.com/categories/movies_{N}_d.html"},
+		MatchRe:  regexp.MustCompile(`^https?://(?:www\.)?twinkloads\.com(?:/|$)`),
+	},
 
 	// ---- VariantGrid — the carnalplus.com portal + 2 sub-brand paths ----
 	{
@@ -125,6 +167,33 @@ var sites = []SiteConfig{
 		SiteName: "Carnal+ Originals", Variant: VariantGrid,
 		Patterns: []string{"carnalplus.com/carnaloriginals/", "carnalplus.com/carnaloriginals/?page={N}"},
 		MatchRe:  regexp.MustCompile(`^https?://(?:www\.)?carnalplus\.com/carnaloriginals(?:/|$|\?)`),
+	},
+
+	// ---- jockpack.com portal — aggregates 10 brands, 3 of which exist only here ----
+	{
+		ID: "jockpack", SiteBase: "https://jockpack.com", ListPath: "/videos",
+		SiteName: "Jockpack", Variant: VariantGrid,
+		Patterns:  []string{"jockpack.com/", "jockpack.com/videos?page={N}", "jockpack.com/videos?site={brand}"},
+		MatchRe:   regexp.MustCompile(`^https?://(?:www\.)?jockpack\.com(?:/?$|/?\?|/videos/?(?:$|\?))`),
+		ExcludeRe: regexp.MustCompile(`[?&]site=(?:betabetapi|studloads|jasonsparkslive)(?:&|$)`),
+	},
+	{
+		ID: "betabetapi", SiteBase: "https://jockpack.com", ListPath: "/videos", SiteFilter: "betabetapi",
+		SiteName: "BetaBetaPi", Variant: VariantGrid,
+		Patterns: []string{"jockpack.com/videos?site=betabetapi", "jockpack.com/videos?site=betabetapi&page={N}"},
+		MatchRe:  regexp.MustCompile(`^https?://(?:www\.)?jockpack\.com/videos/?\?(?:[^#]*&)?site=betabetapi(?:&|$)`),
+	},
+	{
+		ID: "studloads", SiteBase: "https://jockpack.com", ListPath: "/videos", SiteFilter: "studloads",
+		SiteName: "StudLoads", Variant: VariantGrid,
+		Patterns: []string{"jockpack.com/videos?site=studloads", "jockpack.com/videos?site=studloads&page={N}"},
+		MatchRe:  regexp.MustCompile(`^https?://(?:www\.)?jockpack\.com/videos/?\?(?:[^#]*&)?site=studloads(?:&|$)`),
+	},
+	{
+		ID: "jasonsparkslive", SiteBase: "https://jockpack.com", ListPath: "/videos", SiteFilter: "jasonsparkslive",
+		SiteName: "Jason Sparks Live", Variant: VariantGrid,
+		Patterns: []string{"jockpack.com/videos?site=jasonsparkslive", "jockpack.com/videos?site=jasonsparkslive&page={N}"},
+		MatchRe:  regexp.MustCompile(`^https?://(?:www\.)?jockpack\.com/videos/?\?(?:[^#]*&)?site=jasonsparkslive(?:&|$)`),
 	},
 
 	// ---- VariantWordPress — GrowlBoys ----
