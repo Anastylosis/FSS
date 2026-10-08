@@ -1,6 +1,6 @@
 # Covered Sites — All Domains
 
-1832 scrapers covering 1913 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
+1834 scrapers covering 1915 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
 
 Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scraper ID(s)** column lists every scraper that claims URLs on that domain — most domains have one entry, but table-driven networks (`adultprime`, `tmw`, `nextdoorstudios`, etc.) host many sub-studios on a single root domain. See [`scrapers.md`](scrapers.md) for what each ID covers.
 
@@ -537,6 +537,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | errotica-archives.com | `erroticaarchives` |
 | eternaldesire.com | `eternaldesire` |
 | euro-tgirls.com | `eurotgirls` |
+| eurocoeds.com | `eurocoeds` |
 | eurocreme.com | `eurocreme` |
 | evanottyvideos.com | `evanottyvideos` |
 | evilangel.com | `evilangel` |
@@ -1488,6 +1489,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | soloteengirls.net | `tmw-soloteengirls` |
 | somegore.com | `somegore` |
 | sophiassexylegwear.com | `sophiassexylegwear` |
+| southbeachcoeds.com | `southbeachcoeds` |
 | spandexporn.com | `spandexporn` |
 | spankedcoeds.com | `spankedcoeds` |
 | spankingbailey.com | `spankingbailey` |

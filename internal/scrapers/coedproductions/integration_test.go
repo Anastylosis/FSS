@@ -16,3 +16,11 @@ func TestLiveNebraskaCoeds(t *testing.T) {
 func TestLiveAfterHoursExposed(t *testing.T) {
 	testutil.RunLiveScrape(t, coedutil.New(sites[2]), "https://afterhoursexposed.com/", 3)
 }
+
+func TestLiveEuroCoeds(t *testing.T) {
+	testutil.RunLiveScrape(t, coedutil.New(sites[3]), "https://eurocoeds.com/", 3)
+}
+
+func TestLiveSouthBeachCoeds(t *testing.T) {
+	testutil.RunLiveScrape(t, coedutil.New(sites[4]), "https://southbeachcoeds.com/", 3)
+}

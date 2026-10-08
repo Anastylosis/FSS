@@ -31,6 +31,20 @@ var sites = []coedutil.SiteConfig{
 		Patterns: []string{"afterhoursexposed.com", "afterhoursexposed.com/categories/updates_{N}_d.html"},
 		MatchRe:  regexp.MustCompile(`^https?://(?:www\.)?afterhoursexposed\.com(?:/|$)`),
 	},
+	{
+		ID:       "eurocoeds",
+		Studio:   "Euro Coeds",
+		SiteBase: "https://eurocoeds.com",
+		Patterns: []string{"eurocoeds.com", "eurocoeds.com/categories/updates_{N}_d.html"},
+		MatchRe:  regexp.MustCompile(`^https?://(?:www\.)?eurocoeds\.com(?:/|$)`),
+	},
+	{
+		ID:       "southbeachcoeds",
+		Studio:   "South Beach Coeds",
+		SiteBase: "https://southbeachcoeds.com",
+		Patterns: []string{"southbeachcoeds.com", "southbeachcoeds.com/categories/updates_{N}_d.html"},
+		MatchRe:  regexp.MustCompile(`^https?://(?:www\.)?southbeachcoeds\.com(?:/|$)`),
+	},
 }
 
 func init() {
