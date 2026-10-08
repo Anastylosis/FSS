@@ -333,6 +333,16 @@ func (s *Scraper) scrapeModelPage(ctx context.Context, studioURL string, _ scrap
 		return
 	}
 
+	if s.cfg.OnlySiteDomain != "" {
+		kept := items[:0:0]
+		for _, item := range items {
+			if !s.cfg.skips(item) {
+				kept = append(kept, item)
+			}
+		}
+		items = kept
+	}
+
 	scraper.Debugf(1, "%s: model page has %d scenes", s.cfg.SiteID, len(items))
 	if len(items) > 0 {
 		select {

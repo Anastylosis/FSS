@@ -1,6 +1,6 @@
 # Covered Sites — All Domains
 
-1836 scrapers covering 1917 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
+1840 scrapers covering 1921 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
 
 Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scraper ID(s)** column lists every scraper that claims URLs on that domain — most domains have one entry, but table-driven networks (`adultprime`, `tmw`, `nextdoorstudios`, etc.) host many sub-studios on a single root domain. See [`scrapers.md`](scrapers.md) for what each ID covers.
 
@@ -226,6 +226,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | bobstgirls.com | `bobstgirls` |
 | bobsvideos.empirestores.co | `bobsvideos` |
 | bolatino.com | `bolatino` |
+| bondagebros.com | `bondagebros` |
 | bondagecafe.com | `bondagecafe` |
 | bondagejunkies.com | `bondagejunkies` |
 | bonedathome.com | `bonedathome` |
@@ -518,6 +519,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | driverxxx.com | `nubiles` |
 | dt01.co.jp | `waap` |
 | dtfsluts.com | `dtfsluts` |
+| ducatistudios.com | `trailertrashboys` |
 | dungeoncorp.com | `cumbots`, `dungeoncorp`, `fuckingdungeon` (+3 more) |
 | dyked.com | `dyked` |
 | dylanlucas.com | `dylanlucas` |
@@ -673,6 +675,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | gaywire.com | `gaywire` |
 | genderxfilms.com | `genderxfilms` |
 | genlez.com | `porngutter` |
+| gentlemenscloset.com | `gentlemenscloset` |
 | german-scout.com | `germanscout` |
 | getupclose.com | `getupclose` |
 | ghettogaggers.com | `ghettogaggers` |
@@ -1125,6 +1128,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | nakednews.com | `nakednews` |
 | nakedsword.com | `nakedsword` |
 | nannyspy.com | `nannyspy` |
+| nastydaddy.com | `nastydaddy` |
 | nastylittlefacials.com | `nastylittlefacials` |
 | nastynyamateurs.com | `nastynyamateurs` |
 | nastystepfamily.com | `nastystepfamily` |
