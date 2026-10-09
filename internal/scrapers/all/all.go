@@ -457,6 +457,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/wownetwork"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/wtfpass"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/wunf"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/xbrats"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/xespl"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/xevbellringer"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/xsinsvr"
