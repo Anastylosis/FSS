@@ -14,6 +14,11 @@ func TestLiveSaraJay(t *testing.T) {
 	testutil.RunLiveScrape(t, s, "https://sarajay.com/videos/", 2)
 }
 
+func TestLiveMaxineX(t *testing.T) {
+	s := vnautil.New(vnautil.SiteConfig{SiteID: "maxinex", Domain: "maxinex.com", Studio: "MaxineX", VideoPrefix: "videos"})
+	testutil.RunLiveScrape(t, s, "https://maxinex.com/videos/", 2)
+}
+
 func TestLiveFuckedFeet(t *testing.T) {
 	s := vnautil.New(vnautil.SiteConfig{SiteID: "fuckedfeet", Domain: "fuckedfeet.com", Studio: "Fucked Feet", VideoPrefix: "videos"})
 	testutil.RunLiveScrape(t, s, "https://fuckedfeet.com/videos/", 2)
