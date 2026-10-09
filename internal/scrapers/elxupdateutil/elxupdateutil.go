@@ -62,6 +62,10 @@ type SiteConfig struct {
 	// with: `/updates/page_{N}.html` instead of
 	// `/categories/{slug}_{N}_d.html`. The cards are identical.
 	UpdatesPaging bool
+	// ListingOnly is for tours whose card links all point at the join page,
+	// so there is no detail page to fetch. Scenes come from the card alone
+	// and link to the listing page they appeared on.
+	ListingOnly bool
 }
 
 func (c SiteConfig) listSlug() string {
@@ -144,7 +148,30 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 	if !ok || ctx.Err() != nil {
 		return
 	}
+	if s.cfg.ListingOnly {
+		s.emitListing(ctx, studioURL, items, out)
+		return
+	}
 	s.fetchDetails(ctx, studioURL, items, opts, out)
+}
+
+func (s *Scraper) emitListing(ctx context.Context, studioURL string, items []listItem, out chan<- scraper.SceneResult) {
+	if len(items) == 0 {
+		return
+	}
+	select {
+	case out <- scraper.Progress(len(items)):
+	case <-ctx.Done():
+		return
+	}
+	now := time.Now().UTC()
+	for _, item := range items {
+		select {
+		case out <- scraper.Scene(s.toScene(item, studioURL, now)):
+		case <-ctx.Done():
+			return
+		}
+	}
 }
 
 func (s *Scraper) listingURL(cat string, page int) string {
@@ -177,7 +204,12 @@ func (s *Scraper) collectListing(ctx context.Context, cat string, opts scraper.L
 			return items, false
 		}
 
-		parsed := parseListing(body)
+		parsed := parseListing(body, s.cfg.ListingOnly)
+		if s.cfg.ListingOnly {
+			for i := range parsed {
+				parsed[i].url = pageURL
+			}
+		}
 		if len(parsed) == 0 {
 			return items, true
 		}
@@ -297,11 +329,12 @@ type listItem struct {
 }
 
 var (
-	cardStartRe = regexp.MustCompile(`<div class="updateItem">`)
-	cardURLRe   = regexp.MustCompile(`<a\s+href="([^"]*/updates/[^"]+\.html)"`)
-	cardTitleRe = regexp.MustCompile(`(?s)<h4>\s*<a[^>]*>(.*?)</a>`)
-	modelsRe    = regexp.MustCompile(`(?s)<span class="tour_update_models">(.*?)</span>`)
-	dateRe      = regexp.MustCompile(`<span>\s*(\d{2}/\d{2}/\d{4})\s*</span>`)
+	cardStartRe  = regexp.MustCompile(`<div class="updateItem">`)
+	cardURLRe    = regexp.MustCompile(`<a\s+href="([^"]*/updates/[^"]+\.html)"`)
+	cardAnyURLRe = regexp.MustCompile(`<a\s+href="([^"]+)"`)
+	cardTitleRe  = regexp.MustCompile(`(?s)<h4>\s*<a[^>]*>(.*?)</a>`)
+	modelsRe     = regexp.MustCompile(`(?s)<span class="tour_update_models">(.*?)</span>`)
+	dateRe       = regexp.MustCompile(`<span(?: class="availdate")?>\s*(\d{2}/\d{2}/\d{4})\s*</span>`)
 	// The card offers the same still at four widths; 4x first, then down.
 	thumbRes = []*regexp.Regexp{
 		regexp.MustCompile(`src0_4x="([^"]+)"`),
@@ -326,7 +359,7 @@ var (
 	tagStripRe  = regexp.MustCompile(`<[^>]*>`)
 )
 
-func parseListing(body []byte) []listItem {
+func parseListing(body []byte, anyLink bool) []listItem {
 	locs := cardStartRe.FindAllIndex(body, -1)
 	items := make([]listItem, 0, len(locs))
 	for i, loc := range locs {
@@ -338,6 +371,9 @@ func parseListing(body []byte) []listItem {
 
 		var item listItem
 		m := cardURLRe.FindSubmatch(block)
+		if m == nil && anyLink {
+			m = cardAnyURLRe.FindSubmatch(block)
+		}
 		if m == nil {
 			continue
 		}

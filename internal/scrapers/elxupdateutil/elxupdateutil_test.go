@@ -76,7 +76,7 @@ func TestListingURL(t *testing.T) {
 }
 
 func TestParseListing(t *testing.T) {
-	items := parseListing(readFixture(t, "listing_page1.html"))
+	items := parseListing(readFixture(t, "listing_page1.html"), false)
 	if len(items) != 2 {
 		t.Fatalf("got %d cards, want 2", len(items))
 	}
@@ -249,7 +249,7 @@ func TestListScenesStopsAtKnownID(t *testing.T) {
 	s := newFor("pawged")
 	s.base = srv.URL
 
-	known := parseListing(readFixture(t, "listing_page1.html"))[1].id
+	known := parseListing(readFixture(t, "listing_page1.html"), false)[1].id
 	ch, _ := s.ListScenes(context.Background(), "https://pawged.com/",
 		scraper.ListOpts{KnownIDs: map[string]bool{known: true}})
 

@@ -427,6 +427,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/tribdolls"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/tripforfuck"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/trixvideo"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/trueamateurmodels"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/ukxxxpass"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/underwatershow"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/updateitem"
