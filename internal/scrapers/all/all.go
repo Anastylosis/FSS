@@ -238,6 +238,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/kvssitemap"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/ladyboygold"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/ladyfyre"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/latexlolanoir"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/latinboyz"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/legsemporium"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/lewood"
