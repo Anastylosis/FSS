@@ -250,6 +250,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/lovinglyhandmade"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/loyalfans"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/lucasentertainment"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/lukespov"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/lustery"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/lustreality"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/malibumedia"

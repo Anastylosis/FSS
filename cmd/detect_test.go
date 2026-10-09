@@ -147,6 +147,13 @@ func TestDetectPlatform_compoundSignalRequiresBoth(t *testing.T) {
 	}
 }
 
+func TestDetectPlatform_myMemberSite(t *testing.T) {
+	got := detectPlatform(`<link href="https://d1mr1qahd2jlw8.cloudfront.net/_next/static/css/a.css"/>`, nil, nil)
+	if _, ok := hasPkg(got, "mymemberutil"); !ok {
+		t.Fatalf("expected mymemberutil, got %+v", got)
+	}
+}
+
 func TestDetectPlatform_multipleDetectionsOnOnePage(t *testing.T) {
 	// A page can legitimately trip more than one signal.
 	page := `psmcdn.net and metartnetwork.com on the same page`

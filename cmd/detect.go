@@ -197,6 +197,8 @@ var platformRules = []platformRule{
 		anyLower: []string{"pornstarplatinum.com"}},
 	{platform: "My Gay Cash NATS CMS", pkg: "marsmedia",
 		anyLower: []string{"nats.mygaycash.com", "natscms-app"}},
+	{platform: "MyMember.site", pkg: "mymemberutil",
+		anyLower: []string{"cdn2.mymember.site", "@mymember_site", "d1mr1qahd2jlw8.cloudfront.net/_next/"}},
 	{custom: detectWordPress},
 	{platform: "Spizoo", pkg: "spizooutil",
 		anyLower: []string{"spizoo.com"}},
