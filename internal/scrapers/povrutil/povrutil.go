@@ -39,9 +39,9 @@ func (s *Scraper) ID() string               { return s.cfg.ID }
 func (s *Scraper) Patterns() []string       { return s.cfg.Patterns }
 func (s *Scraper) MatchesURL(u string) bool { return s.cfg.MatchRe.MatchString(u) }
 
-func (s *Scraper) ListScenes(ctx context.Context, _ string, opts scraper.ListOpts) (<-chan scraper.SceneResult, error) {
+func (s *Scraper) ListScenes(ctx context.Context, studioURL string, opts scraper.ListOpts) (<-chan scraper.SceneResult, error) {
 	out := make(chan scraper.SceneResult)
-	go s.run(ctx, opts, out)
+	go s.run(ctx, studioURL, opts, out)
 	return out, nil
 }
 
@@ -65,7 +65,7 @@ func extractID(rawURL string) string {
 	return ""
 }
 
-func (s *Scraper) run(ctx context.Context, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
+func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
 	defer close(out)
 
 	// The export is enrichment only — tags, duration, thumbnail and a fallback
@@ -113,7 +113,7 @@ func (s *Scraper) run(ctx context.Context, opts scraper.ListOpts, out chan<- scr
 			if id == "" {
 				continue
 			}
-			scenes = append(scenes, s.buildScene(c, lookup[c.path], id, now))
+			scenes = append(scenes, s.buildScene(c, lookup[c.path], id, studioURL, now))
 		}
 		// Stop on the site's own marker rather than by overshooting into the
 		// 404. Only when the page actually held cards: no cards and no marker
@@ -123,11 +123,11 @@ func (s *Scraper) run(ctx context.Context, opts scraper.ListOpts, out chan<- scr
 	})
 }
 
-func (s *Scraper) buildScene(c listingCard, ev exportVideo, id string, now time.Time) models.Scene {
+func (s *Scraper) buildScene(c listingCard, ev exportVideo, id, studioURL string, now time.Time) models.Scene {
 	sc := models.Scene{
 		ID:         id,
 		SiteID:     s.cfg.ID,
-		StudioURL:  s.cfg.SiteBase,
+		StudioURL:  studioURL,
 		Title:      c.title,
 		URL:        s.cfg.SiteBase + c.path,
 		Date:       c.date,

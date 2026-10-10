@@ -175,7 +175,10 @@ func TestParseDetail(t *testing.T) {
 		thumbnail:  "https://static.example.com/thumbs/hot-vr-scene.jpg",
 	}
 
-	scene := s.parseDetail([]byte(detailHTML), entry)
+	scene := s.parseDetail([]byte(detailHTML), entry, testStudioURL)
+	if scene.StudioURL != testStudioURL {
+		t.Errorf("StudioURL = %q, want %q", scene.StudioURL, testStudioURL)
+	}
 
 	if scene.ID != "hot-vr-scene" {
 		t.Errorf("ID = %q", scene.ID)
@@ -213,7 +216,7 @@ func TestParseDetailFallbackTitle(t *testing.T) {
 		url:  "https://darkroomvr.com/video/some-scene",
 	}
 
-	scene := s.parseDetail([]byte(detailHTML), entry)
+	scene := s.parseDetail([]byte(detailHTML), entry, testStudioURL)
 
 	if scene.Title != "Hot VR Scene" {
 		t.Errorf("expected JSON-LD title fallback, got %q", scene.Title)
@@ -233,7 +236,7 @@ func TestParseDetailFallbackPerformers(t *testing.T) {
 		url:  "https://virtualtaboo.com/video/some-scene",
 	}
 
-	scene := s.parseDetail([]byte(detailHTML), entry)
+	scene := s.parseDetail([]byte(detailHTML), entry, testStudioURL)
 
 	if len(scene.Performers) != 2 || scene.Performers[0] != "Jane Doe" {
 		t.Errorf("expected performers from model links, got %v", scene.Performers)
@@ -247,7 +250,7 @@ func TestParseDetailFallbackThumbnail(t *testing.T) {
 		url:  "https://virtualtaboo.com/video/some-scene",
 	}
 
-	scene := s.parseDetail([]byte(detailHTML), entry)
+	scene := s.parseDetail([]byte(detailHTML), entry, testStudioURL)
 
 	if scene.Thumbnail != "https://static.example.com/thumbs/hot-vr-scene-detail.jpg" {
 		t.Errorf("expected JSON-LD thumbnail fallback, got %q", scene.Thumbnail)
@@ -317,6 +320,9 @@ func TestListScenes(t *testing.T) {
 		switch r.Kind {
 		case scraper.KindScene:
 			scenes++
+			if want := ts.URL + "/videos"; r.Scene.StudioURL != want {
+				t.Errorf("StudioURL = %q, want %q", r.Scene.StudioURL, want)
+			}
 		case scraper.KindError:
 			t.Errorf("unexpected error: %v", r.Err)
 		}
@@ -408,6 +414,9 @@ func TestModelPage(t *testing.T) {
 			switch r.Kind {
 			case scraper.KindScene:
 				scenes++
+				if want := ts.URL + performerURL; r.Scene.StudioURL != want {
+					t.Errorf("StudioURL = %q, want %q", r.Scene.StudioURL, want)
+				}
 			case scraper.KindError:
 				t.Errorf("unexpected error: %v", r.Err)
 			}
@@ -417,3 +426,5 @@ func TestModelPage(t *testing.T) {
 		}
 	}
 }
+
+const testStudioURL = "https://virtualtaboo.com/videos"

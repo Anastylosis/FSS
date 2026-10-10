@@ -176,7 +176,11 @@ func TestToScene(t *testing.T) {
 		tags:       []string{"Tag1"},
 	}
 	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
-	scene := c.toScene(cfg, now)
+	scene := c.toScene(cfg, "https://test.local/tour.php?cat=3", now)
+
+	if scene.StudioURL != "https://test.local/tour.php?cat=3" {
+		t.Errorf("StudioURL = %q", scene.StudioURL)
+	}
 
 	if scene.ID != "796" {
 		t.Errorf("ID = %q", scene.ID)

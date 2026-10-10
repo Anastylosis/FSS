@@ -93,7 +93,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 		return
 	}
 	scraper.WarnURLFallthrough(s.cfg.siteID, studioURL)
-	s.runPaginated(ctx, opts, out)
+	s.runPaginated(ctx, studioURL, opts, out)
 }
 
 func (s *Scraper) runModelPage(ctx context.Context, modelURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
@@ -118,10 +118,10 @@ func (s *Scraper) runModelPage(ctx context.Context, modelURL string, opts scrape
 		return
 	}
 
-	s.processEntries(ctx, entries, opts, out)
+	s.processEntries(ctx, modelURL, entries, opts, out)
 }
 
-func (s *Scraper) runPaginated(ctx context.Context, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
+func (s *Scraper) runPaginated(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
 	work := make(chan listEntry, opts.Workers)
 	var wg sync.WaitGroup
 	for i := 0; i < opts.Workers; i++ {
@@ -132,7 +132,7 @@ func (s *Scraper) runPaginated(ctx context.Context, opts scraper.ListOpts, out c
 				if !scraper.Pace(ctx, opts.Delay) {
 					return
 				}
-				scene, err := s.fetchDetail(ctx, entry)
+				scene, err := s.fetchDetail(ctx, entry, studioURL)
 				if err != nil {
 					select {
 					case out <- scraper.Error(err):
@@ -221,7 +221,7 @@ func (s *Scraper) runPaginated(ctx context.Context, opts scraper.ListOpts, out c
 	wg.Wait()
 }
 
-func (s *Scraper) processEntries(ctx context.Context, entries []listEntry, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
+func (s *Scraper) processEntries(ctx context.Context, studioURL string, entries []listEntry, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
 	work := make(chan listEntry, opts.Workers)
 	var wg sync.WaitGroup
 	// LIFO: close(work) fires first so workers' `for ... range work` exits,
@@ -237,7 +237,7 @@ func (s *Scraper) processEntries(ctx context.Context, entries []listEntry, opts 
 				if !scraper.Pace(ctx, opts.Delay) {
 					return
 				}
-				scene, err := s.fetchDetail(ctx, entry)
+				scene, err := s.fetchDetail(ctx, entry, studioURL)
 				if err != nil {
 					select {
 					case out <- scraper.Error(err):
@@ -377,21 +377,21 @@ var (
 	modelLinkRe = regexp.MustCompile(`/(?:model|pornstars)/[^"]*">([^<\n]+)</a>`)
 )
 
-func (s *Scraper) fetchDetail(ctx context.Context, entry listEntry) (models.Scene, error) {
+func (s *Scraper) fetchDetail(ctx context.Context, entry listEntry, studioURL string) (models.Scene, error) {
 	body, err := s.fetchHTML(ctx, entry.url)
 	if err != nil {
 		return models.Scene{}, fmt.Errorf("detail %s: %w", entry.slug, err)
 	}
 
-	return s.parseDetail(body, entry), nil
+	return s.parseDetail(body, entry, studioURL), nil
 }
 
-func (s *Scraper) parseDetail(body []byte, entry listEntry) models.Scene {
+func (s *Scraper) parseDetail(body []byte, entry listEntry, studioURL string) models.Scene {
 	now := time.Now().UTC()
 	scene := models.Scene{
 		ID:         entry.slug,
 		SiteID:     s.cfg.siteID,
-		StudioURL:  s.base(),
+		StudioURL:  studioURL,
 		Title:      entry.title,
 		URL:        entry.url,
 		Thumbnail:  entry.thumbnail,

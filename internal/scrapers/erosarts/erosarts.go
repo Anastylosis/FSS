@@ -67,7 +67,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 
 		scenes := make([]models.Scene, len(cards))
 		for i, c := range cards {
-			scenes[i] = c.toScene(s.cfg, now)
+			scenes[i] = c.toScene(s.cfg, studioURL, now)
 		}
 		return scraper.PageResult{Scenes: scenes, Total: total}, nil
 	})
@@ -119,11 +119,11 @@ type listingCard struct {
 	duration    int
 }
 
-func (c listingCard) toScene(cfg SiteConfig, now time.Time) models.Scene {
+func (c listingCard) toScene(cfg SiteConfig, studioURL string, now time.Time) models.Scene {
 	return models.Scene{
 		ID:          c.id,
 		SiteID:      cfg.ID,
-		StudioURL:   cfg.SiteBase,
+		StudioURL:   studioURL,
 		Title:       c.title,
 		Description: c.description,
 		URL:         c.url,

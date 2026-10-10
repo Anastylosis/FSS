@@ -147,7 +147,7 @@ func (s *Scraper) runSinglePage(ctx context.Context, studioURL string, opts scra
 				if !scraper.Pace(ctx, opts.Delay) {
 					return
 				}
-				scene, err := s.fetchDetail(ctx, entry)
+				scene, err := s.fetchDetail(ctx, entry, studioURL)
 				if err != nil {
 					select {
 					case out <- scraper.Error(err):
@@ -208,7 +208,7 @@ func (s *Scraper) runPaginated(ctx context.Context, studioURL string, opts scrap
 				if !scraper.Pace(ctx, opts.Delay) {
 					return
 				}
-				scene, err := s.fetchDetail(ctx, entry)
+				scene, err := s.fetchDetail(ctx, entry, studioURL)
 				if err != nil {
 					select {
 					case out <- scraper.Error(err):
@@ -393,22 +393,22 @@ var (
 	detailThumbLinkRe = regexp.MustCompile(`<a href="dvds\.php\?id=\d+&(?:amp;)?sceneid=(\d+)"[^>]*><img src="([^"]+)"`)
 )
 
-func (s *Scraper) fetchDetail(ctx context.Context, entry listEntry) (models.Scene, error) {
+func (s *Scraper) fetchDetail(ctx context.Context, entry listEntry, studioURL string) (models.Scene, error) {
 	u := fmt.Sprintf("%s/dvds.php?id=%s&sceneid=%s", s.base(), entry.dvdID, entry.sceneID)
 	body, err := s.fetchHTML(ctx, u)
 	if err != nil {
 		return models.Scene{}, fmt.Errorf("detail %s: %w", entry.sceneID, err)
 	}
 
-	return parseDetail(body, entry, s.base()), nil
+	return parseDetail(body, entry, studioURL), nil
 }
 
-func parseDetail(body []byte, entry listEntry, _ string) models.Scene {
+func parseDetail(body []byte, entry listEntry, studioURL string) models.Scene {
 	now := time.Now().UTC()
 	scene := models.Scene{
 		ID:         entry.sceneID,
 		SiteID:     "titanmen",
-		StudioURL:  "https://www.titanmen.com",
+		StudioURL:  studioURL,
 		Title:      entry.title,
 		URL:        fmt.Sprintf("https://www.titanmen.com/dvds.php?id=%s&sceneid=%s", entry.dvdID, entry.sceneID),
 		Thumbnail:  entry.thumbnail,

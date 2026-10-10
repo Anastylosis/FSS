@@ -207,7 +207,7 @@ func (s *Scraper) scrapeSinglePage(ctx context.Context, pageURL string, opts scr
 	}
 
 	now := time.Now().UTC()
-	scenes := s.fetchDetails(ctx, items, opts, now, out)
+	scenes := s.fetchDetails(ctx, pageURL, items, opts, now, out)
 	for _, sc := range scenes {
 		if opts.KnownIDs[sc.ID] {
 			scraper.Debugf(1, "nookies: hit known ID, stopping early")
@@ -248,7 +248,7 @@ func (s *Scraper) scrapePaginated(ctx context.Context, baseURL string, opts scra
 		}
 
 		total := estimateTotal(body, len(items))
-		scenes := s.fetchDetails(ctx, items, opts, now, out)
+		scenes := s.fetchDetails(ctx, baseURL, items, opts, now, out)
 		return scraper.PageResult{
 			Scenes: scenes,
 			Total:  total,
@@ -285,7 +285,7 @@ func hasNextPage(body []byte) bool {
 // to drop the card without a word; the card already names the scene, so it is
 // kept and the failure reported — which is what marks the traversal incomplete
 // so an authoritative --full Save cannot delete what was not re-collected.
-func (s *Scraper) fetchDetails(ctx context.Context, items []listItem, opts scraper.ListOpts, now time.Time, out chan<- scraper.SceneResult) []models.Scene {
+func (s *Scraper) fetchDetails(ctx context.Context, studioURL string, items []listItem, opts scraper.ListOpts, now time.Time, out chan<- scraper.SceneResult) []models.Scene {
 	workers := opts.Workers
 	if workers <= 0 {
 		workers = 4
@@ -338,7 +338,7 @@ func (s *Scraper) fetchDetails(ctx context.Context, items []listItem, opts scrap
 				return scenes
 			}
 		}
-		scenes = append(scenes, toScene(s.base, r.item, r.detail, now))
+		scenes = append(scenes, toScene(s.base, studioURL, r.item, r.detail, now))
 	}
 	return scenes
 }
@@ -378,7 +378,7 @@ func parseDetailPage(body []byte) detailData {
 	return d
 }
 
-func toScene(base string, it listItem, d detailData, now time.Time) models.Scene {
+func toScene(base, studioURL string, it listItem, d detailData, now time.Time) models.Scene {
 	siteID := "nookies"
 	if it.subSite != "" {
 		siteID = it.subSite
@@ -392,7 +392,7 @@ func toScene(base string, it listItem, d detailData, now time.Time) models.Scene
 	return models.Scene{
 		ID:          it.id,
 		SiteID:      siteID,
-		StudioURL:   base,
+		StudioURL:   studioURL,
 		Title:       title,
 		URL:         base + it.url,
 		Thumbnail:   it.thumbnail,

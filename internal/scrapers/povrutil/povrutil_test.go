@@ -131,7 +131,10 @@ func TestBuildScene(t *testing.T) {
 	}
 	now := time.Date(2026, 4, 26, 12, 0, 0, 0, time.UTC)
 
-	scene := s.buildScene(c, ev, "6367985", now)
+	scene := s.buildScene(c, ev, "6367985", "https://pov.example/studio", now)
+	if scene.StudioURL != "https://pov.example/studio" {
+		t.Errorf("StudioURL = %q", scene.StudioURL)
+	}
 
 	if scene.ID != "6367985" {
 		t.Errorf("ID = %q", scene.ID)
@@ -175,7 +178,7 @@ func TestBuildSceneNoExport(t *testing.T) {
 	}
 	now := time.Date(2026, 4, 26, 12, 0, 0, 0, time.UTC)
 
-	scene := s.buildScene(c, exportVideo{}, "123", now)
+	scene := s.buildScene(c, exportVideo{}, "123", "https://pov.example/studio", now)
 	if scene.Duration != 0 {
 		t.Errorf("Duration = %d, want 0", scene.Duration)
 	}
@@ -223,7 +226,8 @@ func TestListScenes(t *testing.T) {
 		Client: ts.Client(),
 	}
 
-	ch, err := s.ListScenes(context.Background(), ts.URL, scraper.ListOpts{})
+	studioURL := ts.URL + "/studio/"
+	ch, err := s.ListScenes(context.Background(), studioURL, scraper.ListOpts{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -238,6 +242,9 @@ func TestListScenes(t *testing.T) {
 			continue
 		}
 		scenes = append(scenes, r.Scene.Title)
+		if r.Scene.StudioURL != studioURL {
+			t.Errorf("StudioURL = %q, want %q", r.Scene.StudioURL, studioURL)
+		}
 		if r.Scene.Duration != 600 {
 			t.Errorf("Duration = %d, want 600", r.Scene.Duration)
 		}

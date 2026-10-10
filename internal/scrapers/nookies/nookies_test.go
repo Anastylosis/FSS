@@ -333,6 +333,9 @@ func TestDetailEnrichment(t *testing.T) {
 	}
 
 	scene := got[0].Scene
+	if want := ts.URL + "/videos"; scene.StudioURL != want {
+		t.Errorf("StudioURL = %q, want %q", scene.StudioURL, want)
+	}
 	if scene.Title != "Desiree Eden's Milk & Cookies, and GILF Nookie" {
 		t.Errorf("title = %q, want full title from detail", scene.Title)
 	}
@@ -678,6 +681,9 @@ func TestModelMode(t *testing.T) {
 	for r := range ch {
 		if r.Kind == scraper.KindScene {
 			count++
+			if want := ts.URL + "/model/jessica-ryan"; r.Scene.StudioURL != want {
+				t.Errorf("StudioURL = %q, want %q", r.Scene.StudioURL, want)
+			}
 		}
 	}
 
