@@ -41,6 +41,20 @@ func TestLiveTampaHousewives(t *testing.T) {
 	testutil.RunLiveScrape(t, liveScraper(t, "tampahousewives"), "https://www.tampahousewives.com/tour/", 2)
 }
 
+func TestLiveTeaseGlam(t *testing.T) {
+	testutil.RunLiveScrape(t, liveScraper(t, "teaseglam"), "https://teaseglam.com/tour/", 3)
+}
+
+func TestLiveTeaseGlamCategory(t *testing.T) {
+	testutil.RunLiveScrape(t, liveScraper(t, "teaseglam"),
+		"https://teaseglam.com/tour/categories/movies.html", 2)
+}
+
+func TestLiveTeaseGlamModel(t *testing.T) {
+	testutil.RunLiveScrape(t, liveScraper(t, "teaseglam"),
+		"https://teaseglam.com/tour/models/ava-dalush.html", 2)
+}
+
 func TestLiveWhoreBaitHals(t *testing.T) {
 	testutil.RunLiveScrape(t, liveScraper(t, "whorebaithals"), "https://www.whorebaithals.com/tour/", 2)
 }

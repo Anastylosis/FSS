@@ -72,6 +72,7 @@ var sites = []SiteConfig{
 	{SiteID: "msparisandfriends", Domain: "msparisandfriends.com", StudioName: "Ms Paris & Friends"},
 	{SiteID: "suburbantaboo", Domain: "suburbantaboo.com", StudioName: "Suburban Taboo"},
 	{SiteID: "swingingbicouples", Domain: "swingingbicouples.com", StudioName: "Swinging Bi Couples"},
+	{SiteID: "teaseglam", Domain: "teaseglam.com", StudioName: "TeaseGlam"},
 	{SiteID: "tampahousewives", Domain: "tampahousewives.com", StudioName: "Tampa Housewives"},
 	{SiteID: "whorebaithals", Domain: "whorebaithals.com", StudioName: "Whore Bait Hal's"},
 }

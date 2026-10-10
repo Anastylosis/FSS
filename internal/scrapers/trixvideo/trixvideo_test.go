@@ -40,8 +40,8 @@ func TestRegisteredSiteIDsAreUnique(t *testing.T) {
 			t.Errorf("site %q has an empty domain or studio name", cfg.SiteID)
 		}
 	}
-	if len(sites) != 11 {
-		t.Errorf("expected the 11 Trix Video sites, got %d", len(sites))
+	if len(sites) != 12 {
+		t.Errorf("expected the 12 Trix Video sites, got %d", len(sites))
 	}
 }
 
