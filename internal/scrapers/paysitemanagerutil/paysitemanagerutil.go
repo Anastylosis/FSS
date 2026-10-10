@@ -14,6 +14,10 @@
 //	  </ul>
 //	</div>
 //
+// A second theme ("modelfeature" cards, e.g. fragileslave.com) carries no date
+// and prints "34 Photos, 06:48" for the runtime; its detail page holds the
+// tags, the synopsis in `videocontent` and the price on the cart button.
+//
 // The card's title is truncated on some sites ("Straitjacketed Lil Missy UK
 // Unwittingly Committed to In..."), so the detail page is fetched for the full
 // title, the description and the tag list.
@@ -28,6 +32,7 @@ import (
 	"fmt"
 	"html"
 	"net/http"
+	"net/http/cookiejar"
 	"regexp"
 	"strconv"
 	"strings"
@@ -48,6 +53,9 @@ type SiteConfig struct {
 	// ListPath is the catalogue path, with a leading slash. Empty means
 	// "/updates".
 	ListPath string
+	// AgeGate marks a tour that redirects to /warning-page until a
+	// `GET /enter` sets its age cookies.
+	AgeGate bool
 }
 
 func (c SiteConfig) listPath() string {
@@ -70,9 +78,13 @@ var _ scraper.StudioScraper = (*Scraper)(nil)
 func New(cfg SiteConfig) *Scraper {
 	host := strings.TrimPrefix(strings.TrimPrefix(cfg.SiteBase, "https://"), "http://")
 	host = strings.TrimPrefix(host, "www.")
+	client := httpx.NewClient(30 * time.Second)
+	if cfg.AgeGate {
+		client.Jar, _ = cookiejar.New(nil)
+	}
 	return &Scraper{
 		cfg:     cfg,
-		client:  httpx.NewClient(30 * time.Second),
+		client:  client,
 		base:    cfg.SiteBase,
 		matchRe: regexp.MustCompile(`^https?://(?:www\.)?` + regexp.QuoteMeta(host) + `(?:/|$)`),
 	}
@@ -103,6 +115,16 @@ func (s *Scraper) ListScenes(ctx context.Context, studioURL string, opts scraper
 
 func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
 	defer close(out)
+
+	if s.cfg.AgeGate {
+		if _, err := s.fetchPage(ctx, s.base+"/enter"); err != nil {
+			select {
+			case out <- scraper.Error(fmt.Errorf("age gate: %w", err)):
+			case <-ctx.Done():
+			}
+			return
+		}
+	}
 
 	listPath := s.cfg.listPath()
 	if m := tagRe.FindStringSubmatch(studioURL); m != nil {
@@ -268,12 +290,12 @@ type listItem struct {
 }
 
 var (
-	cardStartRe = regexp.MustCompile(`<div class="\s*videoBlock">`)
+	cardStartRe = regexp.MustCompile(`<div class="\s*(?:videoBlock|modelfeature[^"]*)">`)
 	cardURLRe   = regexp.MustCompile(`<a href="([^"]+/(?:updates|scenes)/[^"]+)"`)
 	cardTitleRe = regexp.MustCompile(`(?s)<h3>\s*<a[^>]*>(.*?)</a>`)
 	thumbRe     = regexp.MustCompile(`<img[^>]+src="([^"]+)"`)
-	modelsRe    = regexp.MustCompile(`(?s)<div class="modelName">(.*?)</div>`)
-	durationRe  = regexp.MustCompile(`fa-clock"></i>\s*([\d:]+)`)
+	modelsRe    = regexp.MustCompile(`(?s)<div class="modelName">(.*?)</div>|<span class="update_models">(.*?)</span>`)
+	durationRe  = regexp.MustCompile(`fa-clock"></i>\s*([\d:]+)|Photos?,\s*(\d+:[\d:]+)`)
 	dateRe      = regexp.MustCompile(`fa-calendar"></i>\s*([A-Z][a-z]{2} \d{1,2}, \d{4})`)
 	priceRe     = regexp.MustCompile(`data-price="\$?([\d.]+)"`)
 	// contentIDRe reads the numeric content id out of a thumbnail path.
@@ -282,9 +304,10 @@ var (
 	pagerRe     = regexp.MustCompile(`(?s)<[^>]+class="pagination"[^>]*>(.*?)</div>`)
 
 	detailTitleRe = regexp.MustCompile(`(?s)<h1>(.*?)</h1>`)
-	detailDescRe  = regexp.MustCompile(`(?s)<div class="\s*videoDescription\s*">.*?<p>(.*?)</p>`)
+	detailDescRe  = regexp.MustCompile(`(?s)<div class="\s*(?:videoDescription|videocontent)\s*">.*?<p>(.*?)</p>`)
+	buyPriceRe    = regexp.MustCompile(`Buy Video \$([\d.]+)`)
 	ogDescRe      = regexp.MustCompile(`<meta property="og:description" content="([^"]*)"`)
-	detailTagsRe  = regexp.MustCompile(`(?s)<div class="tags">(.*?)</ul>`)
+	detailTagsRe  = regexp.MustCompile(`(?s)<div class="tags">(.*?)</ul>|<p class="date">[^|]*\|\s*Tags:(.*?)</p>`)
 	anchorRe      = regexp.MustCompile(`(?s)<a[^>]*>(.*?)</a>`)
 	tagStripRe    = regexp.MustCompile(`<[^>]*>`)
 )
@@ -316,10 +339,10 @@ func parseListing(body []byte) []listItem {
 			continue
 		}
 		if mm := modelsRe.FindSubmatch(block); mm != nil {
-			item.performers = anchorNames(mm[1])
+			item.performers = anchorNames(firstGroup(mm))
 		}
 		if dm := durationRe.FindSubmatch(block); dm != nil {
-			item.duration = parseutil.ParseDurationColon(string(dm[1]))
+			item.duration = parseutil.ParseDurationColon(string(firstGroup(dm)))
 		}
 		if dm := dateRe.FindSubmatch(block); dm != nil {
 			item.date = string(dm[1])
@@ -364,8 +387,24 @@ func enrichFromDetail(body []byte, item *listItem) {
 		}
 	}
 	if m := detailTagsRe.FindSubmatch(body); m != nil {
-		item.tags = anchorNames(m[1])
+		item.tags = anchorNames(firstGroup(m))
 	}
+	if item.price == 0 {
+		if m := buyPriceRe.FindSubmatch(body); m != nil {
+			item.price, _ = strconv.ParseFloat(string(m[1]), 64)
+		}
+	}
+}
+
+// firstGroup returns the first capture group that matched, for patterns that
+// alternate between two themes.
+func firstGroup(m [][]byte) []byte {
+	for _, g := range m[1:] {
+		if len(g) > 0 {
+			return g
+		}
+	}
+	return nil
 }
 
 // maxPage reads the highest page the pager names.

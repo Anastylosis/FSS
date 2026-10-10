@@ -129,6 +129,47 @@ func TestEnrichKeepsCardValuesWhenDetailIsEmpty(t *testing.T) {
 	}
 }
 
+func TestParseModelfeatureListing(t *testing.T) {
+	items := parseListing(readFixture(t, "listing_modelfeature.html"))
+	if len(items) != 3 {
+		t.Fatalf("got %d cards, want 3", len(items))
+	}
+	first := items[0]
+	if first.id != "105" || first.title != "Bent in Bondage with Orgasms" {
+		t.Errorf("id/title = %q / %q", first.id, first.title)
+	}
+	if first.url != "https://fragileslave.com/updates/bent-in-bondage-with-orgasms" {
+		t.Errorf("url = %q", first.url)
+	}
+	if len(first.performers) != 1 || first.performers[0] != "Nickey Huntsman" {
+		t.Errorf("performers = %v", first.performers)
+	}
+	if first.duration != 6*60+48 {
+		t.Errorf("duration = %d", first.duration)
+	}
+	if got := maxPage(readFixture(t, "listing_modelfeature.html")); got != 6 {
+		t.Errorf("maxPage = %d, want 6", got)
+	}
+}
+
+func TestEnrichModelfeatureDetail(t *testing.T) {
+	var item listItem
+	enrichFromDetail(readFixture(t, "detail_modelfeature.html"), &item)
+	if item.title != "Bent in Bondage with Orgasms" {
+		t.Errorf("title = %q", item.title)
+	}
+	if !strings.HasPrefix(item.description, "Nickey is as cute as they come") {
+		t.Errorf("description = %q", item.description)
+	}
+	want := []string{"Bondage Orgasms", "Brunette", "All Natural", "Big Ass"}
+	if strings.Join(item.tags, "|") != strings.Join(want, "|") {
+		t.Errorf("tags = %v", item.tags)
+	}
+	if item.price != 6.99 {
+		t.Errorf("price = %v", item.price)
+	}
+}
+
 func TestMaxPage(t *testing.T) {
 	if got := maxPage(readFixture(t, "listing_page1.html")); got < 2 {
 		t.Errorf("maxPage = %d, want the pager's highest page", got)
@@ -279,6 +320,50 @@ func TestTagURLScrapesThatTag(t *testing.T) {
 	defer mu.Unlock()
 	if len(asked) == 0 || asked[0] != "/tags/lesbianarmpit" {
 		t.Errorf("fetched %v, want the tag listing first", asked)
+	}
+}
+
+func TestAgeGateEntersBeforeListing(t *testing.T) {
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/enter" {
+			http.SetCookie(w, &http.Cookie{Name: "age_verification_status", Value: "1", Path: "/"})
+			http.Redirect(w, r, "/", http.StatusFound)
+			return
+		}
+		if _, err := r.Cookie("age_verification_status"); err != nil {
+			http.Redirect(w, r, "/warning-page", http.StatusFound)
+			return
+		}
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/updates/"):
+			_, _ = w.Write(serveFixture(t, "detail.html", srv.URL))
+		case r.URL.Path == "/updates":
+			_, _ = w.Write(serveFixture(t, "listing_page1.html", srv.URL))
+		default:
+			_, _ = w.Write([]byte("<html>home</html>"))
+		}
+	}))
+	defer srv.Close()
+
+	count := func(gated bool) int {
+		cfg := testSite()
+		cfg.SiteBase = srv.URL
+		cfg.AgeGate = gated
+		ch, _ := New(cfg).ListScenes(context.Background(), srv.URL+"/", scraper.ListOpts{})
+		n := 0
+		for res := range ch {
+			if res.Kind == scraper.KindScene {
+				n++
+			}
+		}
+		return n
+	}
+	if got := count(true); got != 2 {
+		t.Errorf("with AgeGate: %d scenes, want 2", got)
+	}
+	if got := count(false); got != 0 {
+		t.Errorf("without AgeGate: %d scenes, want 0", got)
 	}
 }
 
