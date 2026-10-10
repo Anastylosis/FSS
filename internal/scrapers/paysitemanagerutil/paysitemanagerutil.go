@@ -283,6 +283,7 @@ var (
 
 	detailTitleRe = regexp.MustCompile(`(?s)<h1>(.*?)</h1>`)
 	detailDescRe  = regexp.MustCompile(`(?s)<div class="\s*videoDescription\s*">.*?<p>(.*?)</p>`)
+	ogDescRe      = regexp.MustCompile(`<meta property="og:description" content="([^"]*)"`)
 	detailTagsRe  = regexp.MustCompile(`(?s)<div class="tags">(.*?)</ul>`)
 	anchorRe      = regexp.MustCompile(`(?s)<a[^>]*>(.*?)</a>`)
 	tagStripRe    = regexp.MustCompile(`<[^>]*>`)
@@ -354,6 +355,13 @@ func enrichFromDetail(body []byte, item *listItem) {
 	}
 	if m := detailDescRe.FindSubmatch(body); m != nil {
 		item.description = cleanText(tagStripRe.ReplaceAllString(strings.ReplaceAll(string(m[1]), "<br>", " "), " "))
+	}
+	if item.description == "" {
+		// Some tours leave the body block empty and carry the text, as
+		// escaped HTML, only in the meta description.
+		if m := ogDescRe.FindSubmatch(body); m != nil {
+			item.description = cleanText(tagStripRe.ReplaceAllString(strings.ReplaceAll(html.UnescapeString(string(m[1])), "<br>", " "), " "))
+		}
 	}
 	if m := detailTagsRe.FindSubmatch(body); m != nil {
 		item.tags = anchorNames(m[1])

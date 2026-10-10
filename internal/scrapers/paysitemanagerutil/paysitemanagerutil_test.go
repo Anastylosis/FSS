@@ -109,6 +109,18 @@ func TestEnrichFromDetail(t *testing.T) {
 	}
 }
 
+func TestEnrichFallsBackToMetaDescription(t *testing.T) {
+	body := []byte(`<meta property="og:description" content="&lt;p style=&quot;text-align: center;&quot;&gt;Bailey pulls at the ropes.&lt;br&gt;Then more.&lt;/p&gt;">
+<div class=" videoDescription ">
+<p></p>
+</div>`)
+	var item listItem
+	enrichFromDetail(body, &item)
+	if item.description != "Bailey pulls at the ropes. Then more." {
+		t.Errorf("description = %q", item.description)
+	}
+}
+
 func TestEnrichKeepsCardValuesWhenDetailIsEmpty(t *testing.T) {
 	item := listItem{title: "Card Title", description: "", tags: nil}
 	enrichFromDetail([]byte("<html></html>"), &item)
