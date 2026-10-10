@@ -52,7 +52,7 @@ func (s *Scraper) Run(ctx context.Context, studioURL string, opts scraper.ListOp
 		go func() {
 			defer wg.Done()
 			for dw := range work {
-				scene, err := s.fetchDetail(ctx, dw.listing, opts.Delay)
+				scene, err := s.fetchDetail(ctx, studioURL, dw.listing, opts.Delay)
 				if err != nil {
 					select {
 					case out <- scraper.Error(err):
@@ -314,7 +314,7 @@ var (
 	tagRe         = regexp.MustCompile(`href="[^"]*updates-tag/([^/]+)/\d+/[^"]*"[^>]*class="btn btn-ol-2[^"]*"[^>]*>\s*([^<]+)`)
 )
 
-func (s *Scraper) fetchDetail(ctx context.Context, ls listingScene, delay time.Duration) (models.Scene, error) {
+func (s *Scraper) fetchDetail(ctx context.Context, studioURL string, ls listingScene, delay time.Duration) (models.Scene, error) {
 	if !scraper.Pace(ctx, delay) {
 		return models.Scene{}, ctx.Err()
 	}
@@ -366,7 +366,7 @@ func (s *Scraper) fetchDetail(ctx context.Context, ls listingScene, delay time.D
 	return models.Scene{
 		ID:          ls.id,
 		SiteID:      s.cfg.SiteID,
-		StudioURL:   s.cfg.SiteBase,
+		StudioURL:   studioURL,
 		Title:       title,
 		URL:         ls.url,
 		Date:        date,

@@ -173,7 +173,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 		return
 	}
 
-	s.scrapeListingPages(ctx, opts, out)
+	s.scrapeListingPages(ctx, studioURL, opts, out)
 }
 
 func (s *Scraper) scrapeModelPage(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
@@ -197,7 +197,7 @@ func (s *Scraper) scrapeModelPage(ctx context.Context, studioURL string, opts sc
 		if page > 1 {
 			return scraper.PageResult{}, nil
 		}
-		scenes, err := s.fetchDetailScenes(ctx, items, opts, now, out)
+		scenes, err := s.fetchDetailScenes(ctx, studioURL, items, opts, now, out)
 		if err != nil {
 			return scraper.PageResult{}, err
 		}
@@ -205,7 +205,7 @@ func (s *Scraper) scrapeModelPage(ctx context.Context, studioURL string, opts sc
 	})
 }
 
-func (s *Scraper) scrapeListingPages(ctx context.Context, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
+func (s *Scraper) scrapeListingPages(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
 	now := time.Now().UTC()
 	scraper.Paginate(ctx, opts, s.cfg.SiteID, out, func(ctx context.Context, page int) (scraper.PageResult, error) {
 		pageURL := fmt.Sprintf("%s/categories/movies_%d_d.html", s.base, page)
@@ -225,7 +225,7 @@ func (s *Scraper) scrapeListingPages(ctx context.Context, opts scraper.ListOpts,
 			total = estimateTotal(body, len(items))
 		}
 
-		scenes, err := s.fetchDetailScenes(ctx, items, opts, now, out)
+		scenes, err := s.fetchDetailScenes(ctx, studioURL, items, opts, now, out)
 		if err != nil {
 			return scraper.PageResult{}, err
 		}
@@ -240,7 +240,7 @@ func (s *Scraper) scrapeListingPages(ctx context.Context, opts scraper.ListOpts,
 // scenes reported none; it is now sent as an error, which marks the traversal
 // incomplete and stops an authoritative --full Save from deleting what was not
 // re-collected.
-func (s *Scraper) fetchDetailScenes(ctx context.Context, items []listItem, opts scraper.ListOpts, now time.Time, out chan<- scraper.SceneResult) ([]models.Scene, error) {
+func (s *Scraper) fetchDetailScenes(ctx context.Context, studioURL string, items []listItem, opts scraper.ListOpts, now time.Time, out chan<- scraper.SceneResult) ([]models.Scene, error) {
 	workers := opts.Workers
 	if workers <= 0 {
 		workers = 4
@@ -291,7 +291,7 @@ func (s *Scraper) fetchDetailScenes(ctx context.Context, items []listItem, opts 
 			}
 			continue
 		}
-		scenes = append(scenes, toScene(s.cfg.SiteID, s.base, r.item, r.detail, now))
+		scenes = append(scenes, toScene(s.cfg.SiteID, studioURL, r.item, r.detail, now))
 	}
 	return scenes, nil
 }
@@ -342,7 +342,7 @@ func parseDetailPage(body []byte) detailData {
 	return d
 }
 
-func toScene(siteID, base string, it listItem, d detailData, now time.Time) models.Scene {
+func toScene(siteID, studioURL string, it listItem, d detailData, now time.Time) models.Scene {
 	performers := d.performers
 	if len(performers) == 0 {
 		performers = it.performers
@@ -351,7 +351,7 @@ func toScene(siteID, base string, it listItem, d detailData, now time.Time) mode
 	return models.Scene{
 		ID:          it.slug,
 		SiteID:      siteID,
-		StudioURL:   base,
+		StudioURL:   studioURL,
 		Title:       it.title,
 		URL:         it.url,
 		Thumbnail:   it.thumbnail,

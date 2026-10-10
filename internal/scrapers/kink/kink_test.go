@@ -215,22 +215,20 @@ func TestFetchListing(t *testing.T) {
 	}
 }
 
-func TestResolveSiteIdentity(t *testing.T) {
+func TestResolveSiteID(t *testing.T) {
 	cases := []struct {
 		url        string
 		wantSiteID string
-		wantBase   string
 	}{
-		{"https://www.kink.com", "kink", "https://www.kink.com"},
-		{"https://kink.com/channel/hogtied", "kink", "https://www.kink.com"},
-		{"https://www.kinkmen.com", "kinkmen", "https://www.kinkmen.com"},
-		{"https://kinkmen.com/channel/bound-gods", "kinkmen", "https://www.kinkmen.com"},
-		{"https://www.kinkmen.com/shoot/108095", "kinkmen", "https://www.kinkmen.com"},
+		{"https://www.kink.com", "kink"},
+		{"https://kink.com/channel/hogtied", "kink"},
+		{"https://www.kinkmen.com", "kinkmen"},
+		{"https://kinkmen.com/channel/bound-gods", "kinkmen"},
+		{"https://www.kinkmen.com/shoot/108095", "kinkmen"},
 	}
 	for _, c := range cases {
-		siteID, base := resolveSiteIdentity(c.url)
-		if siteID != c.wantSiteID || base != c.wantBase {
-			t.Errorf("resolveSiteIdentity(%q) = (%q, %q), want (%q, %q)", c.url, siteID, base, c.wantSiteID, c.wantBase)
+		if siteID := resolveSiteID(c.url); siteID != c.wantSiteID {
+			t.Errorf("resolveSiteID(%q) = %q, want %q", c.url, siteID, c.wantSiteID)
 		}
 	}
 }
@@ -304,7 +302,7 @@ func TestFetchDetailKinkMen(t *testing.T) {
 		url: ts.URL + "/shoot/108095",
 	}
 
-	scene, err := s.fetchDetail(context.Background(), entry, "kinkmen", "https://www.kinkmen.com")
+	scene, err := s.fetchDetail(context.Background(), entry, "kinkmen", "https://www.kinkmen.com/channel/bound-gods")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -312,8 +310,8 @@ func TestFetchDetailKinkMen(t *testing.T) {
 	if scene.SiteID != "kinkmen" {
 		t.Errorf("SiteID = %q, want kinkmen", scene.SiteID)
 	}
-	if scene.StudioURL != "https://www.kinkmen.com" {
-		t.Errorf("StudioURL = %q, want https://www.kinkmen.com", scene.StudioURL)
+	if scene.StudioURL != "https://www.kinkmen.com/channel/bound-gods" {
+		t.Errorf("StudioURL = %q, want the requested URL", scene.StudioURL)
 	}
 }
 
@@ -339,6 +337,11 @@ func TestListScenes(t *testing.T) {
 
 	if len(scenes) != 2 {
 		t.Errorf("got %d scenes, want 2", len(scenes))
+	}
+	for _, sc := range scenes {
+		if sc.StudioURL != ts.URL {
+			t.Errorf("StudioURL = %q, want %q", sc.StudioURL, ts.URL)
+		}
 	}
 }
 
@@ -400,5 +403,10 @@ func TestListScenesSeries(t *testing.T) {
 
 	if len(scenes) != 2 {
 		t.Errorf("got %d scenes, want 2", len(scenes))
+	}
+	for _, sc := range scenes {
+		if want := ts.URL + "/series/test-series"; sc.StudioURL != want {
+			t.Errorf("StudioURL = %q, want %q", sc.StudioURL, want)
+		}
 	}
 }

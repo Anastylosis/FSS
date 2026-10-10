@@ -80,14 +80,14 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 	defer close(out)
 
 	if m := makerPathRe.FindStringSubmatch(studioURL); m != nil {
-		s.runPaginated(ctx, fmt.Sprintf("/works/list/maker/%s/", m[1]), opts, out)
+		s.runPaginated(ctx, studioURL, fmt.Sprintf("/works/list/maker/%s/", m[1]), opts, out)
 		return
 	}
 
-	s.runDateArchive(ctx, opts, out)
+	s.runDateArchive(ctx, studioURL, opts, out)
 }
 
-func (s *Scraper) runDateArchive(ctx context.Context, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
+func (s *Scraper) runDateArchive(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
 	body, err := s.fetch(ctx, "/works/date/")
 	if err != nil {
 		select {
@@ -121,19 +121,19 @@ func (s *Scraper) runDateArchive(ctx context.Context, opts scraper.ListOpts, out
 			return
 		}
 
-		stopped := s.runPaginatedInner(ctx, datePath, opts, out, &progressSent)
+		stopped := s.runPaginatedInner(ctx, studioURL, datePath, opts, out, &progressSent)
 		if stopped {
 			return
 		}
 	}
 }
 
-func (s *Scraper) runPaginated(ctx context.Context, basePath string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
+func (s *Scraper) runPaginated(ctx context.Context, studioURL, basePath string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
 	progressSent := false
-	s.runPaginatedInner(ctx, basePath, opts, out, &progressSent)
+	s.runPaginatedInner(ctx, studioURL, basePath, opts, out, &progressSent)
 }
 
-func (s *Scraper) runPaginatedInner(ctx context.Context, basePath string, opts scraper.ListOpts, out chan<- scraper.SceneResult, progressSent *bool) bool {
+func (s *Scraper) runPaginatedInner(ctx context.Context, studioURL, basePath string, opts scraper.ListOpts, out chan<- scraper.SceneResult, progressSent *bool) bool {
 	workers := opts.Workers
 	if workers <= 0 {
 		workers = 4
@@ -177,7 +177,7 @@ func (s *Scraper) runPaginatedInner(ctx context.Context, basePath string, opts s
 			work = append(work, slug)
 		}
 
-		results := s.fetchDetails(ctx, work, opts.Delay, workers)
+		results := s.fetchDetails(ctx, studioURL, work, opts.Delay, workers)
 		var scenes []models.Scene
 		for _, r := range results {
 			if r.err != nil {
@@ -243,7 +243,7 @@ type sceneResult struct {
 	err   error
 }
 
-func (s *Scraper) fetchDetails(ctx context.Context, slugs []string, delay time.Duration, workers int) []sceneResult {
+func (s *Scraper) fetchDetails(ctx context.Context, studioURL string, slugs []string, delay time.Duration, workers int) []sceneResult {
 	results := make([]sceneResult, len(slugs))
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, workers)
@@ -272,7 +272,7 @@ func (s *Scraper) fetchDetails(ctx context.Context, slugs []string, delay time.D
 				results[idx] = sceneResult{err: ctx.Err()}
 				return
 			}
-			scene, err := s.fetchDetail(ctx, sl)
+			scene, err := s.fetchDetail(ctx, studioURL, sl)
 			if err != nil {
 				results[idx] = sceneResult{err: fmt.Errorf("detail %s: %w", sl, err)}
 				return
@@ -284,19 +284,19 @@ func (s *Scraper) fetchDetails(ctx context.Context, slugs []string, delay time.D
 	return results
 }
 
-func (s *Scraper) fetchDetail(ctx context.Context, slug string) (models.Scene, error) {
+func (s *Scraper) fetchDetail(ctx context.Context, studioURL, slug string) (models.Scene, error) {
 	body, err := s.fetch(ctx, "/works/detail/"+slug+"/")
 	if err != nil {
 		return models.Scene{}, err
 	}
-	return parseDetail(slug, string(body), s.baseURL), nil
+	return parseDetail(slug, string(body), s.baseURL, studioURL), nil
 }
 
-func parseDetail(slug, body, base string) models.Scene {
+func parseDetail(slug, body, base, studioURL string) models.Scene {
 	sc := models.Scene{
 		ID:        slug,
 		SiteID:    "mousouzoku",
-		StudioURL: base + "/works/list/release/",
+		StudioURL: studioURL,
 		URL:       base + "/works/detail/" + slug + "/",
 		ScrapedAt: time.Now().UTC(),
 	}

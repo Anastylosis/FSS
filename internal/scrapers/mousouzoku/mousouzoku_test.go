@@ -138,8 +138,11 @@ func TestParseTotalComma(t *testing.T) {
 }
 
 func TestParseDetail(t *testing.T) {
-	sc := parseDetail("fjin140", fixtureDetail1, "https://www.mousouzoku-av.com")
+	sc := parseDetail("fjin140", fixtureDetail1, "https://www.mousouzoku-av.com", "https://www.mousouzoku-av.com/works/list/maker/462/")
 
+	if sc.StudioURL != "https://www.mousouzoku-av.com/works/list/maker/462/" {
+		t.Errorf("StudioURL = %q", sc.StudioURL)
+	}
 	if sc.ID != "fjin140" {
 		t.Errorf("ID = %q", sc.ID)
 	}
@@ -173,7 +176,7 @@ func TestParseDetail(t *testing.T) {
 }
 
 func TestParseDetailNoPerformer(t *testing.T) {
-	sc := parseDetail("ydns009", fixtureDetail2, "https://www.mousouzoku-av.com")
+	sc := parseDetail("ydns009", fixtureDetail2, "https://www.mousouzoku-av.com", "https://www.mousouzoku-av.com")
 	if len(sc.Performers) != 0 {
 		t.Errorf("performers should be empty for '-', got %v", sc.Performers)
 	}
@@ -214,7 +217,8 @@ func TestListScenes(t *testing.T) {
 	defer ts.Close()
 
 	s := &Scraper{client: ts.Client(), baseURL: ts.URL}
-	ch, err := s.ListScenes(context.Background(), ts.URL, scraper.ListOpts{})
+	studioURL := ts.URL + "/works/"
+	ch, err := s.ListScenes(context.Background(), studioURL, scraper.ListOpts{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -225,6 +229,9 @@ func TestListScenes(t *testing.T) {
 		switch r.Kind {
 		case scraper.KindScene:
 			scenes++
+			if r.Scene.StudioURL != studioURL {
+				t.Errorf("StudioURL = %q, want %q", r.Scene.StudioURL, studioURL)
+			}
 			if r.Scene.ID == "fjin140" && r.Scene.Studio != "FunCity/妄想族" {
 				t.Errorf("studio = %q", r.Scene.Studio)
 			}
@@ -288,7 +295,8 @@ func TestMakerMode(t *testing.T) {
 	defer ts.Close()
 
 	s := &Scraper{client: ts.Client(), baseURL: ts.URL}
-	ch, err := s.ListScenes(context.Background(), ts.URL+"/works/list/maker/462/", scraper.ListOpts{})
+	makerURL := ts.URL + "/works/list/maker/462/"
+	ch, err := s.ListScenes(context.Background(), makerURL, scraper.ListOpts{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -298,6 +306,9 @@ func TestMakerMode(t *testing.T) {
 	for _, r := range results {
 		if r.Kind == scraper.KindScene {
 			scenes++
+			if r.Scene.StudioURL != makerURL {
+				t.Errorf("StudioURL = %q, want %q", r.Scene.StudioURL, makerURL)
+			}
 			if r.Scene.ID != "abc001" {
 				t.Errorf("ID = %q, want abc001", r.Scene.ID)
 			}
@@ -328,7 +339,7 @@ func TestFetchDetailsNeverLeavesZeroValueResults(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // cancelled before the first launch
 
-	results := s.fetchDetails(ctx, slugs, 0, 2)
+	results := s.fetchDetails(ctx, "https://example.com/studio", slugs, 0, 2)
 
 	if len(results) != len(slugs) {
 		t.Fatalf("got %d results, want %d", len(results), len(slugs))

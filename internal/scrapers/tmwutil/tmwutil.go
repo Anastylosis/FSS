@@ -87,7 +87,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 		return
 	}
 
-	s.scrapeListing(ctx, opts, out)
+	s.scrapeListing(ctx, studioURL, opts, out)
 }
 
 func (s *Scraper) scrapeModelPage(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
@@ -121,10 +121,10 @@ func (s *Scraper) scrapeModelPage(ctx context.Context, studioURL string, opts sc
 	if workers <= 0 {
 		workers = 4
 	}
-	s.fetchDetails(ctx, items, opts, out, workers)
+	s.fetchDetails(ctx, studioURL, items, opts, out, workers)
 }
 
-func (s *Scraper) scrapeListing(ctx context.Context, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
+func (s *Scraper) scrapeListing(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
 	workers := opts.Workers
 	if workers <= 0 {
 		workers = 4
@@ -143,7 +143,7 @@ func (s *Scraper) scrapeListing(ctx context.Context, opts scraper.ListOpts, out 
 		go func() {
 			defer wg.Done()
 			for dw := range work {
-				scene, err := s.fetchDetail(ctx, dw.listing, opts.Delay)
+				scene, err := s.fetchDetail(ctx, studioURL, dw.listing, opts.Delay)
 				if err != nil {
 					select {
 					case out <- scraper.Error(err):
@@ -230,7 +230,7 @@ func (s *Scraper) scrapeListing(ctx context.Context, opts scraper.ListOpts, out 
 	wg.Wait()
 }
 
-func (s *Scraper) fetchDetails(ctx context.Context, items []listingItem, opts scraper.ListOpts, out chan<- scraper.SceneResult, workers int) {
+func (s *Scraper) fetchDetails(ctx context.Context, studioURL string, items []listingItem, opts scraper.ListOpts, out chan<- scraper.SceneResult, workers int) {
 	type detailWork struct {
 		listing listingItem
 	}
@@ -242,7 +242,7 @@ func (s *Scraper) fetchDetails(ctx context.Context, items []listingItem, opts sc
 		go func() {
 			defer wg.Done()
 			for dw := range work {
-				scene, err := s.fetchDetail(ctx, dw.listing, opts.Delay)
+				scene, err := s.fetchDetail(ctx, studioURL, dw.listing, opts.Delay)
 				if err != nil {
 					select {
 					case out <- scraper.Error(err):
@@ -373,7 +373,7 @@ var (
 	detailPerfRe = regexp.MustCompile(`class="video-actor-link[^"]*"[^>]*title="([^"]+)"`)
 )
 
-func (s *Scraper) fetchDetail(ctx context.Context, item listingItem, delay time.Duration) (models.Scene, error) {
+func (s *Scraper) fetchDetail(ctx context.Context, studioURL string, item listingItem, delay time.Duration) (models.Scene, error) {
 	if !scraper.Pace(ctx, delay) {
 		return models.Scene{}, ctx.Err()
 	}
@@ -386,7 +386,7 @@ func (s *Scraper) fetchDetail(ctx context.Context, item listingItem, delay time.
 	scene := models.Scene{
 		ID:         item.id,
 		SiteID:     s.cfg.SiteID,
-		StudioURL:  s.base + "/categories/movies.html",
+		StudioURL:  studioURL,
 		Title:      item.title,
 		URL:        item.url,
 		Thumbnail:  item.thumb,

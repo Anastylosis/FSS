@@ -112,7 +112,7 @@ func TestFetchDetail(t *testing.T) {
 		cfg:    SiteConfig{SiteID: "test", SiteBase: ts.URL, StudioName: "Test Studio", VideosPath: "/videos/"},
 	}
 
-	scene, err := s.fetchDetail(context.Background(), listingScene{
+	scene, err := s.fetchDetail(context.Background(), "https://example.com/studio", listingScene{
 		id:         "10001",
 		url:        ts.URL + "/videos/Performer-A/10001/",
 		title:      "Scene Title",
@@ -124,6 +124,9 @@ func TestFetchDetail(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	if scene.StudioURL != "https://example.com/studio" {
+		t.Errorf("StudioURL = %q", scene.StudioURL)
+	}
 	if scene.ID != "10001" {
 		t.Errorf("ID = %q", scene.ID)
 	}
@@ -173,6 +176,11 @@ func TestRun(t *testing.T) {
 	scenes := testutil.CollectScenes(t, out)
 	if len(scenes) != 2 {
 		t.Fatalf("got %d scenes, want 2", len(scenes))
+	}
+	for _, sc := range scenes {
+		if sc.StudioURL != ts.URL {
+			t.Errorf("StudioURL = %q, want %q", sc.StudioURL, ts.URL)
+		}
 	}
 }
 
@@ -250,6 +258,9 @@ func TestModelURL(t *testing.T) {
 			continue
 		}
 		scenes = append(scenes, r.Scene.ID)
+		if r.Scene.StudioURL != modelURL {
+			t.Errorf("StudioURL = %q, want %q", r.Scene.StudioURL, modelURL)
+		}
 	}
 	if total != 2 {
 		t.Errorf("total = %d, want 2", total)

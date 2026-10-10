@@ -279,7 +279,8 @@ func TestPagination(t *testing.T) {
 		base:   ts.URL,
 	}
 
-	ch, err := s.ListScenes(context.Background(), ts.URL, scraper.ListOpts{})
+	studioURL := ts.URL + "/studio/"
+	ch, err := s.ListScenes(context.Background(), studioURL, scraper.ListOpts{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -289,6 +290,9 @@ func TestPagination(t *testing.T) {
 		switch r.Kind {
 		case scraper.KindScene:
 			scenes = append(scenes, r.Scene.ID)
+			if r.Scene.StudioURL != studioURL {
+				t.Errorf("StudioURL = %q, want %q", r.Scene.StudioURL, studioURL)
+			}
 		case scraper.KindError:
 			t.Errorf("unexpected error: %v", r.Err)
 		}

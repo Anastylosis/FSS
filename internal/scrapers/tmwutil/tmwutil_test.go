@@ -188,7 +188,8 @@ func TestListScenes(t *testing.T) {
 	defer ts.Close()
 
 	s := newTestScraper(ts)
-	ch, err := s.ListScenes(context.Background(), ts.URL+"/categories/movies.html", scraper.ListOpts{})
+	studioURL := ts.URL + "/categories/movies.html"
+	ch, err := s.ListScenes(context.Background(), studioURL, scraper.ListOpts{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -203,6 +204,9 @@ func TestListScenes(t *testing.T) {
 		switch r.Kind {
 		case scraper.KindScene:
 			sceneCount++
+			if r.Scene.StudioURL != studioURL {
+				t.Errorf("StudioURL = %q, want %q", r.Scene.StudioURL, studioURL)
+			}
 		case scraper.KindError:
 			t.Errorf("unexpected error: %v", r.Err)
 		}
@@ -367,7 +371,8 @@ func TestListScenesHub(t *testing.T) {
 			Hub:        true,
 		},
 	}
-	ch, err := s.ListScenes(context.Background(), ts.URL+"/categories/hubstudio_1_d.html", scraper.ListOpts{})
+	studioURL := ts.URL + "/categories/hubstudio_1_d.html"
+	ch, err := s.ListScenes(context.Background(), studioURL, scraper.ListOpts{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -377,6 +382,9 @@ func TestListScenesHub(t *testing.T) {
 		switch r.Kind {
 		case scraper.KindScene:
 			sceneCount++
+			if r.Scene.StudioURL != studioURL {
+				t.Errorf("StudioURL = %q, want %q", r.Scene.StudioURL, studioURL)
+			}
 			if r.Scene.ID != "Hub-Scene-One" {
 				t.Errorf("scene ID = %q, want Hub-Scene-One", r.Scene.ID)
 			}
@@ -404,7 +412,8 @@ func TestModelPage(t *testing.T) {
 	defer ts.Close()
 
 	s := newTestScraper(ts)
-	ch, err := s.ListScenes(context.Background(), ts.URL+"/models/Jane-Doe.html", scraper.ListOpts{})
+	studioURL := ts.URL + "/models/Jane-Doe.html"
+	ch, err := s.ListScenes(context.Background(), studioURL, scraper.ListOpts{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -414,6 +423,9 @@ func TestModelPage(t *testing.T) {
 		switch r.Kind {
 		case scraper.KindScene:
 			sceneCount++
+			if r.Scene.StudioURL != studioURL {
+				t.Errorf("StudioURL = %q, want %q", r.Scene.StudioURL, studioURL)
+			}
 		case scraper.KindError:
 			t.Errorf("unexpected error: %v", r.Err)
 		}
