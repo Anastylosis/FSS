@@ -10,6 +10,7 @@ import (
 const base = "https://bdtv.com"
 
 var sites = []bdtvutil.SiteConfig{
+	{SiteID: "closeup", StudioName: "Close-Up Entertainment", StudioID: 58, Domains: []string{"bdtv.com"}, Base: base},
 	{SiteID: "harmonyconcepts", StudioName: "Harmony Concepts", StudioID: 66, Domains: []string{"harmonyvideo.tv"}, Base: base},
 }
 

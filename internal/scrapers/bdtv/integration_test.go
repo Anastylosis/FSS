@@ -35,3 +35,19 @@ func TestLiveHarmonyConceptsActor(t *testing.T) {
 func TestLiveHarmonyConceptsCategory(t *testing.T) {
 	testutil.RunLiveScrape(t, bdtvutil.New(row(t, "harmonyconcepts")), "https://harmonyvideo.tv/display-movies/category/1482", 3)
 }
+
+func TestLiveCloseUp(t *testing.T) {
+	testutil.RunLiveScrape(t, bdtvutil.New(row(t, "closeup")), "https://bdtv.com/", 3)
+}
+
+func TestLiveCloseUpStudio(t *testing.T) {
+	testutil.RunLiveScrape(t, bdtvutil.New(row(t, "closeup")), "https://bdtv.com/studio-display?studio_id=58", 3)
+}
+
+func TestLiveCloseUpActor(t *testing.T) {
+	testutil.RunLiveScrape(t, bdtvutil.New(row(t, "closeup")), "https://bdtv.com/actor/846", 3)
+}
+
+func TestLiveCloseUpCategory(t *testing.T) {
+	testutil.RunLiveScrape(t, bdtvutil.New(row(t, "closeup")), "https://bdtv.com/display-movies/category/1469", 3)
+}
