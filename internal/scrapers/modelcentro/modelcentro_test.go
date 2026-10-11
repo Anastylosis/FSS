@@ -7,8 +7,8 @@ import (
 )
 
 func TestSiteCount(t *testing.T) {
-	if len(sites) != 47 {
-		t.Errorf("expected 47 sites, got %d", len(sites))
+	if len(sites) != 48 {
+		t.Errorf("expected 48 sites, got %d", len(sites))
 	}
 }
 
@@ -52,6 +52,8 @@ func TestMatchesURL(t *testing.T) {
 		{"naughtylada canonical", "naughtylada", "https://naughty-lada.com/videos", true},
 		{"naughtylada alias", "naughtylada", "https://naughtylada.com", true},
 		{"naughtylada alias videos", "naughtylada", "https://www.naughtylada.com/videos/", true},
+		{"annaclaireclouds base", "annaclaireclouds", "https://annaclaireclouds.site", true},
+		{"annaclaireclouds www videos", "annaclaireclouds", "https://www.annaclaireclouds.site/videos", true},
 		{"alias is not a wildcard", "naughtylada", "https://naughty-lada.org", false},
 		{"lilcandy base", "lilcandy", "https://www.lilcandy.com", true},
 		{"lilcandy videos", "lilcandy", "https://lilcandy.com/videos", true},
