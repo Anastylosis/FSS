@@ -989,14 +989,9 @@ Scrapers that share a platform use common utility packages to avoid duplication:
 | `metartutil` | MetArt Network (JSON API at `/api/updates`, movies filtered client-side) | `metart` | 13 sites |
 | `veutil` | WordPress video-elements theme (WP REST API) | `videoelements` | 13 sites |
 | `scoregrouputil` | Score Group (HTML listing + detail pages) | `scoregroup` | 93 sites |
-| `paysitemanagerutil` | PaySiteManager tour (`videoBlock` cards, `/updates?page=N` listing, `/updates/{slug}` detail) | `paysitemanager` | 2 sites |
-| `latestupdateutil` | Elevated X `latestUpdateB` theme (`data-setid` cards, `/categories/movies_{N}.html` listing, `/scenes/{Slug}_vids.html` URLs, `sets.php` model pagination). Everything is on the card, so there is no detail fetch | `sofiemarie`, `blusherotica`, `helenascockquest`, `blackbullchallenge`, `darkkotv`, `thejerkoffgames`, `xbrats` | 7 sites |
-| `paysitemanagerutil` | PaySiteManager tour (`videoBlock` cards, `/updates?page=N` listing, `/updates/{slug}` detail) | `paysitemanager` | 3 sites |
 | `paysitemanagerutil` | PaySiteManager tour (`videoBlock` cards, `/updates?page=N` listing, `/updates/{slug}` detail) | `paysitemanager` | 4 sites |
-| `latestupdateutil` | Elevated X `latestUpdateB` theme (`data-setid` cards, `/categories/movies_{N}.html` listing, `/scenes/{Slug}_vids.html` URLs, `sets.php` model pagination). Everything is on the card, so there is no detail fetch | `sofiemarie`, `blusherotica`, `helenascockquest` | 3 sites |
-| `elxupdateutil` | Elevated X "updateItem" theme (`updateItem` cards, `/categories/{slug}_{N}_d.html` listing, `/updates/{Slug}.html` detail). Tour prefix and catalogue slug are per-site config. **Past its last page the tour clamps and repeats forever, and its pager is a sliding window**, so the walk ends on a repeated page | `pervypass`, `brokenlatinawhores` | 4 sites |
+| `latestupdateutil` | Elevated X `latestUpdateB` theme (`data-setid` cards, `/categories/movies_{N}.html` listing, `/scenes/{Slug}_vids.html` URLs, `sets.php` model pagination). Everything is on the card, so there is no detail fetch | `sofiemarie`, `blusherotica`, `helenascockquest`, `blackbullchallenge`, `darkkotv`, `thejerkoffgames`, `xbrats` | 7 sites |
 | `modelcentroutil` | ModelCentro/AdultCentro (JSON API at `/api/content.load`) | `modelcentro` | 50 sites |
-| `latestupdateutil` | Elevated X `latestUpdateB` theme (`data-setid` cards, `/categories/movies_{N}.html` listing, `/scenes/{Slug}_vids.html` URLs, `sets.php` model pagination). Everything is on the card, so there is no detail fetch | `sofiemarie`, `blusherotica`, `helenascockquest` | 3 sites |
 | `elxupdateutil` | Elevated X "updateItem" theme (`updateItem` cards, `/categories/{slug}_{N}_d.html` listing, `/updates/{Slug}.html` detail). Tour prefix and catalogue slug are per-site config. **Past its last page the tour clamps and repeats forever, and its pager is a sliding window**, so the walk ends on a repeated page | `pervypass`, `brokenlatinawhores`, `emilybloom`, `monstersofjizz`, `trueamateurmodels` | 7 sites |
 | `kvssitemaputil` | KVS tour CMS whose `/sitemap/?type=videos&from_links_videos=1` lists every video with `video:*` metadata; detail pages add performers/tags via per-site regexes, model/tag/category pages filter by ID | `kvssitemap` | 2 sites |
 | `povrutil` | POVR/WankzVR (export JSON + HTML listing) | `povr` | 4 sites |
@@ -1121,6 +1116,7 @@ backlog files for the same reason.
 | Jolie and Friends | The host times out and the domain has expired | 2026-10-16 |
 | Akinori | `aknr.com` is a domain-for-sale page | 2026-10-16 |
 | Yonitale (Orgasm World Championship) | Both domains are parked or redirect to an ad network | 2026-10-16 |
+| Model Media Asia | `modelmediaasia.com` times out and `mod.run` answers 522; the other StashDB domain no longer resolves. Gayerdar, the network's other brand, is covered | 2026-10-16 |
 
 ## Adding a new scraper
 
