@@ -51,7 +51,7 @@ func (s *Scraper) ListScenes(ctx context.Context, studioURL string, opts scraper
 	return out, nil
 }
 
-func (s *Scraper) run(ctx context.Context, _ string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
+func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
 	defer close(out)
 
 	workers := opts.Workers
@@ -66,7 +66,7 @@ func (s *Scraper) run(ctx context.Context, _ string, opts scraper.ListOpts, out 
 		go func() {
 			defer wg.Done()
 			for ls := range work {
-				scene, err := s.fetchDetail(ctx, ls, opts.Delay)
+				scene, err := s.fetchDetail(ctx, studioURL, ls, opts.Delay)
 				if err != nil {
 					select {
 					case out <- scraper.Error(err):
@@ -270,7 +270,7 @@ func parseDetailPage(body []byte) detailData {
 	return d
 }
 
-func (s *Scraper) fetchDetail(ctx context.Context, ls listingScene, delay time.Duration) (models.Scene, error) {
+func (s *Scraper) fetchDetail(ctx context.Context, studioURL string, ls listingScene, delay time.Duration) (models.Scene, error) {
 	if !scraper.Pace(ctx, delay) {
 		return models.Scene{}, ctx.Err()
 	}
@@ -279,7 +279,7 @@ func (s *Scraper) fetchDetail(ctx context.Context, ls listingScene, delay time.D
 	scene := models.Scene{
 		ID:         ls.id,
 		SiteID:     siteID,
-		StudioURL:  s.base + "/categories/movies.html",
+		StudioURL:  studioURL,
 		Title:      ls.title,
 		URL:        ls.url,
 		Date:       ls.date,

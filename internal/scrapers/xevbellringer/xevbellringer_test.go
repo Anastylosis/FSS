@@ -237,7 +237,8 @@ func TestListScenes(t *testing.T) {
 	defer ts.Close()
 
 	s := &Scraper{client: ts.Client(), base: ts.URL}
-	ch, err := s.ListScenes(context.Background(), ts.URL+"/categories/movies.html", scraper.ListOpts{})
+	studioURL := ts.URL + "/studio/"
+	ch, err := s.ListScenes(context.Background(), studioURL, scraper.ListOpts{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -245,6 +246,11 @@ func TestListScenes(t *testing.T) {
 	results := testutil.CollectScenes(t, ch)
 	if len(results) != 2 {
 		t.Fatalf("got %d scenes, want 2", len(results))
+	}
+	for _, sc := range results {
+		if sc.StudioURL != studioURL {
+			t.Errorf("StudioURL = %q, want %q", sc.StudioURL, studioURL)
+		}
 	}
 	if results[0].Description != "Test description." && results[1].Description != "Test description." {
 		t.Error("expected description from detail page")
