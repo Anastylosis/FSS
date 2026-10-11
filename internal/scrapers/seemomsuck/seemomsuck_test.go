@@ -266,7 +266,10 @@ func TestToScene(t *testing.T) {
 		thumb:       "https://nookies.com/thumb.jpg",
 		views:       100,
 	}
-	scene := ps.toScene("https://www.example.com", fixedTime)
+	scene := ps.toScene("https://www.example.com", "https://www.example.com/videos", fixedTime)
+	if scene.StudioURL != "https://www.example.com/videos" {
+		t.Errorf("StudioURL = %q", scene.StudioURL)
+	}
 	if scene.ID != "3105" {
 		t.Errorf("ID = %q", scene.ID)
 	}
@@ -361,11 +364,17 @@ func TestRunPaginates(t *testing.T) {
 
 	s := &Scraper{client: ts.Client(), siteBase: ts.URL}
 	out := make(chan scraper.SceneResult)
-	go s.run(context.Background(), ts.URL, scraper.ListOpts{}, out)
+	studioURL := ts.URL + "/videos"
+	go s.run(context.Background(), studioURL, scraper.ListOpts{}, out)
 
 	scenes := testutil.CollectScenes(t, out)
 	if len(scenes) != 2 {
 		t.Fatalf("got %d scenes, want 2: %+v", len(scenes), scenes)
+	}
+	for _, sc := range scenes {
+		if sc.StudioURL != studioURL {
+			t.Errorf("StudioURL = %q, want %q", sc.StudioURL, studioURL)
+		}
 	}
 	if scenes[0].ID != "200" || scenes[1].ID != "199" {
 		t.Errorf("scene order = [%s, %s]", scenes[0].ID, scenes[1].ID)
@@ -438,6 +447,9 @@ func TestModelURL(t *testing.T) {
 		if r.Err != nil {
 			t.Errorf("error: %v", r.Err)
 			continue
+		}
+		if r.Scene.StudioURL != modelURL {
+			t.Errorf("StudioURL = %q, want %q", r.Scene.StudioURL, modelURL)
 		}
 		if len(r.Scene.Performers) != 1 || r.Scene.Performers[0] != "Test Model" {
 			t.Errorf("performers = %v, want [Test Model]", r.Scene.Performers)

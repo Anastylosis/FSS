@@ -130,7 +130,10 @@ func TestNodeToScene(t *testing.T) {
 	s := New(SiteConfig{SiteID: "vixen", Domain: "vixen.com", StudioName: "Vixen"})
 	n := testNode("100", "Test Scene", "test-scene", "2026-01-15T18:30:00.000Z", []string{"Alice", "Bob"})
 
-	scene := s.nodeToScene(n, fixedTime())
+	scene := s.nodeToScene(n, "https://www.vixen.com/videos", fixedTime())
+	if scene.StudioURL != "https://www.vixen.com/videos" {
+		t.Errorf("StudioURL = %q", scene.StudioURL)
+	}
 	if scene.ID != "100" {
 		t.Errorf("ID = %q", scene.ID)
 	}
@@ -165,7 +168,7 @@ func TestNodeToScenePortraitFallback(t *testing.T) {
 			},
 		},
 	}
-	scene := s.nodeToScene(n, fixedTime())
+	scene := s.nodeToScene(n, "https://www.vixen.com/videos", fixedTime())
 	if scene.Thumbnail != "https://cdn.vixen.com/only-portrait.jpg" {
 		t.Errorf("Thumbnail = %q (expected portrait fallback)", scene.Thumbnail)
 	}
@@ -208,6 +211,9 @@ func TestListScenes(t *testing.T) {
 	for r := range ch {
 		if r.Kind == scraper.KindScene {
 			found = true
+			if want := ts.URL + "/videos"; r.Scene.StudioURL != want {
+				t.Errorf("StudioURL = %q, want %q", r.Scene.StudioURL, want)
+			}
 			if r.Scene.ID != "200" {
 				t.Errorf("ID = %q", r.Scene.ID)
 			}
@@ -281,6 +287,9 @@ func TestPerformerPage(t *testing.T) {
 	for r := range ch {
 		if r.Kind == scraper.KindScene {
 			found = true
+			if want := ts.URL + "/performers/star"; r.Scene.StudioURL != want {
+				t.Errorf("StudioURL = %q, want %q", r.Scene.StudioURL, want)
+			}
 			if r.Scene.ID != "400" {
 				t.Errorf("ID = %q", r.Scene.ID)
 			}

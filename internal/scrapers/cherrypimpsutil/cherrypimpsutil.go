@@ -227,11 +227,11 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 		return
 	case modeDVDListing:
 		scraper.Debugf(1, "%s: detected DVD listing mode", s.cfg.ID)
-		s.scrapeDVDListing(ctx, opts, out, now)
+		s.scrapeDVDListing(ctx, studioURL, opts, out, now)
 		return
 	}
 
-	s.scrapeListingPages(ctx, lc, opts, out, now)
+	s.scrapeListingPages(ctx, studioURL, lc, opts, out, now)
 }
 
 func (s *Scraper) scrapeSinglePage(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult, now time.Time) {
@@ -271,14 +271,14 @@ func (s *Scraper) scrapeSinglePage(ctx context.Context, studioURL string, opts s
 			return
 		}
 		select {
-		case out <- scraper.Scene(item.toScene(s.cfg.ID, s.cfg.SiteBase, s.cfg.Studio, now)):
+		case out <- scraper.Scene(item.toScene(s.cfg.ID, s.cfg.SiteBase, studioURL, s.cfg.Studio, now)):
 		case <-ctx.Done():
 			return
 		}
 	}
 }
 
-func (s *Scraper) scrapeListingPages(ctx context.Context, lc listingConfig, opts scraper.ListOpts, out chan<- scraper.SceneResult, now time.Time) {
+func (s *Scraper) scrapeListingPages(ctx context.Context, studioURL string, lc listingConfig, opts scraper.ListOpts, out chan<- scraper.SceneResult, now time.Time) {
 	scraper.Paginate(ctx, opts, s.cfg.ID, out, func(ctx context.Context, page int) (scraper.PageResult, error) {
 		pageURL := lc.pageURL(s.cfg.SiteBase, page)
 
@@ -296,7 +296,7 @@ func (s *Scraper) scrapeListingPages(ctx context.Context, lc listingConfig, opts
 
 		scenes := make([]models.Scene, len(items))
 		for i, item := range items {
-			scenes[i] = item.toScene(s.cfg.ID, s.cfg.SiteBase, s.cfg.Studio, now)
+			scenes[i] = item.toScene(s.cfg.ID, s.cfg.SiteBase, studioURL, s.cfg.Studio, now)
 		}
 
 		return scraper.PageResult{
@@ -378,7 +378,7 @@ func (s *Scraper) collectDVDURLs(ctx context.Context, opts scraper.ListOpts) ([]
 	return allDVDs, nil
 }
 
-func (s *Scraper) scrapeDVDListing(ctx context.Context, opts scraper.ListOpts, out chan<- scraper.SceneResult, now time.Time) {
+func (s *Scraper) scrapeDVDListing(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult, now time.Time) {
 	allDVDs, err := s.collectDVDURLs(ctx, opts)
 	if err != nil {
 		select {
@@ -434,7 +434,7 @@ func (s *Scraper) scrapeDVDListing(ctx context.Context, opts scraper.ListOpts, o
 				continue
 			}
 			seen[item.id] = true
-			scenes = append(scenes, item.toScene(s.cfg.ID, s.cfg.SiteBase, s.cfg.Studio, now))
+			scenes = append(scenes, item.toScene(s.cfg.ID, s.cfg.SiteBase, studioURL, s.cfg.Studio, now))
 		}
 
 		return scraper.PageResult{
@@ -457,7 +457,7 @@ func (s *Scraper) scrapeDVDListing(ctx context.Context, opts scraper.ListOpts, o
 	}
 }
 
-func (item sceneItem) toScene(siteID, siteBase, studio string, now time.Time) models.Scene {
+func (item sceneItem) toScene(siteID, siteBase, studioURL, studio string, now time.Time) models.Scene {
 	url := item.url
 	if strings.HasPrefix(url, "/") {
 		url = siteBase + url
@@ -465,7 +465,7 @@ func (item sceneItem) toScene(siteID, siteBase, studio string, now time.Time) mo
 	return models.Scene{
 		ID:         item.id,
 		SiteID:     siteID,
-		StudioURL:  siteBase,
+		StudioURL:  studioURL,
 		Title:      item.title,
 		URL:        url,
 		Thumbnail:  item.thumb,

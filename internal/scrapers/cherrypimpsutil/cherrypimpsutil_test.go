@@ -297,6 +297,9 @@ func TestRun(t *testing.T) {
 	if len(got) != 2 {
 		t.Fatalf("got %d scenes, want 2", len(got))
 	}
+	if got[0].StudioURL != ts.URL {
+		t.Errorf("StudioURL = %q, want %q", got[0].StudioURL, ts.URL)
+	}
 	if got[0].Title != "Scene 100" {
 		t.Errorf("title = %q, want Scene 100", got[0].Title)
 	}
@@ -373,6 +376,9 @@ func TestModelPage(t *testing.T) {
 	got := testutil.CollectScenes(t, ch)
 	if len(got) != 3 {
 		t.Fatalf("got %d scenes, want 3", len(got))
+	}
+	if want := ts.URL + "/models/TestModel.html"; got[0].StudioURL != want {
+		t.Errorf("StudioURL = %q, want %q", got[0].StudioURL, want)
 	}
 }
 
@@ -454,6 +460,9 @@ func TestDVDSinglePage(t *testing.T) {
 	if len(got) != 3 {
 		t.Fatalf("got %d scenes, want 3", len(got))
 	}
+	if want := ts.URL + "/dvds/some-title.html"; got[0].StudioURL != want {
+		t.Errorf("StudioURL = %q, want %q", got[0].StudioURL, want)
+	}
 }
 
 func TestDVDListing(t *testing.T) {
@@ -495,6 +504,9 @@ func TestDVDListing(t *testing.T) {
 	got := testutil.CollectScenes(t, ch)
 	if len(got) != 3 {
 		t.Fatalf("got %d scenes, want 3", len(got))
+	}
+	if want := ts.URL + "/dvds/dvds.html"; got[0].StudioURL != want {
+		t.Errorf("StudioURL = %q, want %q", got[0].StudioURL, want)
 	}
 	if got[0].ID != "100" || got[1].ID != "200" || got[2].ID != "300" {
 		t.Errorf("scene IDs = [%s, %s, %s], want [100, 200, 300]", got[0].ID, got[1].ID, got[2].ID)

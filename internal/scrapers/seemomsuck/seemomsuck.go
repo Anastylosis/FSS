@@ -61,7 +61,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 		scraper.Debugf(1, "seemomsuck: scraping model page")
 		s.scrapeModelPage(ctx, studioURL, opts, out, now)
 	} else {
-		s.scrapeListingPages(ctx, opts, out, now)
+		s.scrapeListingPages(ctx, studioURL, opts, out, now)
 	}
 }
 
@@ -76,7 +76,7 @@ func isModelURL(u string) bool {
 // Listings live at /videos (sort=date preserves reverse-chronological order,
 // matching the plain /videos "New" tab default) with page-numbered
 // pagination via ?page=N.
-func (s *Scraper) scrapeListingPages(ctx context.Context, opts scraper.ListOpts, out chan<- scraper.SceneResult, now time.Time) {
+func (s *Scraper) scrapeListingPages(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult, now time.Time) {
 	scraper.Paginate(ctx, opts, "seemomsuck", out, func(ctx context.Context, page int) (scraper.PageResult, error) {
 		pageURL := s.siteBase + "/videos?sort=date"
 		if page > 1 {
@@ -91,7 +91,7 @@ func (s *Scraper) scrapeListingPages(ctx context.Context, opts scraper.ListOpts,
 		items := parseListingCards(body)
 		scenes := make([]models.Scene, len(items))
 		for i, ps := range items {
-			scenes[i] = ps.toScene(s.siteBase, now)
+			scenes[i] = ps.toScene(s.siteBase, studioURL, now)
 		}
 
 		maxPage := extractMaxPage(body)
@@ -141,7 +141,7 @@ func (s *Scraper) scrapeModelPage(ctx context.Context, modelURL string, opts scr
 			if len(ps.performers) == 0 && modelName != "" {
 				ps.performers = []string{modelName}
 			}
-			scenes[i] = ps.toScene(s.siteBase, now)
+			scenes[i] = ps.toScene(s.siteBase, modelURL, now)
 		}
 
 		maxPage := extractMaxPage(body)
@@ -171,11 +171,11 @@ type parsedScene struct {
 	views       int
 }
 
-func (ps parsedScene) toScene(siteBase string, now time.Time) models.Scene {
+func (ps parsedScene) toScene(siteBase, studioURL string, now time.Time) models.Scene {
 	sc := models.Scene{
 		ID:          ps.id,
 		SiteID:      "seemomsuck",
-		StudioURL:   siteBase,
+		StudioURL:   studioURL,
 		Title:       ps.title,
 		URL:         siteBase + "/video/" + ps.id,
 		Thumbnail:   ps.thumb,

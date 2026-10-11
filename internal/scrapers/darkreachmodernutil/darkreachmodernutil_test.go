@@ -148,7 +148,10 @@ func TestListingURL(t *testing.T) {
 
 func TestToScene_resolvesRelativeURLs(t *testing.T) {
 	item := sceneItem{id: "Foo", url: "/trailers/Foo.html", thumb: "/content/foo.jpg"}
-	scene := item.toScene("mybestsexlife", "https://example.com", "Studio", item.date)
+	scene := item.toScene("mybestsexlife", "https://example.com", "https://example.com/studio", "Studio", item.date)
+	if scene.StudioURL != "https://example.com/studio" {
+		t.Errorf("StudioURL = %q", scene.StudioURL)
+	}
 	if scene.URL != "https://example.com/trailers/Foo.html" {
 		t.Errorf("URL = %q", scene.URL)
 	}
@@ -193,7 +196,8 @@ func TestListScenes_endToEnd(t *testing.T) {
 		MatchRe:  regexp.MustCompile(`.*`),
 	})
 
-	ch, err := s.ListScenes(context.Background(), ts.URL, scraper.ListOpts{})
+	studioURL := ts.URL + "/studio/"
+	ch, err := s.ListScenes(context.Background(), studioURL, scraper.ListOpts{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -203,6 +207,9 @@ func TestListScenes_endToEnd(t *testing.T) {
 		switch r.Kind {
 		case scraper.KindScene:
 			scenes++
+			if r.Scene.StudioURL != studioURL {
+				t.Errorf("StudioURL = %q, want %q", r.Scene.StudioURL, studioURL)
+			}
 			if r.Scene.Studio != "My Best Sex Life" {
 				t.Errorf("Studio = %q", r.Scene.Studio)
 			}

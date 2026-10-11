@@ -177,7 +177,7 @@ func (s *Scraper) listingURL(page int) string {
 	return fmt.Sprintf("%s%s/categories/movies_%d_d.html", s.cfg.SiteBase, s.cfg.TourPrefix, page)
 }
 
-func (s *Scraper) run(ctx context.Context, _ string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
+func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
 	defer close(out)
 	scraper.Debugf(1, "%s: scraping full catalog", s.cfg.ID)
 
@@ -219,7 +219,7 @@ func (s *Scraper) run(ctx context.Context, _ string, opts scraper.ListOpts, out 
 
 		scenes := make([]models.Scene, len(items))
 		for i, item := range items {
-			scenes[i] = item.toScene(s.cfg.ID, s.cfg.SiteBase, s.cfg.Studio, now)
+			scenes[i] = item.toScene(s.cfg.ID, s.cfg.SiteBase, studioURL, s.cfg.Studio, now)
 		}
 		return scraper.PageResult{
 			Scenes: scenes,
@@ -229,7 +229,7 @@ func (s *Scraper) run(ctx context.Context, _ string, opts scraper.ListOpts, out 
 	})
 }
 
-func (item sceneItem) toScene(siteID, siteBase, studio string, now time.Time) models.Scene {
+func (item sceneItem) toScene(siteID, siteBase, studioURL, studio string, now time.Time) models.Scene {
 	url := item.url
 	if strings.HasPrefix(url, "/") {
 		url = siteBase + url
@@ -242,7 +242,7 @@ func (item sceneItem) toScene(siteID, siteBase, studio string, now time.Time) mo
 	return models.Scene{
 		ID:        item.id,
 		SiteID:    siteID,
-		StudioURL: siteBase,
+		StudioURL: studioURL,
 		Title:     item.title,
 		URL:       url,
 		Thumbnail: thumb,

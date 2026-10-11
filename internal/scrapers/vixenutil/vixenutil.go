@@ -147,7 +147,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 		return
 	}
 
-	s.scrapeListingPages(ctx, opts, out)
+	s.scrapeListingPages(ctx, studioURL, opts, out)
 }
 
 func (s *Scraper) scrapePerformerPage(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
@@ -197,14 +197,14 @@ func (s *Scraper) scrapePerformerPage(ctx context.Context, studioURL string, opt
 			return
 		}
 		select {
-		case out <- scraper.Scene(s.nodeToScene(v, now)):
+		case out <- scraper.Scene(s.nodeToScene(v, studioURL, now)):
 		case <-ctx.Done():
 			return
 		}
 	}
 }
 
-func (s *Scraper) scrapeListingPages(ctx context.Context, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
+func (s *Scraper) scrapeListingPages(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
 	now := time.Now().UTC()
 	delay := opts.Delay
 	workers := opts.Workers
@@ -227,7 +227,7 @@ func (s *Scraper) scrapeListingPages(ctx context.Context, opts scraper.ListOpts,
 				if !scraper.Pace(ctx, delay) {
 					return
 				}
-				scene, err := s.fetchAndBuildScene(ctx, item.node, now)
+				scene, err := s.fetchAndBuildScene(ctx, item.node, studioURL, now)
 				if err != nil {
 					select {
 					case out <- scraper.Error(err):
@@ -327,8 +327,8 @@ func (s *Scraper) scrapeListingPages(ctx context.Context, opts scraper.ListOpts,
 // detail failure costs the description, runtime and director rather than the
 // scene — but it is returned and reported, so an authoritative --full Save
 // cannot treat a half-read catalogue as complete.
-func (s *Scraper) fetchAndBuildScene(ctx context.Context, n node, now time.Time) (models.Scene, error) {
-	scene := s.nodeToScene(n, now)
+func (s *Scraper) fetchAndBuildScene(ctx context.Context, n node, studioURL string, now time.Time) (models.Scene, error) {
+	scene := s.nodeToScene(n, studioURL, now)
 
 	detailURL := fmt.Sprintf("%s/videos/%s", s.base, n.Slug)
 	body, err := s.fetchPage(ctx, detailURL)
@@ -358,7 +358,7 @@ func (s *Scraper) fetchAndBuildScene(ctx context.Context, n node, now time.Time)
 	return scene, nil
 }
 
-func (s *Scraper) nodeToScene(n node, now time.Time) models.Scene {
+func (s *Scraper) nodeToScene(n node, studioURL string, now time.Time) models.Scene {
 	var performers []string
 	for _, m := range n.ModelsSlugged {
 		if m.Name != "" {
@@ -387,7 +387,7 @@ func (s *Scraper) nodeToScene(n node, now time.Time) models.Scene {
 	return models.Scene{
 		ID:         n.VideoID,
 		SiteID:     s.cfg.SiteID,
-		StudioURL:  s.base,
+		StudioURL:  studioURL,
 		Title:      n.Title,
 		URL:        fmt.Sprintf("%s/videos/%s", s.base, n.Slug),
 		Thumbnail:  thumb,

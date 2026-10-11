@@ -241,6 +241,9 @@ func TestListScenes(t *testing.T) {
 	for _, r := range scenes {
 		if r.Kind == scraper.KindScene {
 			foundScene = true
+			if want := ts.URL + "/episodes/"; r.Scene.StudioURL != want {
+				t.Errorf("StudioURL = %q, want %q", r.Scene.StudioURL, want)
+			}
 			if r.Scene.ID != "Test-Ep" {
 				t.Errorf("ID = %q, want %q", r.Scene.ID, "Test-Ep")
 			}

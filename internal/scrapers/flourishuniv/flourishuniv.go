@@ -16,9 +16,8 @@ import (
 )
 
 const (
-	siteID      = "flourishuniv"
-	studioName  = "Flourish University"
-	episodesURL = "https://www.flourishuniv.com/episodes/"
+	siteID     = "flourishuniv"
+	studioName = "Flourish University"
 )
 
 func init() { scraper.Register(New()) }
@@ -51,9 +50,9 @@ func (s *Scraper) MatchesURL(u string) bool {
 	return scraper.HostMatches(u, "flourishuniv.com")
 }
 
-func (s *Scraper) ListScenes(ctx context.Context, _ string, opts scraper.ListOpts) (<-chan scraper.SceneResult, error) {
+func (s *Scraper) ListScenes(ctx context.Context, studioURL string, opts scraper.ListOpts) (<-chan scraper.SceneResult, error) {
 	out := make(chan scraper.SceneResult)
-	go s.run(ctx, opts, out)
+	go s.run(ctx, studioURL, opts, out)
 	return out, nil
 }
 
@@ -204,7 +203,7 @@ func parseDetailPage(body []byte) detailData {
 	return d
 }
 
-func (s *Scraper) run(ctx context.Context, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
+func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
 	defer close(out)
 
 	now := time.Now().UTC()
@@ -244,7 +243,7 @@ func (s *Scraper) run(ctx context.Context, opts scraper.ListOpts, out chan<- scr
 			return
 		}
 
-		scene, err := s.buildScene(ctx, ep, now)
+		scene, err := s.buildScene(ctx, ep, studioURL, now)
 		if err != nil {
 			select {
 			case out <- scraper.Error(err):
@@ -265,11 +264,11 @@ func (s *Scraper) run(ctx context.Context, opts scraper.ListOpts, out chan<- scr
 // costs its date, runtime and tags rather than the scene — but the failure is
 // returned, and the caller reports it so an authoritative --full Save cannot
 // treat a half-read catalogue as complete.
-func (s *Scraper) buildScene(ctx context.Context, ep episode, now time.Time) (models.Scene, error) {
+func (s *Scraper) buildScene(ctx context.Context, ep episode, studioURL string, now time.Time) (models.Scene, error) {
 	scene := models.Scene{
 		ID:          ep.slug,
 		SiteID:      siteID,
-		StudioURL:   episodesURL,
+		StudioURL:   studioURL,
 		Title:       ep.title,
 		URL:         ep.watchURL,
 		Thumbnail:   ep.thumb,
