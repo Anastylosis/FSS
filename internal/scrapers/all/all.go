@@ -301,6 +301,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/nucosplay"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/nudolls"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/nvg"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/oldnanny"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/onepassforallsites"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/oopsfamily"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/pantheon"
