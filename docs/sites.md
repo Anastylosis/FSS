@@ -1,6 +1,6 @@
 # Covered Sites — All Domains
 
-1869 scrapers covering 1948 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
+1870 scrapers covering 1950 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
 
 Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scraper ID(s)** column lists every scraper that claims URLs on that domain — most domains have one entry, but table-driven networks (`adultprime`, `tmw`, `nextdoorstudios`, etc.) host many sub-studios on a single root domain. See [`scrapers.md`](scrapers.md) for what each ID covers.
 
@@ -164,6 +164,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | bbwhighway.com | `bbwhighway` |
 | bbwland.com | `bbwland` |
 | bbwsgoneblack.com | `bbwsgoneblack` |
+| bdtv.com | `harmonyconcepts` |
 | bearback.com | `bearback` |
 | beautifulagony.com | `beautifulagony` |
 | beauty-angels.com | `tmw-beauty-angels` |
@@ -763,6 +764,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | hardwerk.com | `hardwerk` |
 | hardx.com | `hardx` |
 | harlemsex.com | `harlemsex` |
+| harmonyvideo.tv | `harmonyconcepts` |
 | harmonyvision.com | `gasm` |
 | hayleyssecrets.com | `hayleyssecrets` |
 | hazehim.com | `hazehim` |

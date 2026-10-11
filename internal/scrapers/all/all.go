@@ -44,6 +44,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/bangbros"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/barebackstudios"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/bbwhighway"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/bdtv"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/beautifulagony"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/beddableboys"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/belamionline"
