@@ -28,6 +28,7 @@ var sites = []siteConfig{
 	{"kawaii", "kawaiikawaii.jp", "Kawaii"},
 	{"kirakira", "kirakira-av.com", "Kira Kira"},
 	{"madonna", "madonna-av.com", "Madonna"},
+	{"mkolabo", "mko-labo.net", "MkoLabo"},
 	{"moodyz", "moodyz.com", "MOODYZ"},
 	{"msvideogroup", "mvg.jp", "M's Video Group"},
 	{"oppai", "oppai-av.com", "Oppai"},

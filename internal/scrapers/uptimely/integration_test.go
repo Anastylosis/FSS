@@ -100,3 +100,11 @@ func TestLiveRookie(t *testing.T) {
 func TestLiveRookieGenre(t *testing.T) {
 	testutil.RunLiveScrape(t, newTestScraper(findSite("rookie")), "https://rookie-av.jp/works/list/genre/114", 3)
 }
+
+func TestLiveMkoLabo(t *testing.T) {
+	testutil.RunLiveScrape(t, newTestScraper(findSite("mkolabo")), "https://mko-labo.net/", 3)
+}
+
+func TestLiveMkoLaboGenre(t *testing.T) {
+	testutil.RunLiveScrape(t, newTestScraper(findSite("mkolabo")), "https://mko-labo.net/works/list/genre/103", 3)
+}
