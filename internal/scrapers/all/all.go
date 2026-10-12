@@ -236,6 +236,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/kink"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/kinkacademy"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/kmproduce"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/knightsvisual"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/kocompany"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/kristenbjorn"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/kvssitemap"
