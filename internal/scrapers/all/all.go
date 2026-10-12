@@ -373,6 +373,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/realspankings"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/redhotstraightboys"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/reflectivedesire"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/restrainedelegance"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/richardxxx"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/rocketinc"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/romeromultimedia"
