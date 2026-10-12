@@ -31,6 +31,7 @@ var sites = []siteConfig{
 	{"moodyz", "moodyz.com", "MOODYZ"},
 	{"msvideogroup", "mvg.jp", "M's Video Group"},
 	{"oppai", "oppai-av.com", "Oppai"},
+	{"rookie", "rookie-av.jp", "Rookie"},
 	{"s1no1style", "s1s1s1.com", "S1 NO.1 STYLE"},
 	{"tameikegoro", "tameikegoro.jp", "Tameike Goro"},
 	{"wanzfactory", "wanz-factory.com", "Wanz Factory"},

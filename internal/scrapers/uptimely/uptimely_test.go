@@ -7,8 +7,8 @@ import (
 )
 
 func TestSiteCount(t *testing.T) {
-	if len(sites) != 18 {
-		t.Errorf("expected 18 sites, got %d", len(sites))
+	if len(sites) != 19 {
+		t.Errorf("expected 19 sites, got %d", len(sites))
 	}
 }
 
@@ -39,6 +39,11 @@ func TestNewSitesMatchURLs(t *testing.T) {
 			"https://befreebe.com/",
 			"https://www.befreebe.com/works/detail/BF773",
 			"https://befreebe.com/works/list/genre/113",
+		},
+		"rookie": {
+			"https://rookie-av.jp/",
+			"https://www.rookie-av.jp/works/detail/RBB343",
+			"https://rookie-av.jp/works/list/genre/114",
 		},
 		"tameikegoro": {
 			"https://tameikegoro.jp",

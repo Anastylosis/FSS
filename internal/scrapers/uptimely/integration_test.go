@@ -92,3 +92,11 @@ func TestLiveBeFree(t *testing.T) {
 func TestLiveBeFreeGenre(t *testing.T) {
 	testutil.RunLiveScrape(t, newTestScraper(findSite("befree")), "https://befreebe.com/works/list/genre/113", 3)
 }
+
+func TestLiveRookie(t *testing.T) {
+	testutil.RunLiveScrape(t, newTestScraper(findSite("rookie")), "https://rookie-av.jp/", 3)
+}
+
+func TestLiveRookieGenre(t *testing.T) {
+	testutil.RunLiveScrape(t, newTestScraper(findSite("rookie")), "https://rookie-av.jp/works/list/genre/114", 3)
+}
