@@ -1,6 +1,6 @@
 # Covered Sites — All Domains
 
-1871 scrapers covering 1950 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
+1872 scrapers covering 1952 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
 
 Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scraper ID(s)** column lists every scraper that claims URLs on that domain — most domains have one entry, but table-driven networks (`adultprime`, `tmw`, `nextdoorstudios`, etc.) host many sub-studios on a single root domain. See [`scrapers.md`](scrapers.md) for what each ID covers.
 
@@ -212,6 +212,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | blacked.com | `blacked` |
 | blackedraw.com | `blackedraw` |
 | blackfucktour.com | `africanbucks` |
+| blackmassivecocks.com | `westcoastproductions` |
 | blackmoneyerotica.com | `blackmoneyerotica` |
 | blackpayback.com | `blackpayback` |
 | blackpynk.com | `blackpynk` |
@@ -1839,6 +1840,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | webyoung.com | `webyoung` |
 | weliketosuck.com | `weliketosuck` |
 | westcoastgangbangs.com | `westcoastgangbangs` |
+| westcoastproductions.com | `westcoastproductions` |
 | wetandpissy.com | `wetandpissy` |
 | wetandpuffy.com | `wetandpuffy` |
 | wetvr.com | `wetvr` |

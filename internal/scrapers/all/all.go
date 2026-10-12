@@ -454,6 +454,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/wankz"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/watch4beauty"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/wearehairy"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/westcoastproductions"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/whornyfilms"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/wifeysworld"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/williamhiggins"
