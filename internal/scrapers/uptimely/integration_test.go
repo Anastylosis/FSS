@@ -84,3 +84,11 @@ func TestLiveKiraKira(t *testing.T) {
 func TestLiveMsVideoGroup(t *testing.T) {
 	testutil.RunLiveScrape(t, newTestScraper(findSite("msvideogroup")), "https://mvg.jp/works/list/release", 3)
 }
+
+func TestLiveBeFree(t *testing.T) {
+	testutil.RunLiveScrape(t, newTestScraper(findSite("befree")), "https://befreebe.com/", 3)
+}
+
+func TestLiveBeFreeGenre(t *testing.T) {
+	testutil.RunLiveScrape(t, newTestScraper(findSite("befree")), "https://befreebe.com/works/list/genre/113", 3)
+}

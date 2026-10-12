@@ -7,8 +7,8 @@ import (
 )
 
 func TestSiteCount(t *testing.T) {
-	if len(sites) != 17 {
-		t.Errorf("expected 17 sites, got %d", len(sites))
+	if len(sites) != 18 {
+		t.Errorf("expected 18 sites, got %d", len(sites))
 	}
 }
 
@@ -35,6 +35,11 @@ func TestNewSitesMatchURLs(t *testing.T) {
 		},
 		// The bare host is the whole-catalogue entry point and must match, or
 		// `fss scrape https://tameikegoro.jp/` reports the site unsupported.
+		"befree": {
+			"https://befreebe.com/",
+			"https://www.befreebe.com/works/detail/BF773",
+			"https://befreebe.com/works/list/genre/113",
+		},
 		"tameikegoro": {
 			"https://tameikegoro.jp",
 			"https://tameikegoro.jp/",
