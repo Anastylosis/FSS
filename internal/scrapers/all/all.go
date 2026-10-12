@@ -223,6 +223,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/jeshbyjesh"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/jizzonteens"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/joannajet"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/jonnomedia"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/joybear"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/julesjordan"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/justdanica"

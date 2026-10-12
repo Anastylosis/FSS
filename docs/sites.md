@@ -1,6 +1,6 @@
 # Covered Sites — All Domains
 
-1872 scrapers covering 1952 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
+1876 scrapers covering 1957 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
 
 Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scraper ID(s)** column lists every scraper that claims URLs on that domain — most domains have one entry, but table-driven networks (`adultprime`, `tmw`, `nextdoorstudios`, etc.) host many sub-studios on a single root domain. See [`scrapers.md`](scrapers.md) for what each ID covers.
 
@@ -296,6 +296,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | bustylezzies.com | `bustylezzies` |
 | bustymerilyn.com | `bustymerilyn` |
 | bustyoldsluts.com | `bustyoldsluts` |
+| butchdixon.com | `butchdixon` |
 | buttformation.com | `gasm` |
 | buttman.com | `buttman` |
 | cademaddox.com | `cademaddox` |
@@ -1539,6 +1540,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | spizoo.com | `spizoo` |
 | splatbukkake.xxx | `splatbukkake` |
 | spoiledvirgins.com | `1passforallsites` |
+| spritzz.com | `spritzz` |
 | spungygunkfilms.empirestores.co | `spungygunkfilms` |
 | spunkworthy.com | `spunkworthy` |
 | spyfam.com | `spyfam` |
@@ -1771,6 +1773,8 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | twinktop.com | `twinktop` |
 | twistys.com | `twistys` |
 | uk-tgirls.com | `uktgirls` |
+| ukhotjocks.com | `uknakedmen` |
+| uknakedmen.com | `uknakedmen` |
 | ukpornparty.xxx | `ukpornparty` |
 | uktickling.com | `uktickling` |
 | ukupskirts.com | `ukupskirts` |
@@ -1939,6 +1943,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | xxxnj.com | `xxxnj` |
 | yesgirlz.com | `yesgirlz` |
 | yezzclips.com | `yezzclips` |
+| youngbastards.com | `youngbastards` |
 | youngcourtesans.com | `youngcourtesans` |
 | youngerloverofmine.com | `youngerloverofmine` |
 | youngermommy.com | `nubiles` |
