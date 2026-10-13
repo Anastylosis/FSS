@@ -218,6 +218,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/japanhdv"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/javdatabase"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/javhd"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/jawked"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/jayspov"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/jeffsmodels"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/jeshbyjesh"
