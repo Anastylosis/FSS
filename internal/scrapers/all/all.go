@@ -479,6 +479,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/youthlust"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/ypptour"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/yummygirl"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/zexyvr"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/zishy"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/zlatexa"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/zone8"
