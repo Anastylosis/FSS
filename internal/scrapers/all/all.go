@@ -29,6 +29,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/analvids"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/apclips"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/apovstory"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/aromaplanning"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/arx"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/assylum"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/auntjudys"
