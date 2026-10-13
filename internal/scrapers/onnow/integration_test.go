@@ -19,6 +19,14 @@ func site(t *testing.T, id string) *Scraper {
 	return nil
 }
 
+func TestLiveHardBrazil(t *testing.T) {
+	testutil.RunLiveScrape(t, site(t, "hardbrazil"), "https://hardbrazil.com.br/videos", 3)
+}
+
+func TestLiveHardBrazilCategory(t *testing.T) {
+	testutil.RunLiveScrape(t, site(t, "hardbrazil"), "https://hardbrazil.com.br/videos/anal", 3)
+}
+
 func TestLiveIrmaosDotados(t *testing.T) {
 	testutil.RunLiveScrape(t, site(t, "irmaosdotados"), "https://irmaosdotados.com.br/videos", 3)
 }

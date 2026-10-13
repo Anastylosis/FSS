@@ -24,6 +24,20 @@ var sites = []SiteConfig{
 		SitemapIDRe:      regexp.MustCompile(`<loc>https://irmaosdotados\.com\.br/video/(\d+)</loc>`),
 		NewestFirst:      true,
 	},
+	{
+		ID:       "hardbrazil",
+		BaseURL:  "https://hardbrazil.com.br",
+		SiteName: "HardBrazil",
+		Patterns: []string{
+			"hardbrazil.com.br",
+			"hardbrazil.com.br/videos",
+			"hardbrazil.com.br/videos/{category}",
+		},
+		MatchRe:    regexp.MustCompile(`^https?://(?:www\.)?hardbrazil\.com\.br(?:/|$)`),
+		CardRe:     regexp.MustCompile(`<a href="[^"]*/video/([0-9a-f]+)"[^>]*class="thumbs"`),
+		TitleRe:    regexp.MustCompile(`<h2[^>]*>([^<]*)</h2>`),
+		DurationRe: regexp.MustCompile(`class="duration"><i class="icon-time"></i>\s*([^<]*?)\s*</span>`),
+	},
 }
 
 func init() {
