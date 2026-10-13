@@ -7,6 +7,7 @@ import (
 	"html"
 	"net/http"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -31,6 +32,12 @@ type SiteConfig struct {
 	// mymember.site/candyxs).
 	BasePath        string
 	KnownPerformers map[string]bool
+	// TitlePerformers credits known performers named in the title when the
+	// page's keywords name none, for stores whose pages carry no keywords.
+	TitlePerformers bool
+	// DropDescription, when set, discards a detail description it reports
+	// true for: the storefront-wide blurb some scenes fall back to.
+	DropDescription func(string) bool
 }
 
 // Scraper handles listing and detail fetching for a MyMember.site instance.
@@ -304,7 +311,7 @@ func (s *Scraper) BuildScene(ctx context.Context, studioURL string, vid APIVideo
 		return scene, fmt.Errorf("detail %s: %w", scene.URL, err)
 	}
 	{
-		if detail.Description != "" {
+		if detail.Description != "" && (s.cfg.DropDescription == nil || !s.cfg.DropDescription(detail.Description)) {
 			scene.Description = detail.Description
 		}
 		if len(detail.Performers) > 0 {
@@ -317,8 +324,34 @@ func (s *Scraper) BuildScene(ctx context.Context, studioURL string, vid APIVideo
 			scene.Thumbnail = detail.Thumbnail
 		}
 	}
+	if s.cfg.TitlePerformers && len(scene.Performers) == 0 {
+		scene.Performers = TitlePerformers(scene.Title, s.cfg.KnownPerformers)
+	}
 
 	return scene, nil
+}
+
+// TitlePerformers returns the known performers whose names appear in title,
+// spelled as the title spells them.
+func TitlePerformers(title string, known map[string]bool) []string {
+	lower := strings.ToLower(title)
+	var found []string
+	for name := range known {
+		i := strings.Index(lower, name)
+		if i < 0 {
+			continue
+		}
+		if (i > 0 && isWordByte(lower[i-1])) || (i+len(name) < len(lower) && isWordByte(lower[i+len(name)])) {
+			continue
+		}
+		found = append(found, title[i:i+len(name)])
+	}
+	sort.Strings(found)
+	return found
+}
+
+func isWordByte(b byte) bool {
+	return b >= 'a' && b <= 'z' || b >= '0' && b <= '9'
 }
 
 // SceneDetail holds data extracted from a detail page.
