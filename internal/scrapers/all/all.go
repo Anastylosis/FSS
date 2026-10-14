@@ -169,6 +169,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/germanscout"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/ghostpro"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/ghostproclassic"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/giga"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/girlsgonegyno"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/girlsgonehypnotized"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/girlsoutwest"
