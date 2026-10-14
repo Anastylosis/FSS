@@ -1,6 +1,6 @@
 # Covered Sites — All Domains
 
-1891 scrapers covering 1972 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
+1892 scrapers covering 1973 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
 
 Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scraper ID(s)** column lists every scraper that claims URLs on that domain — most domains have one entry, but table-driven networks (`adultprime`, `tmw`, `nextdoorstudios`, etc.) host many sub-studios on a single root domain. See [`scrapers.md`](scrapers.md) for what each ID covers.
 
@@ -1431,6 +1431,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | rookie-av.jp | `rookie` |
 | rosella-extrem.com | `rosellaextrem` |
 | roxired.com | `roxired` |
+| rubber-empire.com | `rubberempire` |
 | rubber-passion.com | `rubberpassion` |
 | rubberdoll.net | `rubberdoll` |
 | russian-tgirls.com | `russiantgirls` |
