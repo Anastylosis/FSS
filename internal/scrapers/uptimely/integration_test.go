@@ -77,8 +77,10 @@ func TestLiveTameikeGoroCatalogue(t *testing.T) {
 	testutil.RunLiveScrape(t, newTestScraper(findSite("tameikegoro")), "https://tameikegoro.jp/", 2)
 }
 
+// KiraKira's release page empties between monthly releases; a genre listing
+// always has works.
 func TestLiveKiraKira(t *testing.T) {
-	testutil.RunLiveScrape(t, newTestScraper(findSite("kirakira")), "https://kirakira-av.com/works/list/release", 2)
+	testutil.RunLiveScrape(t, newTestScraper(findSite("kirakira")), "https://kirakira-av.com/works/list/genre/202", 2)
 }
 
 func TestLiveMsVideoGroup(t *testing.T) {
