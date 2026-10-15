@@ -53,6 +53,22 @@ func TestParseListing(t *testing.T) {
 	}
 }
 
+// The site moved scene links from /site/videoPreview/id/{id}/ to
+// /video/{id}/{slug}/ in October 2026; the id must still come out the same.
+func TestParseListingVideoLinks(t *testing.T) {
+	items := parseListing(readFixture(t, "listing_video_links.html"))
+	if len(items) != 2 {
+		t.Fatalf("got %d cards, want 2", len(items))
+	}
+	first := items[0]
+	if first.id != "3965" || first.url != "https://lostbetsgames.com/video/3965/strip-blackjack-malibu-with-karen-fisher/" {
+		t.Errorf("id/url = %q/%q", first.id, first.url)
+	}
+	if first.title != "Strip Blackjack Malibu With Karen Fisher" || first.date != "2026-10-16" || first.duration != 966 {
+		t.Errorf("card = %+v", first)
+	}
+}
+
 func TestMaxPage(t *testing.T) {
 	if got := maxPage(readFixture(t, "listing_page1.html")); got < 2 {
 		t.Errorf("maxPage = %d", got)

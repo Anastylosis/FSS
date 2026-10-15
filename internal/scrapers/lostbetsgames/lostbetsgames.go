@@ -5,7 +5,7 @@
 //
 //	<div class="content-box"><figure>
 //	  <h2 class="title">Raven & Frankie Sexy Couple Loser Cums First</h2>
-//	  <a href="https://lostbetsgames.com/site/videoPreview/id/3932/Raven-Frankie-….html"
+//	  <a href="https://lostbetsgames.com/video/3932/raven-frankie-…/"
 //	     miniclip="//cdnpb.lostbetsgames.com/media/video/39/32/3932/miniclip.mp4">
 //	    <img src="/media/video/39/32/3932/thumb.jpg"></a>
 //	  <figcaption><time>12:45</time>
@@ -13,7 +13,8 @@
 //	  </figcaption>
 //	</figure></div>
 //
-// There is no detail fetch: `/site/videoPreview/…` is a wall of preview frames
+// There is no detail fetch: the scene page (`/video/{id}/{slug}/`, formerly
+// `/site/videoPreview/id/{id}/…`) is a wall of preview frames
 // behind a join link and carries no description, cast or tags the card does
 // not already have.
 //
@@ -154,7 +155,7 @@ type listItem struct {
 var (
 	cardStartRe = regexp.MustCompile(`<div class="col-md-4 col-sm-4 col-xs-12 content-box">`)
 	cardTitleRe = regexp.MustCompile(`(?s)<h2 class="title">(.*?)</h2>`)
-	cardLinkRe  = regexp.MustCompile(`(?s)<a\s+href="([^"]*/site/videoPreview/id/(\d+)/[^"]*)"`)
+	cardLinkRe  = regexp.MustCompile(`(?s)<a\s+href="([^"]*/(?:site/videoPreview/id|video)/(\d+)/[^"]*)"`)
 	cardClipRe  = regexp.MustCompile(`miniclip="([^"]+\.mp4)"`)
 	cardThumbRe = regexp.MustCompile(`<img[^>]+src="([^"]+)"`)
 	cardDurRe   = regexp.MustCompile(`<time>\s*(\d{1,2}:\d{2}(?::\d{2})?)\s*</time>`)
