@@ -4,13 +4,22 @@ package fundorado
 
 import (
 	"testing"
+	"time"
 
 	"github.com/Anastylosis/FSS/internal/scrapers/testutil"
 	"github.com/Anastylosis/FSS/scraper"
 )
 
+// The API allows 240 requests a minute per IP and a limit-3 scrape still
+// fetches a page of details, so live runs are spaced out.
+var lastLive time.Time
+
 func liveScrape(t *testing.T, url, id string) {
 	t.Helper()
+	if wait := 15*time.Second - time.Since(lastLive); !lastLive.IsZero() && wait > 0 {
+		time.Sleep(wait)
+	}
+	defer func() { lastLive = time.Now() }()
 	s, err := scraper.ForURL(url)
 	if err != nil {
 		t.Fatalf("no scraper matched %s: %v", url, err)
@@ -31,4 +40,28 @@ func TestLiveRubberEmpireLabel(t *testing.T) {
 
 func TestLiveRubberEmpireGenre(t *testing.T) {
 	liveScrape(t, "https://rubber-empire.com/videos/browse/genres/236", "rubberempire")
+}
+
+func TestLiveOrgasmAbuse(t *testing.T) {
+	liveScrape(t, "https://orgasmabuse.com", "orgasmabuse")
+}
+
+func TestLiveOrgasmAbuseStudio(t *testing.T) {
+	liveScrape(t, "https://orgasmabuse.com/videos/browse/studio/2354", "orgasmabuse")
+}
+
+func TestLiveTAWorship(t *testing.T) {
+	liveScrape(t, "https://taworship.com", "taworship")
+}
+
+func TestLiveTAWorshipLabel(t *testing.T) {
+	liveScrape(t, "https://taworship.com/videos/browse/labels/612", "taworship")
+}
+
+func TestLiveTickleAbuse(t *testing.T) {
+	liveScrape(t, "https://tickleabuse.com", "tickleabuse")
+}
+
+func TestLiveRFMovies(t *testing.T) {
+	liveScrape(t, "https://rfmovies.com", "rfmovies")
 }

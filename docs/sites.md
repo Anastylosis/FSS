@@ -1,6 +1,6 @@
 # Covered Sites — All Domains
 
-1892 scrapers covering 1973 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
+1896 scrapers covering 1977 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
 
 Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scraper ID(s)** column lists every scraper that claims URLs on that domain — most domains have one entry, but table-driven networks (`adultprime`, `tmw`, `nextdoorstudios`, etc.) host many sub-studios on a single root domain. See [`scrapers.md`](scrapers.md) for what each ID covers.
 
@@ -1237,6 +1237,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | operacionlimpieza.com | `mamacitaz` |
 | oppai-av.com | `oppai` |
 | organicshemales.com | `organicshemales` |
+| orgasmabuse.com | `orgasmabuse` |
 | orgytrain.com | `orgytrain` |
 | outhim.com | `outhim` |
 | outinpublic.com | `outinpublic` |
@@ -1412,6 +1413,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | reneerossvideos.com | `reneerossvideos` |
 | restrainedelegance.com | `restrainedelegance` |
 | revengeisabitch.com | `revengeisabitch` |
+| rfmovies.com | `rfmovies` |
 | richard.xxx | `richardxxx` |
 | richardmannevents.com | `richardmannevents` |
 | richardmannsworld.com | `richardmannsworld` |
@@ -1617,6 +1619,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | tampahousewives.com | `tampahousewives` |
 | taratainton.com | `taratainton` |
 | tawny-peaks.com | `tawny-peaks` |
+| taworship.com | `taworship` |
 | teacherfucksteens.com | `nubiles` |
 | teamfucksgirl.com | `porngutter` |
 | teamskeet.com | `teamskeet` |
@@ -1695,6 +1698,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | thugboy.com | `thugboy` |
 | thughunter.com | `thughunter` |
 | thundercock.com | `naughtyamerica` |
+| tickleabuse.com | `tickleabuse` |
 | tieable.com | `tieable` |
 | tiffany-towers.com | `tiffany-towers` |
 | tiffanybrookesxxx.com | `tiffanybrookesxxx` |

@@ -23,6 +23,9 @@ const (
 	DefaultAPIBase = "https://api.fundorado.com"
 	pageSize       = 50
 	defaultWorkers = 4
+	// RecommendedDelay keeps a pooled walk under the API's 240 requests a
+	// minute per IP, past which it answers 429 with a Retry-After of ~25s.
+	RecommendedDelay = 300 * time.Millisecond
 )
 
 type SiteConfig struct {
@@ -217,6 +220,7 @@ func send(ctx context.Context, out chan<- scraper.SceneResult, r scraper.SceneRe
 func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
 	defer close(out)
 
+	scraper.WarnDelayBelow(s.cfg.SiteID, opts.Delay, RecommendedDelay)
 	targets := s.targets(studioURL)
 	scraper.Debugf(1, "%s: %d browse list(s) for %s", s.cfg.SiteID, len(targets), studioURL)
 

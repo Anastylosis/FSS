@@ -6,7 +6,11 @@ import (
 )
 
 var sites = []fundoradoutil.SiteConfig{
+	{SiteID: "orgasmabuse", Host: "orgasmabuse.com", StudioName: "Orgasm Abuse", Labels: []int{610}},
+	{SiteID: "rfmovies", Host: "rfmovies.com", StudioName: "RF Studio", Labels: []int{695}},
 	{SiteID: "rubberempire", Host: "rubber-empire.com", StudioName: "Rubber Empire", Labels: []int{749, 751}},
+	{SiteID: "taworship", Host: "taworship.com", StudioName: "TA Worship", Labels: []int{614, 612}},
+	{SiteID: "tickleabuse", Host: "tickleabuse.com", StudioName: "Tickle Abuse", Labels: []int{616, 618}},
 }
 
 func init() {
