@@ -41,6 +41,23 @@ func TestParseListing(t *testing.T) {
 	}
 }
 
+// Since October 2026 each record carries a slugPhoto field between slug and
+// type; a listing in that shape must still parse.
+func TestParseListingWithSlugPhoto(t *testing.T) {
+	body := []byte(`\"count\":2,\"items\":[{\"_id\":\"6ab4031cdcd474382a9a3c0b\",\"groupId\":\"6ab4031cdcd474382a9a3c0a\",\"title\":\"A Worthy Negotiation\",\"slug\":\"a-worthy-negotiation-elena-lux-lorenzo-viota\",\"slugPhoto\":\"a-worthy-negotiation-elena-lux-lorenzo-viota\",\"type\":\"Content\"},` +
+		`{\"_id\":\"6acd1e5ddedc5747fdae7921\",\"groupId\":\"6acd1e5ddedc5747fdae7920\",\"title\":\"JOI Butt Tease With Lacey Jane\",\"slug\":\"joi-butt-tease-with-lacey-jane\",\"type\":\"Content\"}]`)
+	items := parseListing(body)
+	if len(items) != 2 {
+		t.Fatalf("got %d items, want 2", len(items))
+	}
+	if items[0].id != "a-worthy-negotiation-elena-lux-lorenzo-viota" || items[0].title != "A Worthy Negotiation" {
+		t.Errorf("first item = %+v", items[0])
+	}
+	if items[1].id != "joi-butt-tease-with-lacey-jane" {
+		t.Errorf("second item = %+v", items[1])
+	}
+}
+
 func TestListingTotal(t *testing.T) {
 	if got := listingTotal(readFixture(t, "listing.html")); got != 374 {
 		t.Errorf("listingTotal = %d, want 374", got)

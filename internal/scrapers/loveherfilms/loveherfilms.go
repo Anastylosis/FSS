@@ -116,7 +116,7 @@ var (
 	// groupId,title,slug,type adjacency uniquely identifies a scene (category
 	// records lack groupId), so this reliably yields scene slugs in newest-first
 	// order regardless of whether the page server-rendered its HTML cards.
-	payloadItemRe = regexp.MustCompile(`\\"groupId\\":\\"[0-9a-f]+\\",\\"title\\":\\"((?:[^"\\]|\\.)*?)\\",\\"slug\\":\\"([a-zA-Z0-9][^"\\]*?)\\",\\"type\\":`)
+	payloadItemRe = regexp.MustCompile(`\\"groupId\\":\\"[0-9a-f]+\\",\\"title\\":\\"((?:[^"\\]|\\.)*?)\\",\\"slug\\":\\"([a-zA-Z0-9][^"\\]*?)\\",(?:\\"slugPhoto\\":\\"[^"\\]*\\",)?\\"type\\":`)
 
 	// countRe pulls the total scene count from the listing query payload.
 	countRe = regexp.MustCompile(`\\"count\\":(\d+),\\"items\\":\[`)
