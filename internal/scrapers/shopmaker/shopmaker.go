@@ -52,10 +52,17 @@ type SiteConfig struct {
 	SiteID     string
 	Domain     string // bare domain, e.g. "kinkymistresses.com"
 	StudioName string
+	// Locale pins the content language of a site that localises by
+	// Accept-Language; empty leaves the request untouched.
+	Locale string
+	// RecommendedDelay is the pace the origin tolerates; Andy-Star answers 429
+	// to everything for minutes after roughly 250 requests in a few minutes.
+	RecommendedDelay time.Duration
 }
 
 var sites = []SiteConfig{
 	{SiteID: "kinkymistresses", Domain: "kinkymistresses.com", StudioName: "Kinky Mistresses"},
+	{SiteID: "andystar", Domain: "andy-star-videos.com", StudioName: "Andy-Star", Locale: "en", RecommendedDelay: 2500 * time.Millisecond},
 }
 
 func init() {
@@ -96,7 +103,8 @@ func New(cfg SiteConfig) *Scraper {
 func (s *Scraper) ID() string { return s.cfg.SiteID }
 
 func (s *Scraper) Patterns() []string {
-	return []string{s.cfg.Domain, s.cfg.Domain + "/videos", s.cfg.Domain + "/collections"}
+	d := s.cfg.Domain
+	return []string{d, d + "/videos", d + "/collections", d + "/collections?category={name}", d + "/models/{slug}"}
 }
 
 func (s *Scraper) MatchesURL(u string) bool { return s.matchRe.MatchString(u) }
@@ -110,15 +118,17 @@ func (s *Scraper) ListScenes(ctx context.Context, studioURL string, opts scraper
 func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
 	defer close(out)
 
-	scraper.Debugf(1, "%s: scraping full catalogue", s.cfg.SiteID)
-	items, ok := s.collectListing(ctx, opts, out)
+	scraper.WarnDelayBelow(s.cfg.SiteID, opts.Delay, s.cfg.RecommendedDelay)
+	l := parseListingURL(studioURL)
+	scraper.Debugf(1, "%s: scraping %s", s.cfg.SiteID, l.kind)
+	items, ok := s.collectListing(ctx, l, opts, out)
 	if !ok || ctx.Err() != nil {
 		return
 	}
 	s.fetchDetails(ctx, studioURL, items, opts, out)
 }
 
-func (s *Scraper) collectListing(ctx context.Context, opts scraper.ListOpts, out chan<- scraper.SceneResult) (items []listItem, ok bool) {
+func (s *Scraper) collectListing(ctx context.Context, l listingMode, opts scraper.ListOpts, out chan<- scraper.SceneResult) (items []listItem, ok bool) {
 	seen := make(map[string]bool)
 
 	for page := 1; ; page++ {
@@ -129,8 +139,10 @@ func (s *Scraper) collectListing(ctx context.Context, opts scraper.ListOpts, out
 			return items, false
 		}
 
-		// media=video keeps photo sets out of the catalogue.
-		pageURL := fmt.Sprintf("%s/collections/page/%d?media=video", s.base, page)
+		pageURL := s.base + l.pagePath(page)
+		if s.cfg.Locale != "" {
+			pageURL = withQuery(pageURL, "locale="+s.cfg.Locale)
+		}
 		scraper.Debugf(1, "%s: fetching listing page %d (%s)", s.cfg.SiteID, page, pageURL)
 		body, err := s.fetchPage(ctx, pageURL)
 		if err != nil {
@@ -142,6 +154,9 @@ func (s *Scraper) collectListing(ctx context.Context, opts scraper.ListOpts, out
 		}
 
 		parsed := parseListing(body)
+		if l.videoOnly {
+			parsed = withDuration(parsed)
+		}
 		// The pager is a sliding window — page N advertises N+1 as its highest
 		// link — so an empty page is the only end-of-listing signal.
 		if len(parsed) == 0 {
@@ -181,10 +196,7 @@ func (s *Scraper) fetchDetails(ctx context.Context, studioURL string, items []li
 		return
 	}
 
-	workers := opts.Workers
-	if workers <= 0 {
-		workers = 4
-	}
+	workers := scraper.WorkerCount(opts, 4)
 	scraper.Debugf(1, "%s: fetching %d details with %d workers", s.cfg.SiteID, len(items), workers)
 
 	work := make(chan listItem, workers)
@@ -201,7 +213,11 @@ func (s *Scraper) fetchDetails(ctx context.Context, studioURL string, items []li
 				if !scraper.Pace(ctx, opts.Delay) {
 					return
 				}
-				body, err := s.fetchPage(ctx, s.base+item.path)
+				detailURL := s.base + item.path
+				if s.cfg.Locale != "" {
+					detailURL = withQuery(detailURL, "locale="+s.cfg.Locale)
+				}
+				body, err := s.fetchPage(ctx, detailURL)
 				if err != nil {
 					// The card carries everything but the description.
 					select {
@@ -211,6 +227,9 @@ func (s *Scraper) fetchDetails(ctx context.Context, studioURL string, items []li
 					}
 				} else {
 					item.description = parseDescription(body)
+					if item.date == "" {
+						applyMeta(detailMeta(body), &item)
+					}
 				}
 				select {
 				case out <- scraper.Scene(s.toScene(item, studioURL, now)):
@@ -258,8 +277,12 @@ type listItem struct {
 }
 
 var (
-	cardStartRe = regexp.MustCompile(`<div class="card" id="collection_(\d+)">`)
-	cardTitleRe = regexp.MustCompile(`(?s)<h2 class="card-title[^"]*"><a href="(/collections/[^"]+)"[^>]*>(.*?)</a>`)
+	cardStartRe      = regexp.MustCompile(`<div class="card(?: collection)?" id="collection_(\d+)">`)
+	titleCardStartRe = regexp.MustCompile(`<div class="card">`)
+	collectionIDRe   = regexp.MustCompile(`data-collection="(\d+)"`)
+	titleCardRe      = regexp.MustCompile(`(?s)<div class="title-card-outer"><a href="(/collections/[^"]+)"[^>]*>(.*?)</a>`)
+	viewCardRe       = regexp.MustCompile(`<div class="view-card"><span>([\d:]+)</span>\s*[Mm]inutes?`)
+	cardTitleRe      = regexp.MustCompile(`(?s)<h2 class="card-title[^"]*"><a href="(/collections/[^"]+)"[^>]*>(.*?)</a>`)
 	// The player's config is an HTML-escaped JSON blob in a data attribute.
 	posterRe   = regexp.MustCompile(`&quot;poster&quot;:&quot;([^&]+)&quot;`)
 	sourceRe   = regexp.MustCompile(`&quot;src&quot;:&quot;([^&]+\.mp4[^&]*)&quot;`)
@@ -274,7 +297,117 @@ var (
 	ogDescRe   = regexp.MustCompile(`<meta property="og:description" content="([^"]*)"`)
 )
 
+// listingMode is the page sequence one operator URL selects.
+type listingMode struct {
+	kind string
+	// videoOnly drops cards with no runtime, for listings that cannot be
+	// filtered to video server-side.
+	videoOnly bool
+	pagePath  func(page int) string
+}
+
+var (
+	modelPathRe = regexp.MustCompile(`^https?://[^/]+/models/([^/?#]+)`)
+	categoryRe  = regexp.MustCompile(`^https?://[^/]+/collections/?\?(?:[^#]*&)?category=([^&#]+)`)
+)
+
+func parseListingURL(studioURL string) listingMode {
+	if m := modelPathRe.FindStringSubmatch(studioURL); m != nil {
+		slug := m[1]
+		return listingMode{kind: "model " + slug, videoOnly: true, pagePath: func(page int) string {
+			if page <= 1 {
+				return "/models/" + slug
+			}
+			return fmt.Sprintf("/models/%s/page/%d", slug, page)
+		}}
+	}
+	if m := categoryRe.FindStringSubmatch(studioURL); m != nil {
+		cat := m[1]
+		return listingMode{kind: "category " + cat, pagePath: func(page int) string {
+			return fmt.Sprintf("/collections/page/%d?category=%s&media=video", page, cat)
+		}}
+	}
+	return listingMode{kind: "full catalogue", pagePath: func(page int) string {
+		// media=video keeps photo sets out of the catalogue.
+		return fmt.Sprintf("/collections/page/%d?media=video", page)
+	}}
+}
+
+func withQuery(u, kv string) string {
+	if strings.Contains(u, "?") {
+		return u + "&" + kv
+	}
+	return u + "?" + kv
+}
+
+func withDuration(items []listItem) []listItem {
+	out := items[:0]
+	for _, it := range items {
+		if it.duration > 0 {
+			out = append(out, it)
+		}
+	}
+	return out
+}
+
+var detailMetaRe = regexp.MustCompile(`(?s)<div class="posted-info meta-description[^"]*">(.*?)</div>`)
+
+func detailMeta(body []byte) []byte {
+	if m := detailMetaRe.FindSubmatch(body); m != nil {
+		// applyMeta expects each span to be followed by a separator or the strip's end.
+		return append(append([]byte(nil), m[1]...), "</div>"...)
+	}
+	return nil
+}
+
 func parseListing(body []byte) []listItem {
+	if cardStartRe.Match(body) {
+		return parseCollectionCards(body)
+	}
+	return parseTitleCards(body)
+}
+
+// parseTitleCards reads the plain `<div class="card">` theme, whose card has
+// no id and carries only title, runtime, poster and preview; the rest comes
+// from the detail page.
+func parseTitleCards(body []byte) []listItem {
+	locs := titleCardStartRe.FindAllIndex(body, -1)
+	items := make([]listItem, 0, len(locs))
+	for i, loc := range locs {
+		end := len(body)
+		if i+1 < len(locs) {
+			end = locs[i+1][0]
+		}
+		block := body[loc[0]:end]
+
+		idm := collectionIDRe.FindSubmatch(block)
+		tm := titleCardRe.FindSubmatch(block)
+		if idm == nil || tm == nil {
+			continue
+		}
+		item := listItem{
+			id:    string(idm[1]),
+			path:  html.UnescapeString(string(tm[1])),
+			title: cleanText(string(tm[2])),
+		}
+		if item.title == "" {
+			continue
+		}
+		if p := posterRe.FindSubmatch(block); p != nil {
+			item.thumbnail = html.UnescapeString(string(p[1]))
+		}
+		if p := sourceRe.FindSubmatch(block); p != nil {
+			item.preview = html.UnescapeString(string(p[1]))
+		}
+		if d := viewCardRe.FindSubmatch(block); d != nil {
+			item.duration = parseutil.ParseDurationColon(string(d[1]))
+		}
+		items = append(items, item)
+	}
+	return items
+}
+
+func parseCollectionCards(body []byte) []listItem {
 	locs := cardStartRe.FindAllSubmatchIndex(body, -1)
 	items := make([]listItem, 0, len(locs))
 	for i, loc := range locs {
