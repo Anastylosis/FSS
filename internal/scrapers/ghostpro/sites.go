@@ -74,6 +74,14 @@ var sites = []SiteConfig{
 		Patterns: []string{"tussineegold.com/", "tussineegold.com/videos"},
 		MatchRe:  regexp.MustCompile(`^https?://(?:www\.)?tussineegold\.com(?:/|$)`),
 	},
+	{
+		ID:         "johnnyrapid",
+		SiteBase:   "https://johnnyrapid.com",
+		SiteName:   "Johnny Rapid",
+		StudioName: "Johnny Rapid",
+		Patterns:   []string{"johnnyrapid.com/", "johnnyrapid.com/videos"},
+		MatchRe:    regexp.MustCompile(`^https?://(?:www\.)?johnnyrapid\.com(?:/|$)`),
+	},
 }
 
 func init() {

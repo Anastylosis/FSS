@@ -25,6 +25,11 @@ func TestLiveTussineeGold(t *testing.T) {
 	testutil.RunLiveScrape(t, New(cfg), cfg.SiteBase+"/videos", 4)
 }
 
+func TestLiveJohnnyRapid(t *testing.T) {
+	cfg := findSite(t, "johnnyrapid")
+	testutil.RunLiveScrape(t, New(cfg), cfg.SiteBase+"/videos", 4)
+}
+
 func findSite(t *testing.T, id string) SiteConfig {
 	t.Helper()
 	for _, cfg := range sites {
