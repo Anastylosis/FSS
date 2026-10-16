@@ -25,6 +25,7 @@ var sites = []siteConfig{
 	{"bobsvideos", "bobsvideos.empirestores.co", "Bob's Videos", "/shop-streaming-video-by-scene.html"},
 	{"justinslayer", "jsi.empirestores.co", "Justin Slayer International", "/shop-streaming-video-by-scene.html"},
 	{"spungygunkfilms", "spungygunkfilms.empirestores.co", "Spungy Gunk Films", "/shop-streaming-video-by-scene.html"},
+	{"dvsx", "dvsx.com", "DVSX", "/watch-streaming-video-by-scene.html?studio=21558&sort=released"},
 }
 
 type siteScraper struct {

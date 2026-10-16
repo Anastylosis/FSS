@@ -124,14 +124,14 @@ func TestResolveListingURL(t *testing.T) {
 	}{
 		{"domain root", "https://www.elegantangel.com/", "https://www.elegantangel.com", "/listing.html", "https://www.elegantangel.com/listing.html"},
 		{"scenes path", "https://www.reaganfoxx.com/scenes/673608/test.html", "https://www.reaganfoxx.com", "/default.html", "https://www.reaganfoxx.com/scenes/673608/test.html"},
-		{"scene suffix", "https://www.elegantangel.com/watch-streaming-video-by-scene.html?studio=94000", "https://www.elegantangel.com", "/default.html", "https://www.elegantangel.com/watch-streaming-video-by-scene.html?studio=94000"},
+		{"scene suffix", "https://www.elegantangel.com/watch-streaming-video-by-scene.html?studio=94000", "https://www.elegantangel.com", "/default.html", "https://www.elegantangel.com/watch-streaming-video-by-scene.html?studio=94000&sort=released"},
 		// A `/{id}/studio/…` URL is a shop page, not a listing: on the store
 		// domains it redirects to the store's front page, so passing it
 		// through scraped the store's newest scenes under the studio's name.
-		{"studio filter", "https://www.elegantangel.com/93560/studio/club-59-elegant-angel-studios.html", "https://www.elegantangel.com", "/default.html", "https://www.elegantangel.com/watch-streaming-video-by-scene.html?studio=93560"},
-		{"studio filter on a store subdomain", "https://bobsvideos.empirestores.co/2050/studio/club-59-streaming-porn-movies.html", "https://bobsvideos.empirestores.co", "/shop-streaming-video-by-scene.html", "https://bobsvideos.empirestores.co/watch-streaming-video-by-scene.html?studio=2050"},
+		{"studio filter", "https://www.elegantangel.com/93560/studio/club-59-elegant-angel-studios.html", "https://www.elegantangel.com", "/default.html", "https://www.elegantangel.com/watch-streaming-video-by-scene.html?studio=93560&sort=released"},
+		{"studio filter on a store subdomain", "https://bobsvideos.empirestores.co/2050/studio/club-59-streaming-porn-movies.html", "https://bobsvideos.empirestores.co", "/shop-streaming-video-by-scene.html", "https://bobsvideos.empirestores.co/watch-streaming-video-by-scene.html?studio=2050&sort=released"},
 		// A studio id already in query form is left alone.
-		{"studio query", "https://jsi.empirestores.co/watch-streaming-video-by-scene.html?studio=5461", "https://jsi.empirestores.co", "/default.html", "https://jsi.empirestores.co/watch-streaming-video-by-scene.html?studio=5461"},
+		{"studio query", "https://jsi.empirestores.co/watch-streaming-video-by-scene.html?studio=5461", "https://jsi.empirestores.co", "/default.html", "https://jsi.empirestores.co/watch-streaming-video-by-scene.html?studio=5461&sort=released"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -307,7 +307,7 @@ func TestRunPaginatesOntoAnExistingQueryString(t *testing.T) {
 		want    string
 	}{
 		{"bare path", "/shop-streaming-video-by-scene.html", "/shop-streaming-video-by-scene.html?page=2"},
-		{"already has a query", "/watch-streaming-video-by-scene.html?studio=427", "/watch-streaming-video-by-scene.html?studio=427&page=2"},
+		{"already has a query", "/watch-streaming-video-by-scene.html?studio=427", "/watch-streaming-video-by-scene.html?studio=427&sort=released&page=2"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			var asked []string

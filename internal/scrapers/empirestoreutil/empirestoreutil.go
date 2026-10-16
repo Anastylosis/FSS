@@ -106,9 +106,12 @@ var studioPathRe = regexp.MustCompile(`/(\d+)/studio/`)
 // is what the id is rewritten to.
 func resolveListingURL(studioURL, base, defaultListing string) string {
 	if m := studioPathRe.FindStringSubmatch(studioURL); m != nil {
-		return base + "/watch-streaming-video-by-scene.html?studio=" + m[1]
+		return base + "/watch-streaming-video-by-scene.html?studio=" + m[1] + "&sort=released"
 	}
 	if strings.Contains(studioURL, "/scenes/") || strings.Contains(studioURL, "-scene") {
+		if strings.Contains(studioURL, "?studio=") && !strings.Contains(studioURL, "sort=") {
+			return studioURL + "&sort=released"
+		}
 		return studioURL
 	}
 	return base + defaultListing
@@ -198,16 +201,16 @@ var (
 	widgetRe    = regexp.MustCompile(`(?s)<article class="scene-widget[^"]*"\s*data-scene-id="(\d+)".*?</article>`)
 	sceneLinkRe = regexp.MustCompile(`<a class="scene-title"\s+href="([^"]+)"`)
 	titleRe     = regexp.MustCompile(`<a class="scene-title"[^>]*>\s*<h6>\s*(.*?)\s*</h6>`)
-	performerRe = regexp.MustCompile(`<p class="scene-performer-names">\s*(.*?)\s*</p>`)
+	performerRe = regexp.MustCompile(`(?s)<p class="scene-performer-names">\s*(.*?)\s*</p>`)
 	durationRe  = regexp.MustCompile(`<p class="scene-length">\s*(\d+)\s*min`)
-	thumbRe     = regexp.MustCompile(`data-src="(https://caps1cdn[^"]+)"`)
+	thumbRe     = regexp.MustCompile(`data-src="(https://(?:caps1cdn|imgs4cdn)[^"]+)"`)
 	// The two storefront templates render the result count differently, and one
 	// alternation covering both could pair the opening of either with the
 	// closing of the other. They are matched separately, newest template first.
 	totalHeadingRe = regexp.MustCompile(`<h4>([\d,]+)\s+Results</h4>`)
 	totalBoldRe    = regexp.MustCompile(`font-weight-bold">([\d,]+)</span>\s*Results`)
 	paginationRe   = regexp.MustCompile(`class="pagination`)
-	pageNumRe      = regexp.MustCompile(`[?&]page=(\d+)`)
+	pageNumRe      = regexp.MustCompile(`(?:[?&]|&amp;)page=(\d+)`)
 )
 
 func ParseListingPage(body []byte, base string) []listingScene {
@@ -289,7 +292,7 @@ var (
 	releaseDateRe = regexp.MustCompile(`(?s)Released:</span>\s*(.*?)(?:</div>|<br)`)
 	tagsBlockRe   = regexp.MustCompile(`(?s)(?:Tags|Attributes):?\s*</(?:span|strong)>\s*(.*?)</div>`)
 	tagLinkRe     = regexp.MustCompile(`>([^<]+)</a>`)
-	studioRe      = regexp.MustCompile(`(?s)Studio:</span>\s*<span>(.*?)</span>`)
+	studioRe      = regexp.MustCompile(`(?s)Studio:</span>\s*(?:<span>|<a[^>]*>)(.*?)</(?:span|a)>`)
 	seriesRe      = regexp.MustCompile(`(?s)Series:</span>\s*<a[^>]*>(.*?)</a>`)
 	scenePriceRe  = regexp.MustCompile(`\$(\d+\.\d+)`)
 	// The synopsis block is absent entirely on sites that publish no scene

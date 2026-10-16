@@ -61,6 +61,20 @@ func TestLiveJodiWest(t *testing.T) {
 	testutil.RunLiveScrape(t, newSiteScraper(cfg), u, 2)
 }
 
+func TestLiveDVSX(t *testing.T) {
+	const u = "https://www.dvsx.com/watch-streaming-video-by-scene.html?studio=21558"
+	testutil.SkipIfPlaceholder(t, u)
+	cfg := siteConfig{"dvsx", "dvsx.com", "DVSX", "/watch-streaming-video-by-scene.html?studio=21558"}
+	testutil.RunLiveScrape(t, newSiteScraper(cfg), u, 3)
+}
+
+func TestLiveDVSXStudioPage(t *testing.T) {
+	const u = "https://www.dvsx.com/21558/studio/dvsx-studios.html"
+	testutil.SkipIfPlaceholder(t, u)
+	cfg := siteConfig{"dvsx", "dvsx.com", "DVSX", "/watch-streaming-video-by-scene.html?studio=21558"}
+	testutil.RunLiveScrape(t, newSiteScraper(cfg), u, 2)
+}
+
 // A `/{id}/studio/…` URL is a shop page that redirects to the store's front
 // page, so it is rewritten to the store's scene listing filtered by that
 // studio id.

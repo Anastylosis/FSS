@@ -7,8 +7,8 @@ import (
 )
 
 func TestSitesTable(t *testing.T) {
-	if len(sites) != 7 {
-		t.Errorf("sites count = %d, want 7", len(sites))
+	if len(sites) != 8 {
+		t.Errorf("sites count = %d, want 8", len(sites))
 	}
 }
 
@@ -33,6 +33,9 @@ func TestMatchesURL(t *testing.T) {
 		{"https://bobsvideos.empirestores.co/shop-streaming-video-by-scene.html", "bobsvideos"},
 		{"https://jsi.empirestores.co/", "justinslayer"},
 		{"https://spungygunkfilms.empirestores.co/", "spungygunkfilms"},
+		{"https://www.dvsx.com/", "dvsx"},
+		{"https://www.dvsx.com/21558/studio/dvsx-studios.html", "dvsx"},
+		{"https://www.dvsx.com/watch-streaming-video-by-scene.html?studio=21558", "dvsx"},
 	}
 
 	for _, c := range cases {
