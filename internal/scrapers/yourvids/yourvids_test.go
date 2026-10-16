@@ -517,3 +517,49 @@ func TestListScenesStopsWhenHasMoreNeverGoesFalse(t *testing.T) {
 		t.Fatal("the walk did not terminate against an API that always claims more")
 	}
 }
+
+// A detail failure used to be sent on out from the worker, which panicked when
+// the consumer cancelled and run closed out first.
+func TestListScenesCancelWhileDetailsFail(t *testing.T) {
+	var videos []apiVideo
+	for i := 0; i < 40; i++ {
+		videos = append(videos, apiVideo{
+			ID: 200 + i, Title: fmt.Sprintf("Video %d", i), CreatorName: "Creator",
+			Duration: "10:00", Price: "5.00", VideoURL: "%s/vids/missing",
+			CreatedAt: "2026-04-15 10:00:00",
+		})
+	}
+	var ts *httptest.Server
+	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/creators/testcreator/videos" {
+			resp := apiResponse{Success: true, Data: apiData{
+				Videos:     append([]apiVideo(nil), videos...),
+				Pagination: apiPagination{CurrentPage: 1, PerPage: 40, Total: 40, TotalPages: 1},
+			}}
+			for i := range resp.Data.Videos {
+				resp.Data.Videos[i].VideoURL = fmt.Sprintf(resp.Data.Videos[i].VideoURL, ts.URL)
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(resp)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer ts.Close()
+
+	for run := 0; run < 20; run++ {
+		s := &Scraper{client: ts.Client(), apiBase: ts.URL}
+		ctx, cancel := context.WithCancel(context.Background())
+		ch, err := s.ListScenes(ctx, ts.URL+"/creators/testcreator", scraper.ListOpts{Workers: 8})
+		if err != nil {
+			t.Fatal(err)
+		}
+		n := 0
+		for range ch {
+			if n++; n == 3 {
+				cancel()
+			}
+		}
+		cancel()
+	}
+}

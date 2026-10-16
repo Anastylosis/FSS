@@ -233,10 +233,13 @@ func (s *Scraper) run(ctx context.Context, studioURL, slug string, opts scraper.
 		}
 	}
 
+	// Workers never touch out: run closes it on return, and a worker still
+	// sending after a cancellation would panic.
 	type detailResult struct {
 		video       apiVideo
 		description string
 		tags        []string
+		err         error
 	}
 
 	work := make(chan apiVideo, workers)
@@ -255,15 +258,8 @@ func (s *Scraper) run(ctx context.Context, studioURL, slug string, opts scraper.
 					return
 				}
 				desc, tags, derr := s.fetchDetail(ctx, v.VideoURL)
-				if derr != nil {
-					select {
-					case out <- scraper.Error(derr):
-					case <-ctx.Done():
-						return
-					}
-				}
 				select {
-				case results <- detailResult{video: v, description: desc, tags: tags}:
+				case results <- detailResult{video: v, description: desc, tags: tags, err: derr}:
 				case <-ctx.Done():
 					return
 				}
@@ -288,6 +284,13 @@ func (s *Scraper) run(ctx context.Context, studioURL, slug string, opts scraper.
 
 	now := time.Now().UTC()
 	for dr := range results {
+		if dr.err != nil {
+			select {
+			case out <- scraper.Error(dr.err):
+			case <-ctx.Done():
+				return
+			}
+		}
 		scene := toScene(studioURL, dr.video, dr.description, dr.tags, now)
 		select {
 		case out <- scraper.Scene(scene):
