@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"html"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -356,7 +357,9 @@ func (s *Scraper) fetchAPI(ctx context.Context, apiURL string) (*apiResponse, er
 // ---- detail page ----
 
 var (
-	dataTagRe   = regexp.MustCompile(`data-tag="([\w-]+)"`)
+	dataTagRe = regexp.MustCompile(`data-tag="([\w-]+)"`)
+	// Since October 2026 tags are links to the filtered catalogue.
+	tagLinkRe   = regexp.MustCompile(`href="[^"]*/vids\?tag%5B%5D=([^"&]+)"`)
 	descBlockRe = regexp.MustCompile(`(?s)<div[^>]*class="rich-text-content[^"]*"[^>]*>\s*(.*?)\s*</div>`)
 )
 
@@ -383,14 +386,20 @@ func (s *Scraper) fetchDetail(ctx context.Context, videoURL string) (description
 		return "", nil, fmt.Errorf("detail %s: %w", videoURL, err)
 	}
 
-	tagMatches := dataTagRe.FindAllSubmatch(body, -1)
 	seen := make(map[string]bool)
-	for _, m := range tagMatches {
-		tag := titleCase(strings.ReplaceAll(string(m[1]), "-", " "))
-		if !seen[tag] {
-			seen[tag] = true
+	addTag := func(tag string) {
+		if key := strings.ToLower(tag); tag != "" && !seen[key] {
+			seen[key] = true
 			tags = append(tags, tag)
 		}
+	}
+	for _, m := range tagLinkRe.FindAllSubmatch(body, -1) {
+		if tag, uerr := url.QueryUnescape(string(m[1])); uerr == nil {
+			addTag(strings.TrimSpace(tag))
+		}
+	}
+	for _, m := range dataTagRe.FindAllSubmatch(body, -1) {
+		addTag(titleCase(strings.ReplaceAll(string(m[1]), "-", " ")))
 	}
 
 	descMatches := descBlockRe.FindAllSubmatch(body, -1)

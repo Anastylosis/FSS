@@ -563,3 +563,32 @@ func TestListScenesCancelWhileDetailsFail(t *testing.T) {
 		cancel()
 	}
 }
+
+// Detail pages now carry tags as links to the filtered catalogue rather than
+// data-tag buttons; names keep the site's own casing.
+func TestFetchDetailTagLinks(t *testing.T) {
+	page := `<html><body>
+<div class="rich-text-content text-sm">A description.</div>
+<a href="https://yourvids.com/vids?tag%5B%5D=POV%20Roleplay">POV Roleplay</a>
+<a href="https://yourvids.com/vids?tag%5B%5D=Step%20Play%20%2F%20Fantasy">Step Play / Fantasy</a>
+<a href="https://yourvids.com/vids?tag%5B%5D=Taboo">Taboo</a>
+<button data-filter="tag" data-tag="taboo">Taboo</button>
+</body></html>`
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(page))
+	}))
+	defer ts.Close()
+
+	s := &Scraper{client: ts.Client(), apiBase: ts.URL}
+	desc, tags, err := s.fetchDetail(context.Background(), ts.URL+"/vids/x")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if desc != "A description." {
+		t.Errorf("description = %q", desc)
+	}
+	want := []string{"POV Roleplay", "Step Play / Fantasy", "Taboo"}
+	if fmt.Sprint(tags) != fmt.Sprint(want) {
+		t.Errorf("tags = %q, want %q", tags, want)
+	}
+}
