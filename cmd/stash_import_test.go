@@ -1033,15 +1033,15 @@ func TestEntityLookupPerformerAndStudio(t *testing.T) {
 // strip her co-stars out of Stash rather than merely stop adding them.
 func TestApplyScene_keepsPerformersAlreadyOnTheStashScene(t *testing.T) {
 	f := newFakeStash(t)
-	f.existingPerf = map[string]string{"Jodi West": "p-jodi"}
+	f.existingPerf = map[string]string{"Becky Sharp": "p-becky"}
 
 	ss := stash.Scene{
 		ID:    "1",
 		Files: []stash.File{{Path: "/v/a.mp4"}},
 		// Already attached in Stash, and deliberately absent from merged.
-		Performers: []stash.Performer{{ID: "p-costar", Name: "Marcello Bravo"}},
+		Performers: []stash.Performer{{ID: "p-costar", Name: "Rawdon Crawley"}},
 	}
-	merged := match.MergedScene{Title: "T", Performers: []string{"Jodi West"}}
+	merged := match.MergedScene{Title: "T", Performers: []string{"Becky Sharp"}}
 
 	if _, err := applyScene(context.Background(), f.client(), ss, merged,
 		nil, nil, "imp1", importOpts{apply: true}); err != nil {
@@ -1070,7 +1070,7 @@ func TestApplyScene_keepsPerformersAlreadyOnTheStashScene(t *testing.T) {
 	if !got["p-costar"] {
 		t.Errorf("performer_ids = %v — the co-star already in Stash was dropped", raw)
 	}
-	if !got["p-jodi"] {
+	if !got["p-becky"] {
 		t.Errorf("performer_ids = %v — the merged performer was not added", raw)
 	}
 }

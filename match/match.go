@@ -388,7 +388,7 @@ func (idx *SceneIndex) Match(filename string, fileDurationSec float64) MatchResu
 	}
 
 	// Pass 3: strip trailing numbers from both sides. Handles sites where the
-	// FSS title uses a per-performer sequence number (e.g. "Artemisia Love 1")
+	// FSS title uses a per-performer sequence number (e.g. "Hester Prynne 1")
 	// but the filename uses a site-wide episode number (e.g. "044"). The
 	// performer name is the real match key; duration disambiguates. Only
 	// attempted when file duration is known — without it, single-word names

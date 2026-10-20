@@ -27,7 +27,7 @@ func TestSQLiteUpsertListStudios(t *testing.T) {
 	st := models.Studio{
 		URL:           testStudioURL,
 		SiteID:        "manyvids",
-		Name:          "Bettie Bondage",
+		Name:          "Jane Eyre",
 		AddedAt:       now,
 		LastScrapedAt: &last,
 	}
@@ -46,7 +46,7 @@ func TestSQLiteUpsertListStudios(t *testing.T) {
 	if got.URL != testStudioURL {
 		t.Errorf("URL = %q", got.URL)
 	}
-	if got.Name != "Bettie Bondage" {
+	if got.Name != "Jane Eyre" {
 		t.Errorf("Name = %q", got.Name)
 	}
 	if got.SiteID != "manyvids" {
@@ -63,7 +63,7 @@ func TestSQLiteUpsertStudioPreservesName(t *testing.T) {
 
 	// First insert: with a name.
 	if err := s.UpsertStudio(models.Studio{
-		URL: testStudioURL, SiteID: "manyvids", Name: "Bettie Bondage", AddedAt: now,
+		URL: testStudioURL, SiteID: "manyvids", Name: "Jane Eyre", AddedAt: now,
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +77,7 @@ func TestSQLiteUpsertStudioPreservesName(t *testing.T) {
 	}
 
 	studios, _ := s.ListStudios()
-	if studios[0].Name != "Bettie Bondage" {
+	if studios[0].Name != "Jane Eyre" {
 		t.Errorf("Name cleared by upsert without name, got %q", studios[0].Name)
 	}
 	if studios[0].LastScrapedAt == nil || !studios[0].LastScrapedAt.Equal(later) {

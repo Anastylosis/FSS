@@ -18,7 +18,7 @@ var (
 // runs collapsed to a single space. Case is untouched.
 //
 // Collapsing matters for the same reason trimming does — Stash lookups are by
-// exact name, so "Nikki  Nuttz" never matches the existing performer.
+// exact name, so "Irene  Adler" never matches the existing performer.
 func cleanName(s string) string {
 	return strings.Join(strings.Fields(s), " ")
 }
@@ -117,11 +117,11 @@ var scalarFields = []string{"title", "description", "date", "studio", "thumbnail
 // and entries that trim to nothing are dropped.
 //
 // This is not cosmetic tidying. Several site APIs return names with stray
-// whitespace — Aylo serves "Nikki Nuttz " with a trailing space — and every
-// downstream consumer compares these strings exactly:
+// whitespace — Aylo serves some names with a trailing space, as in
+// "Irene Adler " — and every downstream consumer compares these strings exactly:
 //
-//   - deduplication here is by exact string, so "Nikki Nuttz " from one site and
-//     "Nikki Nuttz" from another survived as two separate performers, which
+//   - deduplication here is by exact string, so "Irene Adler " from one site and
+//     "Irene Adler" from another survived as two separate performers, which
 //     defeats the point of merging across sites;
 //   - `fss stash import` looks performers, tags and studios up in Stash **by
 //     name**, so the untrimmed variant never matches the existing entity and

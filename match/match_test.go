@@ -468,13 +468,13 @@ func TestMatchDurationUnknownPassesThrough(t *testing.T) {
 
 func TestMatchTrailingNumberStripped(t *testing.T) {
 	idx := BuildIndex([]models.Scene{
-		sceneWithDuration("1", "spankingglamour", "Artemisia Love 1", 795),
-		sceneWithDuration("2", "spankingglamour", "Artemisia Love 2", 715),
+		sceneWithDuration("1", "spankingglamour", "Hester Prynne 1", 795),
+		sceneWithDuration("2", "spankingglamour", "Hester Prynne 2", 715),
 	})
 
 	// Filename has a different trailing number (site-wide episode ID).
 	// Pass 3 strips trailing numbers from both sides, duration disambiguates.
-	r := idx.Match("[SpankingGlamour] - Artemisia Love - 044.mp4", 795)
+	r := idx.Match("[SpankingGlamour] - Hester Prynne - 044.mp4", 795)
 	if r.Confidence != MatchSubstring {
 		t.Errorf("confidence = %v, want SUBSTR", r.Confidence)
 	}

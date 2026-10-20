@@ -141,8 +141,8 @@ Stash by exact name.
 `match.MergeScenes` deduplicates on a canonical key (`NormalizeName`:
 case-folded, whitespace-collapsed) while storing the first contributing site's
 spelling (`cleanName`: trimmed, internal whitespace collapsed, case untouched).
-So `"Nikki Nuttz"` and `"nikki  nuttz"` merge to one entry written as
-`Nikki Nuttz`. Which spelling wins follows the order scenes are passed in —
+So `"Irene Adler"` and `"irene  adler"` merge to one entry written as
+`Irene Adler`. Which spelling wins follows the order scenes are passed in —
 deterministic, but not "best".
 
 Keeping both spellings instead would create two Stash performers for one person,

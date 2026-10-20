@@ -51,12 +51,12 @@ import (
 func main() {
 	ctx := context.Background()
 
-	s, err := scraper.ForURL("https://www.manyvids.com/Profile/590705/bettie-bondage/Store/Videos")
+	s, err := scraper.ForURL("https://www.manyvids.com/Profile/1000001/jane-eyre/Store/Videos")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	ch, err := s.ListScenes(ctx, "https://www.manyvids.com/Profile/590705/bettie-bondage/Store/Videos", scraper.ListOpts{})
+	ch, err := s.ListScenes(ctx, "https://www.manyvids.com/Profile/1000001/jane-eyre/Store/Videos", scraper.ListOpts{})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -372,7 +372,7 @@ fmt.Println(merged.Title, merged.URLs, merged.Performers)
 `MergeScenes` normalises performer, tag, category and studio names — surrounding
 whitespace removed, internal runs collapsed — and drops entries that reduce to nothing.
 This is not cosmetic: `fss stash import` looks entities up in Stash **by name**, so an
-untrimmed `"Nikki Nuttz "` both survives as a second performer and creates a duplicate in
+untrimmed `"Irene Adler "` both survives as a second performer and creates a duplicate in
 Stash. Deduplication is by a case-folded key, while the stored value keeps the first
 contributing site's spelling.
 
@@ -455,7 +455,7 @@ import stash "github.com/Anastylosis/stash-go"
 client := stash.NewClient("http://localhost:9999", stash.WithAPIKey(key))
 
 scenes, total, err := client.FindScenes(ctx, stash.SceneFilter{
-    PerformerName: "Bettie Bondage",
+    PerformerName: "Jane Eyre",
 }, 1, 25)
 ```
 
@@ -499,8 +499,8 @@ output.WriteJSON(sf, "studio.json")
 output.WriteCSV(scenes, "studio.csv")
 
 // Generate a safe filename from a URL.
-slug := output.Slugify("https://www.manyvids.com/Profile/590705/bettie-bondage/Store/Videos")
-// → "www-manyvids-com-profile-590705-bettie-bondage-store-videos"
+slug := output.Slugify("https://www.manyvids.com/Profile/1000001/jane-eyre/Store/Videos")
+// → "www-manyvids-com-profile-1000001-jane-eyre-store-videos"
 ```
 
 **Key functions:** `WriteJSON`, `WriteCSV`, `Slugify`. **Key var:** `CSVHeaders` (column order).

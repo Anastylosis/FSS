@@ -54,7 +54,7 @@ docker run --rm \
   --user "$(id -u):$(id -g)" \
   -v "$PWD/data:/data" \
   ghcr.io/wasylq/fss:latest \
-  scrape https://www.manyvids.com/Profile/590705/bettie-bondage/Store/Videos
+  scrape https://www.manyvids.com/Profile/1000001/jane-eyre/Store/Videos
 ```
 
 If you use Docker named volumes instead of bind mounts, ownership is handled automatically and `--user` is not needed:
@@ -155,7 +155,7 @@ The simplest pattern is a host cron entry that runs `docker run --rm`:
   -v /srv/fss/data:/data \
   -v /srv/fss/config:/config \
   ghcr.io/wasylq/fss:vX.Y \
-  scrape --refresh https://www.manyvids.com/Profile/590705/bettie-bondage/Store/Videos \
+  scrape --refresh https://www.manyvids.com/Profile/1000001/jane-eyre/Store/Videos \
   >> /var/log/fss.log 2>&1
 ```
 

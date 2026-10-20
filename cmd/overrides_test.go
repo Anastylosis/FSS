@@ -30,14 +30,14 @@ func TestParseOverridesRepeatedAndCommaSeparated(t *testing.T) {
 		args []string
 		want []string
 	}{
-		{"repeated flag", []string{"--performer", "Jodi West", "--performer", "Marcello Bravo"},
-			[]string{"Jodi West", "Marcello Bravo"}},
+		{"repeated flag", []string{"--performer", "Becky Sharp", "--performer", "Rawdon Crawley"},
+			[]string{"Becky Sharp", "Rawdon Crawley"}},
 		// The form people reach for first; storing it as one two-person name
 		// would be worse than splitting it.
-		{"comma separated", []string{"--performer", "Jodi West, Marcello Bravo"},
-			[]string{"Jodi West", "Marcello Bravo"}},
-		{"mixed with padding", []string{"--performer", " Jodi West ,, ", "--performer", "Red"},
-			[]string{"Jodi West", "Red"}},
+		{"comma separated", []string{"--performer", "Becky Sharp, Rawdon Crawley"},
+			[]string{"Becky Sharp", "Rawdon Crawley"}},
+		{"mixed with padding", []string{"--performer", " Becky Sharp ,, ", "--performer", "Red"},
+			[]string{"Becky Sharp", "Red"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -80,27 +80,27 @@ func TestOverridesApply(t *testing.T) {
 	scene := models.Scene{
 		ID:         "1",
 		Title:      "A Scene",
-		Performers: []string{"Jodi West Milf", "Marcello Bravo"},
-		Studio:     "Jodi West Clips",
+		Performers: []string{"Becky Sharp Milf", "Rawdon Crawley"},
+		Studio:     "Becky Sharp Clips",
 		Tags:       []string{"MILF"},
 	}
 
 	// Performers are replaced outright, co-stars included — the point is to
 	// drop the site's spelling entirely.
-	got := sceneOverrides{performers: []string{"Jodi West"}}.apply(scene)
-	if strings.Join(got.Performers, "|") != "Jodi West" {
-		t.Errorf("Performers = %v, want exactly [Jodi West]", got.Performers)
+	got := sceneOverrides{performers: []string{"Becky Sharp"}}.apply(scene)
+	if strings.Join(got.Performers, "|") != "Becky Sharp" {
+		t.Errorf("Performers = %v, want exactly [Becky Sharp]", got.Performers)
 	}
-	if got.Studio != "Jodi West Clips" {
+	if got.Studio != "Becky Sharp Clips" {
 		t.Errorf("Studio = %q — an unset override must not touch the field", got.Studio)
 	}
 	if len(got.Tags) != 1 || got.Title != "A Scene" {
 		t.Errorf("unrelated fields changed: %+v", got)
 	}
 
-	got = sceneOverrides{studio: "Jodi West"}.apply(scene)
-	if got.Studio != "Jodi West" {
-		t.Errorf("Studio = %q, want Jodi West", got.Studio)
+	got = sceneOverrides{studio: "Becky Sharp"}.apply(scene)
+	if got.Studio != "Becky Sharp" {
+		t.Errorf("Studio = %q, want Becky Sharp", got.Studio)
 	}
 	if len(got.Performers) != 2 {
 		t.Errorf("Performers = %v — an unset override must not touch the field", got.Performers)
@@ -114,14 +114,14 @@ func TestOverridesApply(t *testing.T) {
 // apply must not hand every scene the same backing array, or editing one
 // scene's performers later would edit them all.
 func TestOverridesApplyDoesNotShareTheSlice(t *testing.T) {
-	o := sceneOverrides{performers: []string{"Jodi West"}}
+	o := sceneOverrides{performers: []string{"Becky Sharp"}}
 	a := o.apply(models.Scene{ID: "1"})
 	b := o.apply(models.Scene{ID: "2"})
 	a.Performers[0] = "Someone Else"
-	if b.Performers[0] != "Jodi West" {
+	if b.Performers[0] != "Becky Sharp" {
 		t.Errorf("scene b saw scene a's edit: %v", b.Performers)
 	}
-	if o.performers[0] != "Jodi West" {
+	if o.performers[0] != "Becky Sharp" {
 		t.Errorf("the override itself was mutated: %v", o.performers)
 	}
 }
@@ -136,7 +136,7 @@ func TestCollectScenesAppliesOverrides(t *testing.T) {
 			{ID: "2", SiteID: "fake", Title: "Two", Performers: []string{"Alias B", "Co Star"}, Studio: "Sub Brand"},
 		}},
 	}
-	ov := sceneOverrides{performers: []string{"Jodi West"}, studio: "Jodi West"}
+	ov := sceneOverrides{performers: []string{"Becky Sharp"}, studio: "Becky Sharp"}
 
 	scenes, _, err := collectScenes(context.Background(), sc, "https://example.com", scraper.ListOpts{}, ov)
 	if err != nil {
@@ -146,11 +146,11 @@ func TestCollectScenesAppliesOverrides(t *testing.T) {
 		t.Fatalf("got %d scenes, want 2", len(scenes))
 	}
 	for _, s := range scenes {
-		if strings.Join(s.Performers, "|") != "Jodi West" {
-			t.Errorf("scene %s performers = %v, want [Jodi West]", s.ID, s.Performers)
+		if strings.Join(s.Performers, "|") != "Becky Sharp" {
+			t.Errorf("scene %s performers = %v, want [Becky Sharp]", s.ID, s.Performers)
 		}
-		if s.Studio != "Jodi West" {
-			t.Errorf("scene %s studio = %q, want Jodi West", s.ID, s.Studio)
+		if s.Studio != "Becky Sharp" {
+			t.Errorf("scene %s studio = %q, want Becky Sharp", s.ID, s.Studio)
 		}
 	}
 	// Everything else the scraper produced survives.
@@ -239,9 +239,9 @@ func TestOverrideFlagBeatsTheCreatorCanon(t *testing.T) {
 }
 
 func TestDescribe(t *testing.T) {
-	o := sceneOverrides{performers: []string{"Jodi West", "Red"}, studio: "Jodi West"}
+	o := sceneOverrides{performers: []string{"Becky Sharp", "Red"}, studio: "Becky Sharp"}
 	got := o.describe()
-	for _, want := range []string{"Jodi West", "Red", "studio"} {
+	for _, want := range []string{"Becky Sharp", "Red", "studio"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("describe() = %q, want it to mention %q", got, want)
 		}

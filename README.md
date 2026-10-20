@@ -179,7 +179,7 @@ go install github.com/Anastylosis/FSS@latest
 
 ```bash
 # Scrape a studio — outputs JSON by default
-fss scrape https://www.manyvids.com/Profile/590705/bettie-bondage/Store/Videos
+fss scrape https://www.manyvids.com/Profile/1000001/jane-eyre/Store/Videos
 
 # Incremental mode (default): only fetches new scenes
 fss scrape <url>
@@ -194,7 +194,7 @@ fss scrape --refresh <url>
 fss scrape --output json,csv --out-dir ./data <url>
 
 # Use SQLite as the store (default: ~/.local/share/fss/fss.db)
-fss scrape --db --name "Bettie Bondage" <url>
+fss scrape --db --name "Jane Eyre" <url>
 
 # Use SQLite at a custom path
 fss scrape --db=/path/to/fss.db <url>

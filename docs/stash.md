@@ -68,7 +68,7 @@ Matches FSS JSON scenes against Stash scenes by filename and pushes metadata. **
 
 ```bash
 fss stash unmatched
-fss stash unmatched --performer "Bettie Bondage"
+fss stash unmatched --performer "Jane Eyre"
 fss stash unmatched --studio "Some Studio"
 fss stash unmatched --filter "glamourSpanking"
 ```
@@ -91,7 +91,7 @@ fss stash import --json studio-a.json --json studio-b.json --apply
 fss stash import --dir ./data --cover --apply
 
 # Filter by performer and add resolution tags
-fss stash import --dir ./data --performer "Bettie Bondage" --resolution-tags --apply
+fss stash import --dir ./data --performer "Jane Eyre" --resolution-tags --apply
 
 # Only update tags, URLs, and date (only if earlier)
 fss stash import --dir ./data --fields tags,urls,date --apply
@@ -155,7 +155,7 @@ FSS matches Stash scenes to FSS scenes by comparing each Stash scene's filename 
    - Exact match (filename == title)
    - Substring match: all title words present in filename as whole words, and title covers >=50% of filename words
 2. **Sanitized index** — strip noise words (e.g. "step") from both filename and titles, then retry exact + substring. This handles cases where studios add "step-" prefixes that aren't in the filename.
-3. **Trailing-number index** — strip the last numeric token from both filename and titles, then retry exact + substring with **no word-count minimum**. This pass **only fires when the Stash file has a known duration**, since duration is the sole guard against false positives. Designed for sites like SpankingGlamour where FSS titles use a per-performer sequence number (`Artemisia Love 1`) but the filename uses a site-wide episode number (`[SpankingGlamour] - Artemisia Love - 044.mp4`) — different numbering systems that passes 1–2 can never reconcile. Dropping the word-count minimum also lets single-word performer names like `Marsha` match.
+3. **Trailing-number index** — strip the last numeric token from both filename and titles, then retry exact + substring with **no word-count minimum**. This pass **only fires when the Stash file has a known duration**, since duration is the sole guard against false positives. Designed for sites like SpankingGlamour where FSS titles use a per-performer sequence number (`Hester Prynne 1`) but the filename uses a site-wide episode number (`[SpankingGlamour] - Hester Prynne - 044.mp4`) — different numbering systems that passes 1–2 can never reconcile. Dropping the word-count minimum also lets single-word performer names like `Marsha` match.
 
 **Duration filtering:** When the file's duration is known, candidates where the FSS scene duration differs by more than `max(10% of file duration, 30 seconds)` are rejected. This reduces false positives when multiple scenes have similar titles. In pass 3, duration is required — without it, the pass is skipped entirely.
 
@@ -197,8 +197,9 @@ Format suffix stripping means that Clips4Sale scenes listed as separate formats 
 Performer, tag, category and studio names are trimmed before deduplication, and entries
 that trim to nothing are dropped.
 
-Some site APIs return names with stray whitespace — Aylo serves `"Nikki Nuttz "` with a
-trailing space — and every step here compares these strings exactly. Untrimmed, the same
+Some site APIs return names with stray whitespace — Aylo serves some performer
+names with a trailing space, such as `"Irene Adler "` — and every step here compares
+these strings exactly. Untrimmed, the same
 performer arriving from two sites survives as two entries, and because `import` looks
 performers, tags and studios up in Stash **by name**, `--apply` creates a duplicate
 performer instead of matching the existing one.
@@ -254,7 +255,7 @@ After the loop a grouped failure summary is written to **stderr** (so it stays o
 Failures (3 operations across 2 scenes):
   scene 42 (mom-fucks-daughters-ex.mp4):
     - tag "Female Domination": stash api: timeout reading from upstream
-    - performer "Bettie Bondage": alias collision
+    - performer "Jane Eyre": alias collision
   scene 87 (joi-countdown.mp4):
     - cover "https://cdn.example/cover.jpg": rejecting cover URL: host "cdn.example" is a private/loopback IP
 ```

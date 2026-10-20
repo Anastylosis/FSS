@@ -16,9 +16,9 @@ func TestMergeScenesBasic(t *testing.T) {
 		URL:         "https://manyvids.com/Video/123/fostering-the-bully",
 		Date:        time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC),
 		Description: "Short desc",
-		Performers:  []string{"Bettie Bondage"},
+		Performers:  []string{"Jane Eyre"},
 		Tags:        []string{"JOI", "POV"},
-		Studio:      "Bettie Bondage",
+		Studio:      "Jane Eyre",
 		Duration:    600,
 		Width:       1920,
 		Height:      1080,
@@ -30,9 +30,9 @@ func TestMergeScenesBasic(t *testing.T) {
 		URL:         "https://clips4sale.com/studio/789/fostering-the-bully",
 		Date:        time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC),
 		Description: "A much longer and more detailed description of the scene",
-		Performers:  []string{"Bettie Bondage"},
+		Performers:  []string{"Jane Eyre"},
 		Tags:        []string{"JOI", "Taboo"},
-		Studio:      "Bettie Bondage",
+		Studio:      "Jane Eyre",
 		Duration:    610,
 		Width:       3840,
 		Height:      2160,
@@ -72,7 +72,7 @@ func TestMergeScenesBasic(t *testing.T) {
 	}
 
 	// Performers deduplicated.
-	if len(m.Performers) != 1 || m.Performers[0] != "Bettie Bondage" {
+	if len(m.Performers) != 1 || m.Performers[0] != "Jane Eyre" {
 		t.Errorf("Performers = %v", m.Performers)
 	}
 
@@ -285,7 +285,7 @@ func TestMergeStrings_doesNotMutateInputs(t *testing.T) {
 	}
 }
 
-// Aylo's API serves performer names with stray whitespace ("Nikki Nuttz "), and
+// Aylo's API serves performer names with stray whitespace ("Irene Adler "), and
 // every consumer of these strings compares them exactly. The cross-site case is
 // the one that matters most: dedup is by exact string, so without trimming the
 // same performer arrives twice from two sites and `fss stash import` then creates
@@ -294,14 +294,14 @@ func TestMergeScenesTrimsNamesAndDedupesAcrossSites(t *testing.T) {
 	scenes := []models.Scene{
 		{
 			ID: "1", SiteID: "babes", Title: "T", URL: "https://babes.com/1",
-			Performers: []string{"Nikki Nuttz ", "Zazie Skymm"},
+			Performers: []string{"Irene Adler ", "Mina Harker"},
 			Tags:       []string{" Blowjob", "Big Tits "},
 			Categories: []string{" Couples "},
 			Studio:     " Babes ",
 		},
 		{
 			ID: "1", SiteID: "other", Title: "T", URL: "https://other.com/1",
-			Performers: []string{"Nikki Nuttz", "  "},
+			Performers: []string{"Irene Adler", "  "},
 			Tags:       []string{"Blowjob", ""},
 			Categories: []string{"Couples"},
 		},
@@ -348,13 +348,13 @@ func TestMergeScenesTrimsNamesAndDedupesAcrossSites(t *testing.T) {
 func TestMergeScenesFoldsCasingButKeepsSpelling(t *testing.T) {
 	scenes := []models.Scene{
 		{ID: "1", SiteID: "a", URL: "https://a/1",
-			Performers: []string{"Nikki Nuttz"}, Tags: []string{"Big Tits"}},
+			Performers: []string{"Irene Adler"}, Tags: []string{"Big Tits"}},
 		{ID: "1", SiteID: "b", URL: "https://b/1",
-			Performers: []string{"nikki  nuttz"}, Tags: []string{"big tits"}},
+			Performers: []string{"irene  adler"}, Tags: []string{"big tits"}},
 	}
 	m := MergeScenes(scenes, time.Time{})
-	if len(m.Performers) != 1 || m.Performers[0] != "Nikki Nuttz" {
-		t.Errorf("Performers = %q, want [Nikki Nuttz]", m.Performers)
+	if len(m.Performers) != 1 || m.Performers[0] != "Irene Adler" {
+		t.Errorf("Performers = %q, want [Irene Adler]", m.Performers)
 	}
 	if len(m.Tags) != 1 || m.Tags[0] != "Big Tits" {
 		t.Errorf("Tags = %q, want [Big Tits]", m.Tags)
@@ -366,11 +366,11 @@ func TestMergeScenesFoldsCasingButKeepsSpelling(t *testing.T) {
 func TestMergeScenesCollapsesInternalWhitespace(t *testing.T) {
 	scenes := []models.Scene{
 		{ID: "1", SiteID: "a", URL: "https://a/1",
-			Performers: []string{"Nikki  Nuttz"}, Studio: "  Babes   Network "},
+			Performers: []string{"Irene  Adler"}, Studio: "  Babes   Network "},
 	}
 	m := MergeScenes(scenes, time.Time{})
-	if len(m.Performers) != 1 || m.Performers[0] != "Nikki Nuttz" {
-		t.Errorf("Performers = %q, want [Nikki Nuttz]", m.Performers)
+	if len(m.Performers) != 1 || m.Performers[0] != "Irene Adler" {
+		t.Errorf("Performers = %q, want [Irene Adler]", m.Performers)
 	}
 	if m.Studio != "Babes Network" {
 		t.Errorf("Studio = %q, want %q", m.Studio, "Babes Network")

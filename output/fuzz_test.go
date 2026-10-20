@@ -11,7 +11,7 @@ import (
 )
 
 func FuzzSlugify(f *testing.F) {
-	f.Add("https://www.manyvids.com/Profile/590705/bettie-bondage/Store/Videos")
+	f.Add("https://www.manyvids.com/Profile/1000001/jane-eyre/Store/Videos")
 	f.Add("https://evil.com/../../etc/passwd")
 	f.Add("")
 	f.Add("https://example.com/a?b=c&d=e")

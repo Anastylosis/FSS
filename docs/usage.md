@@ -82,7 +82,7 @@ instead of leaving the store with an alias per site:
 
 ```bash
 fss scrape https://siteA.com https://siteB.com https://siteC.com \
-  --performer "Jodi West" --studio "Jodi West"
+  --performer "Becky Sharp" --studio "Becky Sharp"
 ```
 
 Both flags apply to **every URL in the invocation**, and both **replace** rather
@@ -92,8 +92,8 @@ several people, the co-stars are replaced too, so this fits solo-performer sites
 and is lossy elsewhere. Pass every name you want kept:
 
 ```bash
-fss scrape https://siteA.com --performer "Jodi West" --performer "Marcello Bravo"
-fss scrape https://siteA.com --performer "Jodi West, Marcello Bravo"   # same thing
+fss scrape https://siteA.com --performer "Becky Sharp" --performer "Rawdon Crawley"
+fss scrape https://siteA.com --performer "Becky Sharp, Rawdon Crawley"   # same thing
 ```
 
 The override applies to the scenes a run **scrapes**, not to everything already
@@ -499,9 +499,9 @@ One entry is appended to `priceHistory` on each scrape run.
 Output files are named by sanitising the studio URL into a slug:
 
 ```
-https://www.manyvids.com/Profile/590705/bettie-bondage/Store/Videos
-→ manyvids.com-profile-590705-bettie-bondage-store-videos.json
-→ manyvids.com-profile-590705-bettie-bondage-store-videos.csv
+https://www.manyvids.com/Profile/1000001/jane-eyre/Store/Videos
+→ manyvids.com-profile-1000001-jane-eyre-store-videos.json
+→ manyvids.com-profile-1000001-jane-eyre-store-videos.csv
 ```
 
 Two distinct studio URLs can sanitise to the same slug (e.g. `/foo-bar` and `/foo/bar`, or `/Foo` and `/foo`). The full `studioUrl` is stored inside the JSON, and the store refuses to load or overwrite a file whose stored URL doesn't match the one you're scraping — you'll see a `slug collision` error. Rename or move one of the studio files to resolve.
@@ -512,7 +512,7 @@ The JSON file wraps the scene list with a small header:
 
 ```json
 {
-  "studioUrl": "https://www.manyvids.com/Profile/590705/bettie-bondage/Store/Videos",
+  "studioUrl": "https://www.manyvids.com/Profile/1000001/jane-eyre/Store/Videos",
   "scrapedAt": "2026-04-22T10:00:00Z",
   "sceneCount": 700,
   "scenes": [ ... ]

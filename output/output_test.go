@@ -15,7 +15,7 @@ import (
 	"github.com/Anastylosis/FSS/models"
 )
 
-const testURL = "https://www.manyvids.com/Profile/590705/bettie-bondage/Store/Videos"
+const testURL = "https://www.manyvids.com/Profile/1000001/jane-eyre/Store/Videos"
 
 func TestWriteJSON(t *testing.T) {
 	dir := t.TempDir()
@@ -313,7 +313,7 @@ func assertSlug(t *testing.T, input, wantBase string) {
 }
 
 func TestSlugify(t *testing.T) {
-	assertSlug(t, testURL, "www-manyvids-com-profile-590705-bettie-bondage-store-videos")
+	assertSlug(t, testURL, "www-manyvids-com-profile-1000001-jane-eyre-store-videos")
 	assertSlug(t, "https://www.clips4sale.com/studio/12345/some-store", "www-clips4sale-com-studio-12345-some-store")
 }
 

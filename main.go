@@ -31,7 +31,7 @@
 //	    _ "github.com/Anastylosis/FSS/scrapers/all"
 //	)
 //
-//	s, err := scraper.ForURL("https://www.manyvids.com/Profile/590705/bettie-bondage/Store/Videos")
+//	s, err := scraper.ForURL("https://www.manyvids.com/Profile/1000001/jane-eyre/Store/Videos")
 //	ch, err := s.ListScenes(ctx, url, scraper.ListOpts{})
 //	for r := range ch {
 //	    fmt.Println(r.Scene.Title)

@@ -33,7 +33,7 @@ func assertSlugBase(t *testing.T, input, wantBase string) {
 }
 
 func TestSlugify(t *testing.T) {
-	assertSlugBase(t, "https://www.manyvids.com/Profile/590705/bettie-bondage/Store/Videos", "www-manyvids-com-profile-590705-bettie-bondage-store-videos")
+	assertSlugBase(t, "https://www.manyvids.com/Profile/1000001/jane-eyre/Store/Videos", "www-manyvids-com-profile-1000001-jane-eyre-store-videos")
 	assertSlugBase(t, "https://www.kink.com/channel/hogtied", "www-kink-com-channel-hogtied")
 	assertSlugBase(t, "https://tour.pissinghd.com/videos", "tour-pissinghd-com-videos")
 	assertSlugBase(t, "https://www.karupsow.com/videos/", "www-karupsow-com-videos")
