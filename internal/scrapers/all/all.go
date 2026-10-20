@@ -473,7 +473,6 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/woodman"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/woodmanfilms"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/wownetwork"
-	_ "github.com/Anastylosis/FSS/internal/scrapers/wtfpass"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/wunf"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/xbrats"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/xespl"
