@@ -388,6 +388,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/romeromultimedia"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/rubberpassion"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/sapphix"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/sarahgregoryspanking"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/scissorgoddess"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/scoregroup"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/seehim"
