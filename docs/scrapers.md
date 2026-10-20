@@ -1148,6 +1148,7 @@ backlog files for the same reason.
 | Model Media Asia | `modelmediaasia.com` times out and `mod.run` answers 522; the other StashDB domain no longer resolves. Gayerdar, the network's other brand, is covered | 2026-10-16 |
 | h.m.p (hmp.jp) | The catalogue portal was replaced by a 12-product made-to-order WooCommerce shop; every old `/portal/` URL 404s. Its scraper was retired | 2026-10-16 |
 | WTFPass network (wtfpass.com + 16 sister domains) | Every domain has answered `/` and `/videos/` with nginx's stock 404 page since 2026-10-16, still so on 2026-10-29. Its scraper was retired | 2026-10-29 |
+| Pink Pineapple (pinkpineapple.co.jp) | Hentai anime shop behind a JavaScript age cookie (`AGEAUTH=1`). Listings (`list.php`, 599 titles; `s_list.php` series) carry only truncated titles ("…"), a price and a cover — no dates or credits. Every `detail.php` answers HTTP 200 with a zero-byte body, even to a full browser request with the age and load-balancer cookies, so full titles and dates are unreachable. No sitemap; the official blog is release news, not a catalogue | 2026-10-29 |
 
 ## Adding a new scraper
 
