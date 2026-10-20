@@ -196,8 +196,8 @@ tables, which is why it has not been done for a ~20% gain on one query.
 first-class opt-in, not a pending replacement.
 
 An earlier plan was to flip the default to SQLite over two releases, and v1.29.0
-shipped a `[notice]` announcing it. That notice is gone and the plan is retired.
-The reasoning, recorded so it does not get relitigated:
+shipped a `[notice]` announcing it. That notice is gone and the plan is retired,
+for three reasons:
 
 - Every benefit of SQLite is already available today by setting `db:`. Flipping
   the default gives nothing to anyone who has already chosen.
@@ -275,8 +275,8 @@ time" when `db:` is set — is `--db=""`.
 
 | Value | Meaning |
 |---|---|
-| absent | not configured (today: flat store) |
-| `""` | flat store, explicitly — survives the default flip |
+| absent | not configured — the flat store |
+| `""` | flat store, explicitly |
 | `"default"` | the XDG data path, `~/.local/share/fss/fss.db` |
 | any path | exactly that file, absolute or **relative to the working directory** |
 
@@ -285,11 +285,6 @@ under `~/.local/share`, which is what you want for a self-contained directory or
 a bind-mounted container volume. The same values work as `--db=<value>`, and a
 bare `--db` uses whatever you configured — it only falls back to the XDG path
 when `db:` is unset.
-
-Until then, `fss scrape` prints a one-line notice when it uses the flat store,
-so the change is announced well before it happens rather than discovered
-afterwards. It appears once per process, on stderr, and is silenced with
-`notices: false` in config or `FSS_NO_NOTICES=1`.
 
 ---
 

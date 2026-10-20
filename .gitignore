@@ -41,7 +41,7 @@ go.work.sum
 # env file
 .env
 
-# GoReleaser output
+# Build output (release archives, nfpm packages)
 dist/
 
 # Editor/IDE

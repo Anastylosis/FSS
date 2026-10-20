@@ -138,9 +138,10 @@ ARCH=amd64          # or arm64
 curl -LO "https://github.com/Anastylosis/FSS/releases/download/${TAG}/fss_${VERSION}_${ARCH}.deb"
 sudo dpkg -i "fss_${VERSION}_${ARCH}.deb"
 
-# Fedora / RHEL
-curl -LO "https://github.com/Anastylosis/FSS/releases/download/${TAG}/fss-${VERSION}-1.x86_64.rpm"
-sudo rpm -i "fss-${VERSION}-1.x86_64.rpm"
+# Fedora / RHEL (rpm names the architecture differently)
+RPM_ARCH=$([ "$ARCH" = arm64 ] && echo aarch64 || echo x86_64)
+curl -LO "https://github.com/Anastylosis/FSS/releases/download/${TAG}/fss-${VERSION}-1.${RPM_ARCH}.rpm"
+sudo rpm -i "fss-${VERSION}-1.${RPM_ARCH}.rpm"
 ```
 
 #### Arch Linux (AUR)

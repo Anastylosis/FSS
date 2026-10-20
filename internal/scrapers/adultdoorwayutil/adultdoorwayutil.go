@@ -402,7 +402,7 @@ func (s *Scraper) collectListing(ctx context.Context, lc listConfig, opts scrape
 // detail pages and emitting enriched Scenes. Workers is capped at 4 (default)
 // or the user's opts.Workers; either way the cleanup pattern
 // `defer wg.Wait(); defer close(work)` guarantees no goroutine leak on
-// context cancellation (see AUDIT.md §Concurrency #1 for prior art).
+// context cancellation.
 func (s *Scraper) fetchDetails(ctx context.Context, studioURL string, items []sceneItem, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
 	workers := opts.Workers
 	if workers <= 0 {

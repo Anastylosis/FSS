@@ -545,7 +545,7 @@ func TestMatchesURL(t *testing.T) {
 	}
 }
 
-// TestMatchesURL_concurrentSafe pins AUDIT.md §Concurrency #2: the previous
+// TestMatchesURL_concurrentSafe: the previous
 // implementation lazily wrote to a package-level map[string]*regexp.Regexp
 // from MatchesURL with no locking. Under -race, concurrent invocations would
 // flag a data race (and could panic with "concurrent map writes" in prod).

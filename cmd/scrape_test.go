@@ -311,8 +311,8 @@ func (f *fakeScraper) ListScenes(_ context.Context, _ string, _ scraper.ListOpts
 	return ch, nil
 }
 
-// TestScrapeAll_preservesPriceHistory pins finding 1.1 from AUDIT.md: --full
-// must carry forward existing price history across re-scrapes for both stores.
+// TestScrapeAll_preservesPriceHistory pins that --full carries forward existing
+// price history across re-scrapes for both stores.
 // Before the fix, scrapeAll discarded all prior snapshots — Flat by overwrite,
 // SQLite by diff-based syncPriceHistory.
 func TestScrapeAll_preservesPriceHistory(t *testing.T) {

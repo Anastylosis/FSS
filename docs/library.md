@@ -500,7 +500,7 @@ output.WriteCSV(scenes, "studio.csv")
 
 // Generate a safe filename from a URL.
 slug := output.Slugify("https://www.manyvids.com/Profile/1000001/jane-eyre/Store/Videos")
-// → "www-manyvids-com-profile-1000001-jane-eyre-store-videos"
+// → "www-manyvids-com-profile-1000001-jane-eyre-store-videos-0e51b52b"
 ```
 
 **Key functions:** `WriteJSON`, `WriteCSV`, `Slugify`. **Key var:** `CSVHeaders` (column order).

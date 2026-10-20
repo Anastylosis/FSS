@@ -1214,7 +1214,7 @@ func TestUnmarshalStringsInvalid(t *testing.T) {
 	}
 }
 
-// TestSQLitePragmas pins AUDIT.md §Store #6, #7: foreign_keys was never set,
+// TestSQLitePragmas: foreign_keys was never set,
 // silently disabling the ON DELETE CASCADE clauses on the three junction
 // tables. journal_mode/synchronous were issued as a multi-statement Exec,
 // which is unreliable across drivers — we now issue each PRAGMA on its own.

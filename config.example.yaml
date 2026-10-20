@@ -50,6 +50,20 @@ site_delays:
   # clips4sale: 1000
   # brazzers: 500
 
+# Per-scraper Cookie header, for the few hosts that will not answer an
+# anonymous request. Paste the value from your own browser's DevTools; fss
+# never obtains or refreshes one itself. Treat these like an api_key.
+site_cookies:
+  # mydirtyhobby: "KEY=1234*5678:90:123:1"
+
+# Content language to request where a site publishes in several, e.g. "de".
+# Sites with only one language ignore it. Not `language:`, which is help text.
+content_language: ""
+
+# Per-scraper content language, overriding content_language.
+site_languages:
+  # mydirtyhobby: de
+
 # Directory of creator definitions — one YAML file per creator, binding the
 # several storefronts one person sells the same catalogue on. It powers
 # `fss scrape --creator/--all-creators` and `fss compare`.

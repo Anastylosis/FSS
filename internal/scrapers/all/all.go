@@ -1,7 +1,8 @@
 // Package all blank-imports every site scraper so they self-register with
 // scraper.Register(). Importing this package wires up the full default scraper
-// catalog used by the fss binary. Library callers who only need a subset of
-// scrapers should blank-import the individual sub-packages instead.
+// catalog used by the fss binary. Library callers reach it through the public
+// re-export, scrapers/all; the sub-packages are internal and cannot be imported
+// individually.
 package all
 
 import (

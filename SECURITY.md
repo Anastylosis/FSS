@@ -47,10 +47,10 @@ If your images are hosted on a LAN media server (e.g. `192.168.1.50`), pass `--c
 
 Both are off by default, and no image is fetched unless you ask for it — neither `--cover` nor `--poster` is enabled implicitly.
 
-The implementation is `internal/mediafetch`: `ValidateURL` enforces the scheme and address rules, `Fetch` applies the size cap. `stash.DownloadCoverImage` and `identify`'s poster download both call it, so there is no second, unvalidated fetch path. See [docs/stash.md — Cover image fetching](docs/stash.md#cover-image-fetching) and [docs/identify.md — Posters](docs/identify.md#posters-and-expiring-thumbnails).
+The implementation is `internal/mediafetch`: `ValidateURL` enforces the scheme and address rules, `Fetch` applies the size cap. `fss stash import`'s cover download (`mediafetch.DataURI`, a wrapper over `Fetch`) and `identify`'s poster download both go through it, so there is no second, unvalidated fetch path. See [docs/stash.md — Cover image fetching](docs/stash.md#cover-image-fetching) and [docs/identify.md — Posters](docs/identify.md#posters-and-expiring-thumbnails).
 
 **Limitation**: the DNS lookup happens before the HTTP request. DNS rebinding attacks (where a hostname resolves to a public IP during validation but to a private IP during the actual fetch) are not mitigated. For the expected threat model — importing someone else's JSON dump — the attacker would also need to control DNS for a domain the user resolves, which is a low-probability scenario.
 
 ## Reporting a vulnerability
 
-If you find a security issue, please open a GitHub issue or email the maintainer directly. There is no bug bounty program.
+If you find a security issue, please report it privately through [GitHub's vulnerability reporting](https://github.com/Anastylosis/FSS/security/advisories/new) rather than a public issue. There is no bug bounty program.

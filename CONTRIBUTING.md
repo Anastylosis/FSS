@@ -62,13 +62,13 @@ regexp.MustCompile(`^https?://(?:www\.)?example\.com(?:/|$)`)
 registered scraper's own advertised host and fails if it matches, so a new
 scraper cannot reintroduce this.
 
-### 3. Add blank import in main.go
+### 3. Add a blank import in internal/scrapers/all/all.go
 
 ```go
 _ "github.com/Anastylosis/FSS/internal/scrapers/<site>"
 ```
 
-This triggers `init()` and registers the scraper. Without this line, the scraper won't be available.
+Keep the list alphabetical. This triggers `init()` and registers the scraper. Without this line, the scraper won't be available — neither to the `fss` binary nor to library callers of `scrapers/all`, which both import this package.
 
 ### 4. Implement the run() goroutine
 
@@ -197,8 +197,7 @@ Before building a standalone scraper, check [docs/platform-detection.md](docs/pl
 
 For WordPress-based sites, the `internal/scrapers/wputil` package provides shared helpers:
 
-- `wputil.BrowserHeaders()` — common browser headers to avoid WAF blocks
-- `wputil.FetchSitemap()` / `wputil.FetchAllSitemaps()` — XML sitemap parsing
+- `wputil.FetchSitemap()` / `wputil.FetchAllSitemaps()` — XML sitemap parsing. These and `FetchPage` take a headers map; pass `httpx.BrowserHeaders(ua)` for the usual page-navigation headers
 - `wputil.FetchPage()` — fetch a single page
 - `wputil.ParseMeta(body, titleSuffix)` — extract OpenGraph, `article:tag`, `article:published_time`, shortlink post ID, JSON-LD `VideoObject` width/height, and `articleSection` categories
 - `wputil.RunWorkerPool()` — sitemap discovery + parallel page fetching with a `PageParser` callback
@@ -415,14 +414,10 @@ FSS_STASH_URL=http://192.168.1.50:9999 FSS_STASH_API_KEY=yourkey make smoke-stas
 
 If Stash isn't reachable, all tests skip gracefully — no failures.
 
-### 10. Update docs and tracking files
+### 10. Update docs
 
 - Add a row to [docs/scrapers.md](docs/scrapers.md) with the site name, URL pattern, platform, and notes.
-- Update the site count in `README.md` (auto-verified by `TestReadmeScraperCount` — run `go test ./internal/scrapers/all/...` and it will auto-fix).
-- If the new scraper covers a stashdb studio tree, remove the completed entries from all three tracking files:
-  - `docs/stashdb-studios.json` — remove entries where the entire tree (parent + all children) is now covered
-  - `docs/stashdb-scene-counts.json` — remove the same entries
-  - `docs/partially-covered.json` — remove or update completion counts
+- Run `go test ./internal/scrapers/all/...`. `TestReadmeScraperCount` and `TestSitesMdInSync` rewrite the site count in `README.md` and regenerate [docs/sites.md](docs/sites.md) from the registry; the first run fails to tell you they changed, so commit both files.
 
 ### 11. Verify
 
@@ -494,6 +489,20 @@ network catch-all, pasting a sub-studio URL scraped the entire network.
 
 ---
 
+## Changing an existing scraper
+
+### Adding a new field to `models.Scene`
+
+1. **`models/scene.go`** — add the field with a JSON tag. Make it optional (`omitempty`); bump `models.StoreSchemaVersion` only if existing files would have to be read differently (see [docs/metadata.md](docs/metadata.md)).
+2. **The scraper** — populate the field in `toScene()` (or the equivalent mapping function).
+3. **`output/output.go`** — *append* the column name to `CSVHeaders` and the value to `sceneToRow()`. Never insert in the middle: positional CSV readers depend on the order.
+4. **SQLite** (`internal/store/sqlite.go`) — add a new numbered migration (`ALTER TABLE scenes ADD COLUMN …`), write the column in `upsertScene` and read it in `Load`. Also add the field to `sceneContentHash` in `internal/store/contenthash.go`, or `Save` will treat a scene whose only change is this field as unchanged and skip it.
+5. **Docs** — add the field to the data model and CSV tables in [docs/usage.md](docs/usage.md), and to [docs/metadata.md](docs/metadata.md) if it changes what the store records.
+
+### Adding a new URL pattern to an existing scraper
+
+Update `Patterns()` to return the new pattern and `MatchesURL()` to recognise it, then add a test case to `TestMatchesURL`. Both matter: `fss scrape` compares a URL against `Patterns()` and warns when none matches, because an unrecognised filtered URL falls through to the whole catalogue and gets stored under the filtered URL's key.
+
 ## Translations
 
 The CLI's help text is translatable. A language is one flat JSON file under
@@ -548,8 +557,8 @@ issue. Two consequences worth knowing:
   built and the smoke gate is approved.
 - A release's discussion cannot be changed once created, so re-running the
   `release` job for a tag that already published will fail at that step. Cut a new
-  patch tag rather than re-running it. (This does not affect the `aur` and
-  `docker` jobs, which are still safe to re-run on their own.)
+  patch tag rather than re-running it. (This does not affect the `aur`,
+  `homebrew` and `docker` jobs, which are still safe to re-run on their own.)
 
 The same message is shown by `fss version` when it reports an available update,
 so it reaches users who never open the release page. It is read back out of the
@@ -559,7 +568,7 @@ you ever change how the callout is rendered above, check that parser: its failur
 mode is to show no annotation at all rather than to show it wrongly, so a
 mismatch is silent.
 
-Then go to the **Actions → Release** run on GitHub, click *Review deployments*, tick `manual-smoke-gate`, and approve. Once the `release` job finishes, two parallel jobs run automatically: `aur` publishes to the AUR (with one retry on transient SSH failure), and `docker` builds and pushes the image to `ghcr.io`. Both sit behind the single approval gate — if either fails you can re-run *just that job* from the Actions UI without re-cutting the GitHub Release.
+Then go to the **Actions → Release** run on GitHub, click *Review deployments*, tick `manual-smoke-gate`, and approve. Once the `release` job finishes, three jobs run automatically: `aur` publishes to the AUR (with one retry on transient SSH failure), `homebrew` renders the formula into the tap, and `docker` builds and pushes the image to `ghcr.io`. All three sit behind the single approval gate — if one fails you can re-run *just that job* from the Actions UI without re-cutting the GitHub Release.
 
 ### What the release produces
 
@@ -570,6 +579,7 @@ Then go to the **Actions → Release** run on GitHub, click *Review deployments*
 | `.deb` package | linux/amd64, linux/arm64 |
 | `.rpm` package | linux/amd64, linux/arm64 |
 | AUR `fss` package | auto-published after release |
+| Homebrew formula (`brew install anastylosis/tap/fss`) | darwin and linux, amd64 and arm64; auto-published after release |
 | Docker image (`ghcr.io/anastylosis/fss`) | linux/amd64, linux/arm64 |
 
 The `.deb`/`.rpm` packages are built by [nfpm](https://nfpm.goreleaser.com/) using `nfpm.yaml`. To test locally:
@@ -665,8 +675,8 @@ When triaging a new govulncheck warning:
 
 Packaging files live in `packaging/`:
 
-- `packaging/aur/PKGBUILD` — Arch Linux AUR package. **Automatically published** to the AUR after the GitHub Release is created (via `KSXGitHub/github-actions-deploy-aur` action). Requires `AUR_SSH_PRIVATE_KEY` secret in the repository.
-- `packaging/homebrew/fss.rb` — Reference Homebrew formula. For a proper tap, create a `homebrew-fss` repository and publish the formula there after each release.
+- `packaging/aur/PKGBUILD` — Arch Linux AUR package. **Automatically published** to the AUR after the GitHub Release is created (via the `KSXGitHub/github-actions-deploy-aur` action in the shared release workflow). Requires the `AUR_SSH_PRIVATE_KEY` secret.
+- `packaging/homebrew/fss.rb` — template for the Homebrew formula. **Automatically published**: the `homebrew` job fills in the version and the four tarball checksums from `SHA256SUMS` and commits the result to [`Anastylosis/homebrew-tap`](https://github.com/Anastylosis/homebrew-tap) as `Formula/fss.rb`. Requires the `HOMEBREW_TAP_SSH_KEY` secret (a write deploy key on the tap repo). Edit the template here, never the rendered formula in the tap — the next release overwrites it.
 
 Every release artifact also carries a SLSA v1 build attestation (`actions/attest-build-provenance` in the `release` job), verifiable with `gh attestation verify <file> --owner Anastylosis`. `SHA256SUMS` proves a download arrived intact; the attestation is what proves it came from this pipeline, since the checksums are generated by the same job that builds the binaries.
 

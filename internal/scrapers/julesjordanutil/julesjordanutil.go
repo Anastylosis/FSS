@@ -164,7 +164,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 	// The producer is part of the WaitGroup so close(out) (deferred above)
 	// cannot fire while the producer is still sending errors to out — a send
 	// on a closed channel panics even when its select also has a ready
-	// ctx.Done() case. See AUDIT_PLAN B1.
+	// ctx.Done() case.
 	wg.Add(1)
 	go func() {
 		defer wg.Done()

@@ -87,7 +87,7 @@ func URLHasNonRootPath(rawURL string) bool {
 
 // WarnURLFallthrough prints a one-shot stderr warning that a filtered URL (one
 // with a non-root path) fell through to the default full-catalogue scrape for
-// siteID. This is the loud signal for AUDIT_PLAN S3/B3: a model/channel/tag URL
+// siteID. This is the loud signal for the case where a model/channel/tag URL
 // that the scraper did not recognise would otherwise silently scrape the whole
 // site under that URL's store key. It is a no-op for root URLs. Prints at most
 // once per (siteID, path) per process.

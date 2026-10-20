@@ -6,7 +6,6 @@ Full technical reference. Use the section links to jump to what you need.
 - [Config file](#config-file)
 - [Data model](#data-model)
 - [Output formats](#output-formats)
-- [Modifying a scraper](#modifying-a-scraper)
 - [Resume and update behaviour](#resume-and-update-behaviour)
 - [SQLite](#sqlite)
 
@@ -205,7 +204,7 @@ These commands read previously-scraped scenes. They share one set of flags for c
 
 **Precedence:** `--json` → `--db` → `--dir` → the config's `out_dir`. Passing `--db` together with `--json` or `--dir` is an error rather than a silent winner. Each run prints the source it resolved to.
 
-**JSON remains the default source**, even if you have `db:` set in your config. That setting says where `fss scrape` *writes*; it does not change where these commands *read*. Reading the database is an explicit `--db` until the [announced default switch](storage.md#making-sqlite-the-default) — until then nothing about your existing workflow changes.
+**JSON remains the default source**, even if you have `db:` set in your config. That setting says where `fss scrape` *writes*; it does not change where these commands *read*. Reading the database is always an explicit `--db`, so setting `db:` never changes what an existing workflow reads.
 
 **How `--from-studio` resolves**, most specific first:
 
@@ -496,15 +495,15 @@ One entry is appended to `priceHistory` on each scrape run.
 
 ### File naming
 
-Output files are named by sanitising the studio URL into a slug:
+Output files are named by sanitising the studio URL into a slug, followed by the first eight hex digits of the URL's SHA-256:
 
 ```
 https://www.manyvids.com/Profile/1000001/jane-eyre/Store/Videos
-→ manyvids.com-profile-1000001-jane-eyre-store-videos.json
-→ manyvids.com-profile-1000001-jane-eyre-store-videos.csv
+→ www-manyvids-com-profile-1000001-jane-eyre-store-videos-0e51b52b.json
+→ www-manyvids-com-profile-1000001-jane-eyre-store-videos-0e51b52b.csv
 ```
 
-Two distinct studio URLs can sanitise to the same slug (e.g. `/foo-bar` and `/foo/bar`, or `/Foo` and `/foo`). The full `studioUrl` is stored inside the JSON, and the store refuses to load or overwrite a file whose stored URL doesn't match the one you're scraping — you'll see a `slug collision` error. Rename or move one of the studio files to resolve.
+The hash keeps URLs that sanitise alike apart: `/foo-bar` and `/foo/bar` both become `foo-bar`, but end in different hashes. Files written before the hash was added are renamed to the hashed form the first time FSS loads them. The full `studioUrl` is also stored inside the JSON, and as a last line of defence the store refuses to load or overwrite a file whose stored URL doesn't match the one requested — a `slug collision` error rather than two studios mixed into one file.
 
 ### JSON
 
@@ -564,22 +563,6 @@ Multi-value fields (`performers`, `tags`, `categories`) use `|` as a separator �
 | `priceHistory` | JSON string | Array of PriceSnapshot objects |
 | `scrapedAt` | RFC3339 | |
 | `deletedAt` | RFC3339 | Empty if active |
-
----
-
-## Modifying a scraper
-
-### Adding a new field to `models.Scene`
-
-1. **`models/scene.go`** — add the field with JSON tag
-2. **The scraper** — populate the field in `toScene()` (or equivalent mapping function)
-3. **`internal/store/export_csv.go`** — add the column name to `csvHeaders` and the value to `sceneToRow()`
-4. **`docs/usage.md`** — add a row to the CSV column table and the data model table (this file)
-5. If using SQLite — add the column to the `CREATE TABLE` statement and the insert/select queries in `internal/store/sqlite.go`
-
-### Adding a new URL pattern to an existing scraper
-
-Update `Patterns()` to return the new pattern and update `MatchesURL()` to recognise it. Add a test case to `TestMatchesURL`. No other files change.
 
 ---
 

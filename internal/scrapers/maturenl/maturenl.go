@@ -214,7 +214,7 @@ func (s *Scraper) runModel(ctx context.Context, studioURL string, modelID string
 	// loop below selects on it so it stops enqueuing once the workers have
 	// early-stopped — otherwise it blocks forever on a full work buffer that no
 	// worker is draining (ctx is not cancelled on a normal early-stop), hanging
-	// the scrape while it holds the store flock. See AUDIT_PLAN B1b.
+	// the scrape while it holds the store flock.
 	stopped := make(chan struct{})
 	var stopOnce sync.Once
 	signalStop := func() { stopOnce.Do(func() { close(stopped) }) }

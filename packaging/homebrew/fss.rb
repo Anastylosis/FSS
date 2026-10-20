@@ -4,7 +4,7 @@
 #
 # Binary, not source: the release already publishes darwin and linux tarballs,
 # so an install is a download and an extract. A source formula would make every
-# user build the ~290 scrapers with a Go toolchain they may not have.
+# user build the ~1,900 scrapers with a Go toolchain they may not have.
 #
 # Keep this file and the workflow's placeholder list in step — the render step
 # fails loudly on a leftover placeholder rather than shipping a formula that

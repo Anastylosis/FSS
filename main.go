@@ -12,7 +12,7 @@
 //
 // # Library
 //
-// FSS can be imported as a Go module. Nine public packages are available:
+// FSS can be imported as a Go module. Eight public packages are available:
 //
 //   - [github.com/Anastylosis/FSS/scraper] — scraper registry and streaming interface
 //   - [github.com/Anastylosis/FSS/models] — Scene, PriceSnapshot, StudioFile types
@@ -23,8 +23,8 @@
 //   - [github.com/Anastylosis/FSS/nfo] — Kodi-style NFO XML generation
 //   - [github.com/Anastylosis/FSS/identify] — video directory scan + match + NFO write
 //
-// Blank-import the scraper packages you need to register them, then look up
-// by URL or ID:
+// Blank-import scrapers/all to register every scraper, then look one up by
+// URL or ID:
 //
 //	import (
 //	    "github.com/Anastylosis/FSS/scraper"

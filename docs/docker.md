@@ -6,7 +6,7 @@ FSS ships as a multi-arch container image on the GitHub Container Registry. Buil
 
 | Registry | Path |
 |----------|------|
-| GHCR | `ghcr.io/wasylq/fss` |
+| GHCR | `ghcr.io/anastylosis/fss` |
 
 Architectures: `linux/amd64`, `linux/arm64` (Pi 4/5, Apple Silicon Linux VMs, ARM cloud instances).
 
@@ -15,23 +15,22 @@ Architectures: `linux/amd64`, `linux/arm64` (Pi 4/5, Apple Silicon Linux VMs, AR
 | Tag | Tracks |
 |-----|--------|
 | `latest` | Latest released version (updated only when a `v*` tag is pushed and the manual smoke-test gate is approved) |
-| `vX.Y.Z`, `vX.Y`, `vX` | Specific release / minor / major track (also gated by `manual-smoke-gate`) |
+| `X.Y.Z`, `X.Y`, `X` | Specific release / minor / major track, without the tag's `v` (also gated by `manual-smoke-gate`) |
 | `master` | Tip of the default branch (development build, not gated) |
 | `sha-<short>` | Specific commit (development) |
-| `pr-<n>` | Pull request build (when CI runs on PRs) |
 
-Pin to `vX.Y` for stable systems; `latest` is fine for personal use.
+Pin to `X.Y` for stable systems; `latest` is fine for personal use.
 
 ## Quick start
 
 ```bash
-docker run --rm ghcr.io/wasylq/fss:latest list-scrapers
+docker run --rm ghcr.io/anastylosis/fss:latest list-scrapers
 ```
 
 The default `ENTRYPOINT` is `fss`, so any subcommand and flags work directly:
 
 ```bash
-docker run --rm ghcr.io/wasylq/fss:latest scrape --help
+docker run --rm ghcr.io/anastylosis/fss:latest scrape --help
 ```
 
 ## Volumes
@@ -53,7 +52,7 @@ The portable fix is to override the user at run time:
 docker run --rm \
   --user "$(id -u):$(id -g)" \
   -v "$PWD/data:/data" \
-  ghcr.io/wasylq/fss:latest \
+  ghcr.io/anastylosis/fss:latest \
   scrape https://www.manyvids.com/Profile/1000001/jane-eyre/Store/Videos
 ```
 
@@ -61,7 +60,7 @@ If you use Docker named volumes instead of bind mounts, ownership is handled aut
 
 ```bash
 docker volume create fss-data
-docker run --rm -v fss-data:/data ghcr.io/wasylq/fss:latest scrape <url>
+docker run --rm -v fss-data:/data ghcr.io/anastylosis/fss:latest scrape <url>
 ```
 
 ## Configuration
@@ -82,7 +81,7 @@ docker run --rm \
   --user "$(id -u):$(id -g)" \
   -v "$PWD/data:/data" \
   -v "$PWD/config:/config" \
-  ghcr.io/wasylq/fss:latest \
+  ghcr.io/anastylosis/fss:latest \
   scrape https://example.com/...
 ```
 
@@ -94,7 +93,7 @@ docker run --rm \
   -v "$PWD/data:/data" \
   -v "$PWD/config:/config" \
   -e FSS_STASH_API_KEY \
-  ghcr.io/wasylq/fss:latest \
+  ghcr.io/anastylosis/fss:latest \
   stash import --apply
 ```
 
@@ -116,7 +115,7 @@ services:
       - stashnet
 
   fss:
-    image: ghcr.io/wasylq/fss:latest
+    image: ghcr.io/anastylosis/fss:latest
     user: "1000:1000"
     volumes:
       - ./fss-data:/data
@@ -154,7 +153,7 @@ The simplest pattern is a host cron entry that runs `docker run --rm`:
 0 3 * * * docker run --rm --user 1000:1000 \
   -v /srv/fss/data:/data \
   -v /srv/fss/config:/config \
-  ghcr.io/wasylq/fss:vX.Y \
+  ghcr.io/anastylosis/fss:X.Y \
   scrape --refresh https://www.manyvids.com/Profile/1000001/jane-eyre/Store/Videos \
   >> /var/log/fss.log 2>&1
 ```
@@ -175,7 +174,7 @@ docker build \
 
 | Arg | Default | Purpose |
 |-----|---------|---------|
-| `GO_VERSION` | `1.25` | Builder image: `golang:${GO_VERSION}-alpine`. Bump when `go.mod` requires a newer Go. |
+| `GO_VERSION` | `1.26.5` | Builder image: `golang:${GO_VERSION}-alpine`. Bump when `go.mod` requires a newer Go. |
 | `ALPINE_VERSION` | `3.21` | Runtime image: `alpine:${ALPINE_VERSION}`. Bump for security updates to the runtime base. |
 | `VERSION` | `dev` | Embedded in `fss version` output. CI sets this to the git tag. |
 | `COMMIT` | `none` | Embedded in `fss version` output. CI sets this to the short SHA. |
@@ -219,4 +218,4 @@ Build cache is stored in GitHub Actions cache (`type=gha`) so subsequent builds 
 
 **Stash connection refused** — when both run in Docker, FSS must use the Stash *service name* on the shared network (`http://stash:9999`), not `localhost:9999`. Localhost inside a container is the container itself.
 
-**Image is not being updated by `docker pull`** — Docker caches by tag. For `latest` and `main`, use `docker pull ghcr.io/wasylq/fss:latest` explicitly before `docker run`, or pin to a `vX.Y.Z` tag and bump it deliberately.
+**Image is not being updated by `docker pull`** — Docker caches by tag. For `latest` and `master`, use `docker pull ghcr.io/anastylosis/fss:latest` explicitly before `docker run`, or pin to an `X.Y.Z` tag and bump it deliberately.

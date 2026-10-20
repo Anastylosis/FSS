@@ -67,7 +67,7 @@ linters:
   exclusions:
     rules:
       # godoc comments only matter for code other modules can import.
-      # internal/ is unimportable by definition, and the ~290 scrapers there
+      # internal/ is unimportable by definition, and the ~1,900 scrapers there
       # implement the same four-method StudioScraper interface — documenting
       # each identically would be ~2,100 findings of pure churn. The nine
       # public packages (scraper, models, match, output, parseutil, nfo,

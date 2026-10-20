@@ -420,7 +420,7 @@ func TestKnownIDsStopsEarly(t *testing.T) {
 	}
 }
 
-// TestRunModelKnownIDsNoDeadlock regresses AUDIT_PLAN B1b: a model page whose
+// TestRunModelKnownIDsNoDeadlock: a model page whose
 // updates are all already known makes every worker early-stop on its first
 // item. The producer must notice the workers have stopped and quit enqueuing
 // instead of blocking forever on a full work buffer that nobody drains.

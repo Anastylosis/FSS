@@ -583,7 +583,7 @@ func TestFlatExportNoop(t *testing.T) {
 	}
 }
 
-// TestFlatSlugCollision pins AUDIT.md §Store #4: two distinct studio URLs
+// TestFlatSlugCollision: two distinct studio URLs
 // can sanitize to the same slug. The pre-fix store silently overwrote one
 // studio's data with the other on Save and silently returned the wrong
 // scenes on Load. The fix detects the mismatch via the stored StudioURL

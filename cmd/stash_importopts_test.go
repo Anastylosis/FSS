@@ -322,9 +322,8 @@ func TestLoadFSSScenesSourcePrecedence(t *testing.T) {
 }
 
 // A configured `db:` must NOT silently become the default source. It says where
-// `fss scrape` writes, not where these commands read, and changing that without
-// being asked is precisely what the upcoming-default notice promises not to do
-// yet. Reading the database stays an explicit --db until the announced switch.
+// `fss scrape` writes, not where these commands read; reading the database is
+// always an explicit --db.
 func TestLoadFSSScenesConfiguredDBDoesNotOverrideJSON(t *testing.T) {
 	dir := t.TempDir()
 	dbPath := filepath.Join(dir, "fss.db")
