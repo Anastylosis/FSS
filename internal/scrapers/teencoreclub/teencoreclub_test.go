@@ -35,7 +35,7 @@ func browsePageJSON(total, lastPage, currentPage int, items []videoItem) string 
 }
 
 func detailJSON(d videoDetail) string {
-	b, _ := json.Marshal(d)
+	b, _ := json.Marshal(detailResponse{Video: d})
 	return string(b)
 }
 
@@ -97,8 +97,8 @@ func TestToScene(t *testing.T) {
 	}
 
 	detail := &videoDetail{
-		Description: "A detailed description",
-		Genres:      []genreItem{{ID: 1, Name: "Hardcore"}, {ID: 2, Name: "Blowjob"}},
+		Description: ls("A detailed description"),
+		Genres:      []genreItem{{ID: 1, Title: ls("Hardcore")}, {ID: 2, Title: ls("Blowjob")}},
 		Labels:      []labelItem{{ID: 196, Name: "HardcoreYouth.com"}},
 		Studio:      &detailStudio{ID: 1624, Name: "BIC", Slug: "bic"},
 	}
@@ -241,16 +241,16 @@ func TestFullScrape(t *testing.T) {
 		case "/api/videodetail/100":
 			_, _ = fmt.Fprint(w, detailJSON(videoDetail{
 				ID: 100, Title: ls("Scene 1"), Slug: "scene-1",
-				Description: "A great scene",
-				Genres:      []genreItem{{ID: 1, Name: "Hardcore"}},
+				Description: ls("A great scene"),
+				Genres:      []genreItem{{ID: 1, Title: ls("Hardcore")}},
 				Labels:      []labelItem{{ID: 196, Name: "HardcoreYouth.com"}},
 				Studio:      &detailStudio{ID: 1624, Name: "BIC"},
 			}))
 		case "/api/videodetail/101":
 			_, _ = fmt.Fprint(w, detailJSON(videoDetail{
 				ID: 101, Title: ls("Scene 2"), Slug: "scene-2",
-				Description: "Another scene",
-				Genres:      []genreItem{{ID: 2, Name: "Blowjob"}},
+				Description: ls("Another scene"),
+				Genres:      []genreItem{{ID: 2, Title: ls("Blowjob")}},
 				Labels:      []labelItem{{ID: 220, Name: "YoungThroats.com"}},
 				Studio:      &detailStudio{ID: 1624, Name: "BIC"},
 			}))
@@ -565,5 +565,66 @@ func TestDetailFailureReportsAndSkipsRatherThanReFilingTheScene(t *testing.T) {
 	}
 	if errs != len(items) {
 		t.Errorf("reported %d errors, want %d", errs, len(items))
+	}
+}
+
+// The live videodetail endpoint wraps the scene in {"video": …} and keys
+// description and genre names by language; decoding at the top level read an
+// empty detail without any error.
+func TestFetchVideoDetailDecodesLiveEnvelope(t *testing.T) {
+	body, err := os.ReadFile(filepath.Join("testdata", "videodetail.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write(body)
+	}))
+	defer srv.Close()
+	restore := apiBase
+	apiBase = srv.URL
+	defer func() { apiBase = restore }()
+
+	s := New()
+	s.client = srv.Client()
+	d, err := s.fetchVideoDetail(context.Background(), 217724)
+	if err != nil {
+		t.Fatalf("fetchVideoDetail: %v", err)
+	}
+	sc := toScene(videoItem{ID: 217724, Slug: "bic-1702"}, d, configStudio{Name: "Darkangel"}, "https://teencoreclub.com/", time.Now())
+	if !strings.HasPrefix(sc.Description, "Elise might seem") {
+		t.Errorf("Description = %q", sc.Description)
+	}
+	if len(sc.Tags) == 0 || sc.Tags[0] != "Teens (18+)" {
+		t.Errorf("Tags = %v", sc.Tags)
+	}
+	if sc.SiteID != "tryteens" {
+		t.Errorf("SiteID = %q, want tryteens", sc.SiteID)
+	}
+}
+
+// A label that is not a domain ("Network updates Mixed") names no child
+// site, so the scene stays under its studio.
+func TestToSceneIgnoresNonDomainLabel(t *testing.T) {
+	d := &videoDetail{Labels: []labelItem{{ID: 1, Name: "Network updates Mixed"}}}
+	sc := toScene(videoItem{ID: 1}, d, configStudio{Name: "BIC"}, "https://teencoreclub.com/", time.Now())
+	if sc.SiteID != "bic" {
+		t.Errorf("SiteID = %q, want bic", sc.SiteID)
+	}
+}
+
+func TestFetchVideoDetailWithoutVideoIsParseError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = fmt.Fprint(w, `{"id":5,"title":{"en":"x"}}`)
+	}))
+	defer srv.Close()
+	restore := apiBase
+	apiBase = srv.URL
+	defer func() { apiBase = restore }()
+
+	s := New()
+	s.client = srv.Client()
+	_, err := s.fetchVideoDetail(context.Background(), 5)
+	if scraper.Classify(err) != scraper.FailureParse {
+		t.Errorf("err = %v, want a parse error", err)
 	}
 }

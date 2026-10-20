@@ -117,7 +117,7 @@ type videoDetail struct {
 	ID          int           `json:"id"`
 	Title       langString    `json:"title"`
 	Slug        string        `json:"slug"`
-	Description string        `json:"description"`
+	Description langString    `json:"description"`
 	Actors      []actorItem   `json:"actors"`
 	Genres      []genreItem   `json:"genres"`
 	Labels      []labelItem   `json:"labels"`
@@ -129,8 +129,13 @@ type videoDetail struct {
 }
 
 type genreItem struct {
-	ID   int    `json:"id"`
-	Name string `json:"name"`
+	ID    int        `json:"id"`
+	Title langString `json:"title"`
+}
+
+// detailResponse is the videodetail envelope: the scene sits under "video".
+type detailResponse struct {
+	Video videoDetail `json:"video"`
 }
 
 type labelItem struct {
@@ -237,10 +242,7 @@ func (s *Scraper) scrapeStudio(ctx context.Context, cfgSiteID int, studio config
 // SiteID is derived from, so emitting the listing alone would file the scene
 // under a different identity than a clean run gives it.
 func (s *Scraper) enrichAndCollect(ctx context.Context, items []videoItem, studio configStudio, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult) ([]models.Scene, error) {
-	workers := opts.Workers
-	if workers <= 0 {
-		workers = 4
-	}
+	workers := scraper.WorkerCount(opts, 4)
 
 	type enriched struct {
 		item   videoItem
@@ -324,11 +326,11 @@ func toScene(item videoItem, detail *videoDetail, studio configStudio, studioURL
 	// Note SiteID below depends on the detail's label, so a scene whose detail
 	// could not be read is never emitted — see enrichAndCollect.
 	if detail != nil {
-		if detail.Description != "" {
-			description = detail.Description
-		}
+		description = detail.Description.String()
 		for _, g := range detail.Genres {
-			tags = append(tags, g.Name)
+			if name := g.Title.String(); name != "" {
+				tags = append(tags, name)
+			}
 		}
 		if detail.Studio != nil && detail.Studio.Name != "" {
 			studioName = detail.Studio.Name
@@ -338,9 +340,11 @@ func toScene(item videoItem, detail *videoDetail, studio configStudio, studioURL
 				performers = append(performers, a.Name)
 			}
 		}
-		if len(detail.Labels) > 0 {
-			label := strings.TrimSuffix(detail.Labels[0].Name, ".com")
-			siteID = slugify(label)
+		for _, l := range detail.Labels {
+			if label, ok := strings.CutSuffix(l.Name, ".com"); ok {
+				siteID = slugify(label)
+				break
+			}
 		}
 	}
 
@@ -456,7 +460,7 @@ func (s *Scraper) fetchBrowsePage(ctx context.Context, siteID, studioID, page in
 func (s *Scraper) fetchVideoDetail(ctx context.Context, videoID int) (*videoDetail, error) {
 	u := fmt.Sprintf("%s/api/videodetail/%d", apiBase, videoID)
 
-	var detail videoDetail
+	var detail detailResponse
 	resp, err := httpx.Do(ctx, s.client, httpx.Request{
 		URL: u,
 		Headers: map[string]string{
@@ -472,5 +476,8 @@ func (s *Scraper) fetchVideoDetail(ctx context.Context, videoID int) (*videoDeta
 	if err := httpx.DecodeJSON(resp.Body, &detail); err != nil {
 		return nil, err
 	}
-	return &detail, nil
+	if detail.Video.ID == 0 {
+		return nil, scraper.ParseError(u, fmt.Errorf("videodetail carries no video"))
+	}
+	return &detail.Video, nil
 }
