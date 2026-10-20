@@ -241,7 +241,7 @@ exists — and names any studio that lives only as JSON:
   active store           ok    (SQLite)
   store contents         FAIL  (12 studio(s) in JSON, 11 in the database
     only in JSON (1):
-      https://example.com/studio/4021/mara-vance
+      https://example.com/studio/4021/jane-eyre
       run `fss import` to bring these into the database)
 ```
 

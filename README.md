@@ -223,13 +223,13 @@ own site, at different prices. Define the grouping once and work in that unit:
 fss creators suggest --db --write
 
 # Scrape every storefront one creator sells on
-fss scrape --creator "Mara Vance"
+fss scrape --creator "Jane Eyre"
 
 # Cron-friendly: everything not scraped in the last week
 fss scrape --all-creators --stale 7d --db
 
 # Where is each clip cheapest, and what is exclusive to one store?
-fss compare --db --from-creator "Mara Vance"
+fss compare --db --from-creator "Jane Eyre"
 ```
 
 Scraping a store listed in a creator file also folds that storefront's own

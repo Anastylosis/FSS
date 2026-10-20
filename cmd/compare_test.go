@@ -19,16 +19,16 @@ func unpriced(studioURL, title string) models.Scene {
 
 func TestStoreLabelsUseHostUntilItCollides(t *testing.T) {
 	labels := storeLabels([]string{
-		"https://clipmarket.example/studio/5674/ines-dahl-taboo",
-		"https://clipmarket.example/studio/4277/velvet-hour-studio",
-		"https://inesdahl.example",
-		"https://vidvault.example/profile/1003029948/inesdahlofficial/store/videos",
+		"https://clipmarket.example/studio/5674/irene-adler-taboo",
+		"https://clipmarket.example/studio/4277/baker-street-studio",
+		"https://ireneadler.example",
+		"https://vidvault.example/profile/1003029948/ireneadlerofficial/store/videos",
 	})
 	want := map[string]string{
-		"https://clipmarket.example/studio/5674/ines-dahl-taboo":                    "clipmarket.example/ines-dahl-taboo",
-		"https://clipmarket.example/studio/4277/velvet-hour-studio":                 "clipmarket.example/velvet-hour-studio",
-		"https://inesdahl.example":                                                  "inesdahl.example",
-		"https://vidvault.example/profile/1003029948/inesdahlofficial/store/videos": "vidvault.example",
+		"https://clipmarket.example/studio/5674/irene-adler-taboo":                    "clipmarket.example/irene-adler-taboo",
+		"https://clipmarket.example/studio/4277/baker-street-studio":                  "clipmarket.example/baker-street-studio",
+		"https://ireneadler.example":                                                  "ireneadler.example",
+		"https://vidvault.example/profile/1003029948/ireneadlerofficial/store/videos": "vidvault.example",
 	}
 	for url, w := range want {
 		if got := labels[url]; got != w {
@@ -40,12 +40,12 @@ func TestStoreLabelsUseHostUntilItCollides(t *testing.T) {
 // Taking the last path segment would label a ManyVids store "Videos".
 func TestIdentifyingSegmentSkipsStructuralAndNumericParts(t *testing.T) {
 	cases := map[string]string{
-		"https://vidvault.example/profile/38331/mara-vance/store/videos": "mara-vance",
-		"https://clipmarket.example/studio/5674/ines-dahl-taboo":         "ines-dahl-taboo",
-		"https://clipstore.example/store/654478/Duchess-Nyx":             "Duchess-Nyx",
-		"https://clipstore.example/creators/mona-reeve-1":                "mona-reeve-1",
-		"https://maravance.example":                                      "",
-		"https://maravance.example/":                                     "",
+		"https://vidvault.example/profile/38331/jane-eyre/store/videos": "jane-eyre",
+		"https://clipmarket.example/studio/5674/irene-adler-taboo":      "irene-adler-taboo",
+		"https://clipstore.example/store/654478/Duchess-Mina":           "Duchess-Mina",
+		"https://clipstore.example/creators/becky-sharp-1":              "becky-sharp-1",
+		"https://janeeyre.example":                                      "",
+		"https://janeeyre.example/":                                     "",
 	}
 	for in, want := range cases {
 		if got := identifyingSegment(in); got != want {

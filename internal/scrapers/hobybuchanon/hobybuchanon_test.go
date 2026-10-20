@@ -31,8 +31,8 @@ func item(id int, title, slug, site string) map[string]any {
 		"thumb":            "https://cdn.example/" + slug + ".jpg",
 		"trailer_url":      "https://cdn.example/" + slug + ".mp4",
 		"tags":             []string{},
-		"models":           []string{"Ada Stone"},
-		"models_slugs":     []map[string]string{{"name": "Ada Stone", "slug": "ada-stone"}},
+		"models":           []string{"Hester Prynne"},
+		"models_slugs":     []map[string]string{{"name": "Hester Prynne", "slug": "hester-prynne"}},
 		"views":            100 + id,
 	}
 }
@@ -165,7 +165,7 @@ func TestSceneFieldsComeFromThePayload(t *testing.T) {
 	if got.Date.Format("2006-01-02") != "2026-03-11" {
 		t.Errorf("Date = %v", got.Date)
 	}
-	if len(got.Performers) != 1 || got.Performers[0] != "Ada Stone" {
+	if len(got.Performers) != 1 || got.Performers[0] != "Hester Prynne" {
 		t.Errorf("Performers = %v", got.Performers)
 	}
 	if got.Thumbnail == "" || got.Preview == "" {
@@ -236,7 +236,7 @@ func TestModelPageReadsModelContents(t *testing.T) {
 	s.Client = srv.Client()
 	s.baseOverride = srv.URL
 
-	scenes, errs, total := collect(t, s, "https://hobybuchanon.com/hobyshotties/ada-stone", scraper.ListOpts{})
+	scenes, errs, total := collect(t, s, "https://hobybuchanon.com/hobyshotties/hester-prynne", scraper.ListOpts{})
 	if len(errs) != 0 {
 		t.Fatalf("unexpected errors: %v", errs)
 	}
@@ -301,7 +301,7 @@ func TestMatchesURL(t *testing.T) {
 		"https://hobybuchanon.com",
 		"https://hobybuchanon.com/",
 		"https://www.hobybuchanon.com/updates",
-		"http://hobybuchanon.com/hobyshotties/ada-stone",
+		"http://hobybuchanon.com/hobyshotties/hester-prynne",
 	} {
 		if !s.MatchesURL(u) {
 			t.Errorf("MatchesURL(%q) = false, want true", u)
@@ -364,9 +364,9 @@ func TestQuotedPaginationFieldsParse(t *testing.T) {
 		_, _ = fmt.Fprintf(w, `<script id="__NEXT_DATA__" type="application/json">
 {"props":{"pageProps":{"contents":{"total":"2","page":%q,"per_page":"8","total_pages":"1",
 "data":[{"id":"41","title":"One","slug":"one","site":"hobybuchanon","seconds_duration":"600",
-"publish_date":"2026/01/02 00:00:00","views":"7","models_slugs":[{"name":"Ada Stone","slug":"ada-stone"}]},
+"publish_date":"2026/01/02 00:00:00","views":"7","models_slugs":[{"name":"Hester Prynne","slug":"hester-prynne"}]},
 {"id":"42","title":"Two","slug":"two","site":"hobybuchanon","seconds_duration":"700",
-"publish_date":"2026/01/03 00:00:00","views":"8","models_slugs":[{"name":"Ada Stone","slug":"ada-stone"}]}]}}}}
+"publish_date":"2026/01/03 00:00:00","views":"8","models_slugs":[{"name":"Hester Prynne","slug":"hester-prynne"}]}]}}}}
 </script>`, page)
 	}))
 	defer srv.Close()

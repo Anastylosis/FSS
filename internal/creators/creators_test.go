@@ -14,13 +14,13 @@ func write(t *testing.T, dir, name, body string) {
 	}
 }
 
-const maraFile = `name: Mara Vance
-aliases: [MaraVanceVIP]
+const maraFile = `name: Jane Eyre
+aliases: [JaneEyreVIP]
 stores:
-  - url: https://clipmarket.example/studio/4021/mara-vance
-  - url: https://maravance.example
+  - url: https://clipmarket.example/studio/4021/jane-eyre
+  - url: https://janeeyre.example
     delay: 2000
-  - url: https://fanhub.example/mara-vance
+  - url: https://fanhub.example/jane-eyre
     enabled: false
     note: needs a session cookie
 `
@@ -29,10 +29,10 @@ func TestKeyIgnoresSpacingAndPunctuation(t *testing.T) {
 	// The point of the tighter key: one person spelled three ways across three
 	// storefronts has to resolve to one lookup value.
 	cases := map[string]string{
-		"Vera Quill":       "veraquill",
-		"VeraQuill":        "veraquill",
-		"vera-quill":       "veraquill",
-		"Vera  Quill!":     "veraquill",
+		"Emma Woodhouse":   "emmawoodhouse",
+		"EmmaWoodhouse":    "emmawoodhouse",
+		"emma-woodhouse":   "emmawoodhouse",
+		"Emma  Woodhouse!": "emmawoodhouse",
 		"thegirlupstairs7": "thegirlupstairs7",
 		"":                 "",
 		"---":              "",
@@ -46,10 +46,10 @@ func TestKeyIgnoresSpacingAndPunctuation(t *testing.T) {
 
 func TestFilename(t *testing.T) {
 	cases := map[string]string{
-		"Mara Vance": "mara-vance.yaml",
-		"VeraQuill":  "veraquill.yaml",
-		"Ines  Dahl": "ines-dahl.yaml",
-		"!!!":        "creator.yaml",
+		"Jane Eyre":     "jane-eyre.yaml",
+		"EmmaWoodhouse": "emmawoodhouse.yaml",
+		"Irene  Adler":  "irene-adler.yaml",
+		"!!!":           "creator.yaml",
 	}
 	for in, want := range cases {
 		if got := Filename(in); got != want {
@@ -60,7 +60,7 @@ func TestFilename(t *testing.T) {
 
 func TestLoadReadsStoresAndPerStoreSettings(t *testing.T) {
 	dir := t.TempDir()
-	write(t, dir, "mara-vance.yaml", maraFile)
+	write(t, dir, "jane-eyre.yaml", maraFile)
 
 	list, err := Load(dir)
 	if err != nil {
@@ -70,7 +70,7 @@ func TestLoadReadsStoresAndPerStoreSettings(t *testing.T) {
 		t.Fatalf("loaded %d creators, want 1", len(list))
 	}
 	c := list[0]
-	if c.Name != "Mara Vance" {
+	if c.Name != "Jane Eyre" {
 		t.Errorf("Name = %q", c.Name)
 	}
 	if len(c.Stores) != 3 {
@@ -89,7 +89,7 @@ func TestLoadReadsStoresAndPerStoreSettings(t *testing.T) {
 		t.Errorf("URLs = %d, want 3 (disabled stores still listed)", got)
 	}
 	// The file name is cosmetic; the name field is authoritative.
-	if c.Path != filepath.Join(dir, "mara-vance.yaml") {
+	if c.Path != filepath.Join(dir, "jane-eyre.yaml") {
 		t.Errorf("Path = %q", c.Path)
 	}
 }
@@ -110,7 +110,7 @@ func TestLoadMissingDirectoryIsNotAnError(t *testing.T) {
 // which are creators.
 func TestLoadSkipsNonYAMLAndDotfiles(t *testing.T) {
 	dir := t.TempDir()
-	write(t, dir, "mara-vance.yaml", maraFile)
+	write(t, dir, "jane-eyre.yaml", maraFile)
 	write(t, dir, "README.md", "# creators")
 	write(t, dir, "LICENSE", "MIT")
 	write(t, dir, ".hidden.yaml", "name: nope\nstores: []\n")
@@ -163,9 +163,9 @@ func TestLoadRejectsWrongStoresKey(t *testing.T) {
 
 func TestLoadRejectsDuplicateNamesAcrossFiles(t *testing.T) {
 	dir := t.TempDir()
-	write(t, dir, "a.yaml", "name: Mara Vance\nstores:\n  - url: https://a.example.com\n")
+	write(t, dir, "a.yaml", "name: Jane Eyre\nstores:\n  - url: https://a.example.com\n")
 	// Different spelling, same key — the collision this is meant to catch.
-	write(t, dir, "b.yaml", "name: MaraVance\nstores:\n  - url: https://b.example.com\n")
+	write(t, dir, "b.yaml", "name: JaneEyre\nstores:\n  - url: https://b.example.com\n")
 	if _, err := Load(dir); err == nil {
 		t.Fatal("expected a duplicate-name error")
 	}
@@ -195,43 +195,43 @@ func TestLoadSortsByName(t *testing.T) {
 
 func TestFind(t *testing.T) {
 	list := []Creator{
-		{Name: "Mara Vance", Aliases: []string{"MaraVanceVIP"}},
-		{Name: "Mara Quinn"},
-		{Name: "Mona Reeve"},
+		{Name: "Jane Eyre", Aliases: []string{"JaneEyreVIP"}},
+		{Name: "Jane Bennet"},
+		{Name: "Becky Sharp"},
 	}
 
 	t.Run("exact name", func(t *testing.T) {
-		c, err := Find(list, "mona reeve")
-		if err != nil || c.Name != "Mona Reeve" {
+		c, err := Find(list, "becky sharp")
+		if err != nil || c.Name != "Becky Sharp" {
 			t.Fatalf("got %q, %v", c.Name, err)
 		}
 	})
 	t.Run("spacing ignored", func(t *testing.T) {
-		c, err := Find(list, "MonaReeve")
-		if err != nil || c.Name != "Mona Reeve" {
+		c, err := Find(list, "BeckySharp")
+		if err != nil || c.Name != "Becky Sharp" {
 			t.Fatalf("got %q, %v", c.Name, err)
 		}
 	})
 	t.Run("alias", func(t *testing.T) {
-		c, err := Find(list, "maravancevip")
-		if err != nil || c.Name != "Mara Vance" {
+		c, err := Find(list, "janeeyrevip")
+		if err != nil || c.Name != "Jane Eyre" {
 			t.Fatalf("got %q, %v", c.Name, err)
 		}
 	})
 	t.Run("unique prefix", func(t *testing.T) {
-		c, err := Find(list, "mona")
-		if err != nil || c.Name != "Mona Reeve" {
+		c, err := Find(list, "becky")
+		if err != nil || c.Name != "Becky Sharp" {
 			t.Fatalf("got %q, %v", c.Name, err)
 		}
 	})
-	// "mara" prefixes two creators: picking one silently would scrape the wrong
+	// "jane" prefixes two creators: picking one silently would scrape the wrong
 	// person's catalogue.
 	t.Run("ambiguous prefix is an error", func(t *testing.T) {
-		_, err := Find(list, "mara")
+		_, err := Find(list, "jane")
 		if err == nil {
 			t.Fatal("expected an ambiguity error")
 		}
-		if !strings.Contains(err.Error(), "Mara Vance") || !strings.Contains(err.Error(), "Mara Quinn") {
+		if !strings.Contains(err.Error(), "Jane Eyre") || !strings.Contains(err.Error(), "Jane Bennet") {
 			t.Errorf("error should name both candidates, got: %v", err)
 		}
 	})
@@ -240,7 +240,7 @@ func TestFind(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected an error")
 		}
-		if !strings.Contains(err.Error(), "Mona Reeve") {
+		if !strings.Contains(err.Error(), "Becky Sharp") {
 			t.Errorf("error should list available creators, got: %v", err)
 		}
 	})
@@ -260,11 +260,11 @@ func TestMarshalRoundTrips(t *testing.T) {
 	on := false
 	delay := 1500
 	orig := Creator{
-		Name:    "Mona Reeve",
-		Aliases: []string{"MonaReeveVIP"},
+		Name:    "Becky Sharp",
+		Aliases: []string{"BeckySharpVIP"},
 		Stores: []Store{
-			{URL: "https://clipmarket.example/studio/3207/mona-reeve"},
-			{URL: "https://clipstore.example/creators/mona-reeve-1", Delay: &delay, Enabled: &on, Note: "slow"},
+			{URL: "https://clipmarket.example/studio/3207/becky-sharp"},
+			{URL: "https://clipstore.example/creators/becky-sharp-1", Delay: &delay, Enabled: &on, Note: "slow"},
 		},
 	}
 	body, err := orig.Marshal()

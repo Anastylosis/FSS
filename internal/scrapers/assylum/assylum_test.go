@@ -87,7 +87,7 @@ func newSite(t *testing.T, present []int, indexed []int) *stubSite {
 				return
 			}
 			_, _ = fmt.Fprint(w, sessionPage(id, fmt.Sprintf("Session %d", id),
-				"Patient: Riley Reynolds, Nurse: Ada Stone, July 24, 2026", "A description."))
+				"Patient: Riley Reynolds, Nurse: Hester Prynne, July 24, 2026", "A description."))
 		default:
 			_, _ = fmt.Fprint(w, indexPage(indexed...))
 		}
@@ -169,9 +169,9 @@ func TestGapsInTheIDRangeAreNotErrors(t *testing.T) {
 // under two names, since her other scenes credit her plainly.
 func TestRoleLabelsAreStrippedFromCredits(t *testing.T) {
 	d := parseSession(sessionPage(780, "The Evolution of H. Nuria",
-		"Patient: Riley Reynolds, Nurse: Ada Stone, July 24, 2026", "A description."))
+		"Patient: Riley Reynolds, Nurse: Hester Prynne, July 24, 2026", "A description."))
 
-	if strings.Join(d.performers, ",") != "Riley Reynolds,Ada Stone" {
+	if strings.Join(d.performers, ",") != "Riley Reynolds,Hester Prynne" {
 		t.Errorf("performers = %v", d.performers)
 	}
 	if d.date.Format("2006-01-02") != "2026-07-24" {

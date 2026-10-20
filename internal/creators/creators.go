@@ -96,7 +96,7 @@ func (c Creator) Keys() []string {
 // that is not a letter or digit removed.
 //
 // It is deliberately tighter than match.NormalizeName, which keeps spaces. The
-// same person is spelled "Vera Quill", "VeraQuill" and "Vera Quill Films" across
+// same person is spelled "Emma Woodhouse", "EmmaWoodhouse" and "Emma Woodhouse Films" across
 // three storefronts, and only a key that ignores spacing treats the first two as
 // one name.
 func Key(s string) string {
@@ -284,8 +284,8 @@ func (c *Creator) validate() error {
 // Find resolves a --creator value against a loaded set.
 //
 // An exact key match wins outright. Failing that, a value that is a prefix of
-// exactly one creator's key resolves to it, so `--creator mara` reaches "Mara
-// Vance"; a prefix matching several is an error naming them, never a silent
+// exactly one creator's key resolves to it, so `--creator jane` reaches "Jane
+// Eyre"; a prefix matching several is an error naming them, never a silent
 // pick.
 func Find(list []Creator, query string) (Creator, error) {
 	q := Key(query)

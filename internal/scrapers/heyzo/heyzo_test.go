@@ -114,14 +114,14 @@ func catalogueServer(t *testing.T, pages, perPage int) *stubSite {
 			sb.WriteString(`<html><body><div class="movie-list">`)
 			for n := 0; n < perPage; n++ {
 				id := strconv.Itoa(1000 + (page-1)*perPage + n)
-				sb.WriteString(card(id, "Title "+id, "Ada Stone", "2026-08-1"+strconv.Itoa(n%10)))
+				sb.WriteString(card(id, "Title "+id, "Hester Prynne", "2026-08-1"+strconv.Itoa(n%10)))
 			}
 			sb.WriteString(`</div></body></html>`)
 			_, _ = fmt.Fprint(w, sb.String())
 		case strings.HasPrefix(r.URL.Path, "/moviepages/"):
 			id := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/moviepages/"), "/index.html")
 			_, _ = fmt.Fprint(w, detailHTML(
-				"Detail Title "+id, "A description.", "PT0H58M54S", "2024-08-17", "Mara Vance",
+				"Detail Title "+id, "A description.", "PT0H58M54S", "2024-08-17", "Jane Eyre",
 				[]string{"Mature", "Slim"}, []string{"69", "Toys", "69"}, "-----"))
 		default:
 			http.NotFound(w, r)
@@ -218,7 +218,7 @@ func TestDetailSuppliesTheRicherFields(t *testing.T) {
 	if got.Date.Format("2006-01-02") != "2024-08-17" {
 		t.Errorf("Date = %v", got.Date)
 	}
-	if len(got.Performers) != 1 || got.Performers[0] != "Mara Vance" {
+	if len(got.Performers) != 1 || got.Performers[0] != "Jane Eyre" {
 		t.Errorf("Performers = %v", got.Performers)
 	}
 	if strings.Join(got.Categories, ",") != "Mature,Slim" {
@@ -246,7 +246,7 @@ func TestDetailSuppliesTheRicherFields(t *testing.T) {
 // The newer pages ship no JSON-LD at all. Everything the table holds must
 // still be read, and the page must not be reported as unparseable.
 func TestPageWithoutJSONLDStillParses(t *testing.T) {
-	full := detailHTML("Outer", "Outer Desc", "PT1H0M0S", "2026-01-02", "Ada Stone",
+	full := detailHTML("Outer", "Outer Desc", "PT1H0M0S", "2026-01-02", "Hester Prynne",
 		[]string{"Mature"}, []string{"Toys"}, "-----")
 	i := strings.Index(full, `<script type="application/ld+json">`)
 	j := strings.Index(full, "</script>") + len("</script>")
@@ -259,7 +259,7 @@ func TestPageWithoutJSONLDStillParses(t *testing.T) {
 	if d.description != "The site's own synopsis." {
 		t.Errorf("description = %q", d.description)
 	}
-	if len(d.performers) != 1 || d.performers[0] != "Ada Stone" {
+	if len(d.performers) != 1 || d.performers[0] != "Hester Prynne" {
 		t.Errorf("performers = %v", d.performers)
 	}
 	if strings.Join(d.tags, ",") != "Toys" {
@@ -274,7 +274,7 @@ func TestPageWithoutJSONLDStillParses(t *testing.T) {
 // The JSON-LD nests the same keys under the Movie and under its video object.
 // The outer copy comes first and is the one that must win.
 func TestJSONLDPrefersTheOuterMovieFields(t *testing.T) {
-	d := parseDetail(detailHTML("Outer Name", "Outer Desc", "PT1H0M0S", "2026-01-02", "Ada Stone", nil, nil, ""))
+	d := parseDetail(detailHTML("Outer Name", "Outer Desc", "PT1H0M0S", "2026-01-02", "Hester Prynne", nil, nil, ""))
 	if d.title != "Outer Name" {
 		t.Errorf("title = %q", d.title)
 	}
@@ -285,7 +285,7 @@ func TestJSONLDPrefersTheOuterMovieFields(t *testing.T) {
 
 	// And the outer description is what the JSON-LD contributes — visible once
 	// the memo row, which otherwise wins, is taken away.
-	noMemo := strings.Replace(detailHTML("Outer Name", "Outer Desc", "PT1H0M0S", "2026-01-02", "Ada Stone", nil, nil, ""),
+	noMemo := strings.Replace(detailHTML("Outer Name", "Outer Desc", "PT1H0M0S", "2026-01-02", "Hester Prynne", nil, nil, ""),
 		`<tr class="table-memo"><td colspan="2"><p class="memo">The site's own synopsis.</p></td></tr>`, "", 1)
 	if got := parseDetail(noMemo).description; got != "Outer Desc" {
 		t.Errorf("description = %q, want the outer JSON-LD value", got)
@@ -295,13 +295,13 @@ func TestJSONLDPrefersTheOuterMovieFields(t *testing.T) {
 // A card gives the performer twice — as the thumbnail's alt text and as the
 // actor link. The link wins; alt is the fallback for a card without one.
 func TestCardPerformerFallsBackToTheThumbnailAlt(t *testing.T) {
-	withLink := parseCards(card("77", "T", "Ada Stone", "2026-05-06"))
-	if len(withLink) != 1 || withLink[0].performer != "Ada Stone" {
+	withLink := parseCards(card("77", "T", "Hester Prynne", "2026-05-06"))
+	if len(withLink) != 1 || withLink[0].performer != "Hester Prynne" {
 		t.Fatalf("got %+v", withLink)
 	}
-	noLink := parseCards(strings.Replace(card("78", "T", "Mara Vance", "2026-05-06"),
-		`<a href="/listpages/actor_293_1.html?sort=pop" class="actor" title="">Mara Vance</a>`, "", 1))
-	if len(noLink) != 1 || noLink[0].performer != "Mara Vance" {
+	noLink := parseCards(strings.Replace(card("78", "T", "Jane Eyre", "2026-05-06"),
+		`<a href="/listpages/actor_293_1.html?sort=pop" class="actor" title="">Jane Eyre</a>`, "", 1))
+	if len(noLink) != 1 || noLink[0].performer != "Jane Eyre" {
 		t.Fatalf("alt fallback failed: %+v", noLink)
 	}
 }
@@ -389,7 +389,7 @@ func TestDetailFailureKeepsTheCardOnlyScene(t *testing.T) {
 			return
 		}
 		if strings.HasSuffix(r.URL.Path, "all_1.html") {
-			_, _ = fmt.Fprint(w, `<html><body>`+card("1000", "Card Title", "Ada Stone", "2026-08-11")+`</body></html>`)
+			_, _ = fmt.Fprint(w, `<html><body>`+card("1000", "Card Title", "Hester Prynne", "2026-08-11")+`</body></html>`)
 			return
 		}
 		_, _ = fmt.Fprint(w, `<html><body></body></html>`)

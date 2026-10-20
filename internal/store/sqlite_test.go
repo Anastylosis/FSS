@@ -2199,7 +2199,7 @@ func TestUnreferencedVocabularyAndPrune(t *testing.T) {
 	sc := models.Scene{
 		ID: "1", SiteID: "s", StudioURL: studio, Title: "One",
 		ScrapedAt:  time.Now().UTC(),
-		Performers: []string{"Ada Stone"},
+		Performers: []string{"Hester Prynne"},
 		Tags:       []string{"Tockings", "Silk"},
 		Categories: []string{"Solo"},
 	}

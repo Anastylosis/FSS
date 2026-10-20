@@ -30,8 +30,8 @@ var scrapeCmd = &cobra.Command{
 Studios can be named directly, or selected through creators.d — one YAML file
 per creator listing the several storefronts one person sells on:
 
-    fss scrape https://clipmarket.example/studio/4021/mara-vance
-    fss scrape --creator "Mara Vance"
+    fss scrape https://clipmarket.example/studio/4021/jane-eyre
+    fss scrape --creator "Jane Eyre"
     fss scrape --all-creators --stale 7d`,
 	Args: cobra.ArbitraryArgs,
 	RunE: runScrape,

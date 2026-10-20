@@ -9,7 +9,7 @@ storefronts belong together:
 
 ```bash
 fss compare --db
-fss compare --db --from-creator "Mara Vance" --top 5 --exclusives
+fss compare --db --from-creator "Jane Eyre" --top 5 --exclusives
 ```
 
 ---
@@ -17,27 +17,27 @@ fss compare --db --from-creator "Mara Vance" --top 5 --exclusives
 ## Reading the report
 
 ```
-Mara Vance — 1407 scenes across 4 storefronts
+Jane Eyre — 1407 scenes across 4 storefronts
 
   store                scenes   shared  exclusive  avg price
   clipmarket.example      658       49        609     $22.17
-  maravance.example       343      191        152     $10.02
+  janeeyre.example       343      191        152     $10.02
   vidvault.example        292      191        101     $22.66
   fanhub.example          114       67         43          —
 
   Cheapest source for the 227 titles carried by more than one store:
-    maravance.example     148 titles, $2276.48 below the dearest in total
+    janeeyre.example     148 titles, $2276.48 below the dearest in total
     clipmarket.example     20 titles, $109.00 below the dearest in total
     vidvault.example       12 titles, $23.63 below the dearest in total
 
   Widest price gaps:
-    Midnight Rehearsal                            $  9.99 maravance.example   vs $ 49.99 vidvault.example  (-$40.00)
-    The Long Way Home                             $  9.99 maravance.example   vs $ 49.99 vidvault.example  (-$40.00)
-    Borrowed Time (Part One)                      $  9.99 maravance.example   vs $ 41.99 clipmarket.example  (-$32.00)
+    Midnight Rehearsal                            $  9.99 janeeyre.example   vs $ 49.99 vidvault.example  (-$40.00)
+    The Long Way Home                             $  9.99 janeeyre.example   vs $ 49.99 vidvault.example  (-$40.00)
+    Borrowed Time (Part One)                      $  9.99 janeeyre.example   vs $ 41.99 clipmarket.example  (-$32.00)
 
   Carried by one storefront only:
     clipmarket.example    609 titles
-    maravance.example     152 titles
+    janeeyre.example     152 titles
     vidvault.example      101 titles
     fanhub.example         43 titles
 ```
@@ -133,7 +133,7 @@ store:
 
 ```
 creator,title,stores,cheapest_store,cheapest_price,dearest_store,dearest_price,spread,cheapest_url
-Mara Vance,The Long Way Home,2,maravance.example,9.99,vidvault.example,49.99,40.00,https://...
+Jane Eyre,The Long Way Home,2,janeeyre.example,9.99,vidvault.example,49.99,40.00,https://...
 ```
 
 `cheapest_url` is the scene URL at the cheapest store, so the file is directly

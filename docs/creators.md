@@ -1,16 +1,16 @@
 # Creators
 
-One person often sells the same catalogue on several storefronts. Mara Vance
+One person often sells the same catalogue on several storefronts. Jane Eyre
 has a Clips4Sale studio, a ManyVids profile, a LoyalFans page and her own site;
-Ines Dahl has six. FSS keys everything on the studio URL, so out of the box
+Irene Adler has six. FSS keys everything on the studio URL, so out of the box
 those are six unrelated studios that happen to share a name — and often do not
-even do that (`VeraQuill`, `Vera Quill`, `Vera Quill Films`).
+even do that (`EmmaWoodhouse`, `Emma Woodhouse`, `Emma Woodhouse Films`).
 
 A **creator** binds those storefronts together. It is what makes
 
 ```bash
-fss scrape --creator "Mara Vance"      # all four stores, one command
-fss compare --from-creator "Mona Reeve"    # where is each clip cheapest?
+fss scrape --creator "Jane Eyre"      # all four stores, one command
+fss compare --from-creator "Becky Sharp"    # where is each clip cheapest?
 ```
 
 possible, and it is the unit a cron job should work in.
@@ -23,9 +23,9 @@ One YAML file per creator, in a `creators.d` directory:
 
 ```
 ~/.config/fss/creators.d/
-├── mara-vance.yaml
-├── mona-reeve.yaml
-└── ines-dahl.yaml
+├── jane-eyre.yaml
+├── becky-sharp.yaml
+└── irene-adler.yaml
 ```
 
 Resolution order: `--creators-dir` → `creators_dir:` in `config.yaml` → the
@@ -48,15 +48,15 @@ carry a `README.md`, a `LICENSE` and a `.git/` without special handling.
 ## File format
 
 ```yaml
-name: Mara Vance
+name: Jane Eyre
 aliases:
-  - MaraVanceVIP          # optional: other spellings --creator should match
+  - JaneEyreVIP          # optional: other spellings --creator should match
 stores:
-  - url: https://clipmarket.example/studio/4021/mara-vance
-  - url: https://maravance.example
+  - url: https://clipmarket.example/studio/4021/jane-eyre
+  - url: https://janeeyre.example
     delay: 2000           # optional: ms between requests, this store only
     language: de          # optional: content language, if the site offers a choice
-  - url: https://fanhub.example/mara-vance
+  - url: https://fanhub.example/jane-eyre
     enabled: false        # optional: skip on --creator / --all-creators runs
     note: needs a session cookie
 ```
@@ -86,8 +86,8 @@ storefronts.
 ## Storefront branding in performer credits
 
 Storefronts routinely credit themselves as the performer. A shop trading as
-`Vera Quill Films` lists `Vera Quill Films` as the performer on every scene;
-another spells it `VeraQuill`. Stored as published, one person becomes three
+`Emma Woodhouse Films` lists `Emma Woodhouse Films` as the performer on every scene;
+another spells it `EmmaWoodhouse`. Stored as published, one person becomes three
 performers, and everything that reasons across stores fragments with them —
 `fss compare`, a Stash import, and `creators suggest`'s own shared-performer
 signal, which is how it finds storefronts whose *names* have nothing in common.
@@ -98,16 +98,16 @@ name, and **you do not have to configure anything for it** — no aliases, no ex
 keys:
 
 ```yaml
-name: Vera Quill
+name: Emma Woodhouse
 stores:
-  - url: https://clipmarket.example/studio/4021/vera-quill
-  - url: https://fanhub.example/veraquillfilms
+  - url: https://clipmarket.example/studio/4021/emma-woodhouse
+  - url: https://fanhub.example/emmawoodhousefilms
 ```
 
 ```
-$ fss scrape --creator vera
-[2/2] https://fanhub.example/veraquillfilms
-  performer credits normalised to "Vera Quill" (creators.d)
+$ fss scrape --creator emma
+[2/2] https://fanhub.example/emmawoodhousefilms
+  performer credits normalised to "Emma Woodhouse" (creators.d)
 ```
 
 A credit is treated as branding when it matches either:
@@ -117,17 +117,17 @@ A credit is treated as branding when it matches either:
   the overwhelming majority of cases and needs nothing written down.
 - **the creator's `name` or an `aliases:` entry.** The escape hatch for the
   residue, where a store spells its own name one way in the studio field and
-  another in the credit — `Mara Vance 1` as the studio, `MaraVance` as the
+  another in the credit — `Jane Eyre 1` as the studio, `JaneEyre` as the
   performer. Add an alias only when you see that happen.
 
-Matching ignores case, spacing and punctuation, so `VeraQuill` and `Vera Quill`
+Matching ignores case, spacing and punctuation, so `EmmaWoodhouse` and `Emma Woodhouse`
 are already the same string as far as this is concerned. A scene crediting both
 the shop and the person collapses to one name rather than storing them twice.
 
 **Co-stars are never touched.** Only two things can be rewritten: the shop's own
 name, and a spelling you declared. Anything else is somebody else and is stored
 exactly as published, however much it resembles the creator's name — a credit of
-`Vera` or `Quill Bishop` on Vera Quill's own store survives untouched. This is
+`Emma` or `Woodhouse Bishop` on Emma Woodhouse's own store survives untouched. This is
 deliberately not `--performer`, which replaces the whole list and would drop
 every co-star on a multi-performer scene.
 
@@ -151,8 +151,8 @@ To fold an existing duplicate, re-run that store with `--refresh`.
 ### Studios are not merged, and should not be
 
 Only performer credits are folded. Each storefront keeps its own studio, its own
-row, and whatever name it publishes — a shop trading as `Vera Quill Films` still
-records `Vera Quill Films` as the studio on every one of its scenes.
+row, and whatever name it publishes — a shop trading as `Emma Woodhouse Films` still
+records `Emma Woodhouse Films` as the studio on every one of its scenes.
 
 That asymmetry is the point, because the two cases are opposites:
 
@@ -172,7 +172,7 @@ Stash, so each storefront arrives there as its own studio. If you would rather i
 did not, relabel at scrape time:
 
 ```bash
-fss scrape https://fanhub.example/veraquillfilms --studio "Vera Quill"
+fss scrape https://fanhub.example/emmawoodhousefilms --studio "Emma Woodhouse"
 ```
 
 That replaces the studio on everything the run collects. It is per-invocation and
@@ -193,22 +193,22 @@ fss creators suggest --db --write      # write them into creators.d
 
 Studios are grouped on two signals:
 
-1. **Name containment** — `VeraQuill`, `Vera Quill` and `Vera Quill Films` share a
+1. **Name containment** — `EmmaWoodhouse`, `Emma Woodhouse` and `Emma Woodhouse Films` share a
    normalised substring. Fragments shorter than five characters are ignored, so
    a three-letter studio name cannot absorb every longer name containing it.
 2. **A shared dominant performer** — a performer credited on at least half a
    store's scenes. This is what catches storefronts whose names have nothing in
-   common, and what pulls `Velvet Hour Studio` into the Ines Dahl group.
+   common, and what pulls `Baker Street Studio` into the Irene Adler group.
 
 The creator is named after the dominant performer where there is one, since a
-storefront label is often a brand (`Vera Quill Films`) or a handle
+storefront label is often a brand (`Emma Woodhouse Films`) or a handle
 (`odettelang`); every other spelling becomes an alias.
 
 Both signals are heuristics, so `suggest` prints for review by default and
 `--write` never overwrites an existing file without `--force`. It also **names**
 the studios that grouped with nothing else — a storefront can be unmistakably
-someone's to a human and invisible to both signals. `Duchess Nyx` on
-IWantClips is Nyx Vale's, but its name shares nothing with `Nyx Vale` and it
+someone's to a human and invisible to both signals. `Duchess Mina` on
+IWantClips is Mina Harker's, but its name shares nothing with `Mina Harker` and it
 credits no performers at all, so nothing can link it automatically. Add the URL
 to the right file by hand.
 
@@ -220,13 +220,13 @@ which is still useful for `--all-creators`.
 ## Scraping by creator
 
 ```bash
-fss scrape --creator "Mara Vance"        # one creator's stores
-fss scrape --creator mara --creator mona  # several (prefixes work)
+fss scrape --creator "Jane Eyre"        # one creator's stores
+fss scrape --creator jane --creator becky  # several (prefixes work)
 fss scrape --all-creators                 # everything defined
 ```
 
 `--creator` matches the name or any alias, ignoring case, spacing and
-punctuation — `"Vera Quill"`, `VeraQuill` and `vera-quill` are the same lookup. A
+punctuation — `"Emma Woodhouse"`, `EmmaWoodhouse` and `emma-woodhouse` are the same lookup. A
 value that uniquely prefixes one creator resolves to it; one that prefixes
 several is an error naming them, never a silent pick.
 
@@ -244,9 +244,9 @@ fss scrape --all-creators --stale 7d
 skips any store scraped within the last seven days and prints its reasoning:
 
 ```
-  skip  https://clipmarket.example/studio/4021/mara-vance  (scraped 2d ago)
-  run   https://maravance.example                          (scraped 9d ago)
-  run   https://fanhub.example/mara-vance                  (never scraped)
+  skip  https://clipmarket.example/studio/4021/jane-eyre  (scraped 2d ago)
+  run   https://janeeyre.example                          (scraped 9d ago)
+  run   https://fanhub.example/jane-eyre                  (never scraped)
 
 2 of 44 studio(s) due.
 ```
@@ -283,8 +283,8 @@ scenes — `fss compare`, `fss identify`, `fss stash import`, `fss creators
 suggest`:
 
 ```bash
-fss identify --db --from-creator "Mona Reeve" /media/clips
-fss stash import --db --from-creator "Mara Vance" --apply
+fss identify --db --from-creator "Becky Sharp" /media/clips
+fss stash import --db --from-creator "Jane Eyre" --apply
 ```
 
 It resolves to that creator's store URLs and then behaves exactly like listing
@@ -305,10 +305,10 @@ configured:
 ```
 13 creator(s) in /home/you/.config/fss/creators.d
 
-Vera Quill  (aka Vera Quill Films)
-  https://clipmarket.example/studio/6055/vera-quill-films  [scraped 2026-08-16]
-  https://vidvault.example/profile/380818/vera-quill/store/videos  [scraped 2026-08-16]
-  https://clipstore.example/store/221/VeraQuill  [scraped 2026-08-16]
+Emma Woodhouse  (aka Emma Woodhouse Films)
+  https://clipmarket.example/studio/6055/emma-woodhouse-films  [scraped 2026-08-16]
+  https://vidvault.example/profile/380818/emma-woodhouse/store/videos  [scraped 2026-08-16]
+  https://clipstore.example/store/221/EmmaWoodhouse  [scraped 2026-08-16]
 ```
 
 See [compare.md](compare.md) for what to do with the grouping once it exists.

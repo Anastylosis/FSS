@@ -507,18 +507,18 @@ const outerCardHTML = `<div class="sexyvideo_outer">
 	<div class="modelnamecontainer">
 		<div class="modelname">
 		<img class="logo_x" src="https://www.testsite.com/tour/custom_assets/images/logo_x.png">
-<a href="//www.testsite.com/models/AdaStone.html">Ada Stone</a>
+<a href="//www.testsite.com/models/HesterPrynne.html">Hester Prynne</a>
 		</div>
 	</div>
 	<div class="sexyvideo">
 		<div class="videoblock"><div class="videohere">
 			<div class="video_stats">
 			<i class='fas fa-video'></i>&nbsp;&nbsp;<div style='display:inline'>20:27&nbsp;HD Video</div> &amp; 50&nbsp;Photos			</div>
-			<a href="//www.testsite.com/trailers/ada-stone-scene.html" title="A Newer Card">
+			<a href="//www.testsite.com/trailers/hester-prynne-scene.html" title="A Newer Card">
 			<img id="set-target-1341" alt="A Newer Card" class="mainThumb thumbs stdimage" src="/content//contentthumbs/45/47/24547-2x.jpg" />
 			</a>
 		</div></div>
-		<h4><a href="//www.testsite.com/trailers/ada-stone-scene.html" title="A Newer Card">A Newer Card</a></h4>
+		<h4><a href="//www.testsite.com/trailers/hester-prynne-scene.html" title="A Newer Card">A Newer Card</a></h4>
 		<p class="photodesc">A description on the newer template.</p>
 		<div class="dateadded" STYLE="DISPLAY: NONE"><i class='far fa-calendar-check' style="color: #295777"></i> 17th Aug 2026</div>
 		<div class="rating"><i class="fa fa-trophy"></i> Rating: 4.64</div>
@@ -539,8 +539,8 @@ func TestParseListingOuterCardKeepsPerformerDateAndDuration(t *testing.T) {
 		t.Errorf("title = %q", got.title)
 	}
 	// The whole point: these three live outside the inner card.
-	if len(got.performers) != 1 || got.performers[0] != "Ada Stone" {
-		t.Errorf("performers = %v, want [Ada Stone]", got.performers)
+	if len(got.performers) != 1 || got.performers[0] != "Hester Prynne" {
+		t.Errorf("performers = %v, want [Hester Prynne]", got.performers)
 	}
 	if got.duration != 1227 {
 		t.Errorf("duration = %d, want 1227 (20:27)", got.duration)
@@ -575,10 +575,10 @@ func TestParseListingStillHandlesTheOlderCard(t *testing.T) {
 // chunking mistake pairs a scene with the next card's performer.
 func TestOuterCardsDoNotBorrowEachOthersCredits(t *testing.T) {
 	second := strings.NewReplacer(
-		"AdaStone", "MaraVance",
-		"Ada Stone", "Mara Vance",
+		"HesterPrynne", "JaneEyre",
+		"Hester Prynne", "Jane Eyre",
 		"set-target-1341", "set-target-1342",
-		"ada-stone-scene", "mara-vance-scene",
+		"hester-prynne-scene", "jane-eyre-scene",
 		"A Newer Card", "Another Card",
 	).Replace(outerCardHTML)
 
@@ -586,7 +586,7 @@ func TestOuterCardsDoNotBorrowEachOthersCredits(t *testing.T) {
 	if len(items) != 2 {
 		t.Fatalf("got %d items, want 2", len(items))
 	}
-	want := map[string]string{"1341": "Ada Stone", "1342": "Mara Vance"}
+	want := map[string]string{"1341": "Hester Prynne", "1342": "Jane Eyre"}
 	for _, it := range items {
 		if len(it.performers) != 1 {
 			t.Fatalf("scene %s has performers %v, want exactly one", it.id, it.performers)

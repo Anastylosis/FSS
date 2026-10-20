@@ -24,7 +24,7 @@ var creatorsCmd = &cobra.Command{
 A creator binds the several storefronts one person sells the same catalogue on,
 so a single command can scrape all of them:
 
-    fss scrape --creator "Mara Vance"
+    fss scrape --creator "Jane Eyre"
     fss scrape --all-creators --stale 7d
 
 Definitions live in one YAML file per creator (default ~/.config/fss/creators.d).
@@ -38,8 +38,8 @@ var creatorsSuggestCmd = &cobra.Command{
 	Short: "Propose creators.d files by clustering the studios you already scrape",
 	Long: `Propose creators.d files by clustering the studios you already scrape.
 
-Studios are grouped when their names overlap (VeraQuill / Vera Quill Films) or
-when they share a dominant performer (Duchess Nyx / Nyx Vale). Both are
+Studios are grouped when their names overlap (EmmaWoodhouse / Emma Woodhouse Films) or
+when they share a dominant performer (Duchess Mina / Mina Harker). Both are
 heuristics, so the proposals print to stdout for review; --write commits them.`,
 	RunE: runCreatorsSuggest,
 }
@@ -366,9 +366,9 @@ const minNameOverlap = 5
 // clusterStudios groups studio profiles that plausibly belong to one person.
 //
 // Two signals, both needed in practice. Name containment catches the common
-// case where one person's storefronts label themselves "VeraQuill", "Vera Quill"
-// and "Vera Quill Films". A shared dominant performer catches the case where
-// the names have nothing in common — "Duchess Nyx" on one site and "Nyx Vale"
+// case where one person's storefronts label themselves "EmmaWoodhouse", "Emma Woodhouse"
+// and "Emma Woodhouse Films". A shared dominant performer catches the case where
+// the names have nothing in common — "Duchess Mina" on one site and "Mina Harker"
 // on three others.
 func clusterStudios(profiles []studioProfile) [][]studioProfile {
 	parent := make([]int, len(profiles))
@@ -427,7 +427,7 @@ func clusterStudios(profiles []studioProfile) [][]studioProfile {
 
 // proposalFor turns a cluster into a Creator. The name is the dominant
 // performer shared by the group when there is one — that is the person's actual
-// name, where a storefront label is often a brand ("Vera Quill Films") or a
+// name, where a storefront label is often a brand ("Emma Woodhouse Films") or a
 // handle ("odettelang").
 func proposalFor(group []studioProfile) creators.Creator {
 	perfCounts := map[string]int{}

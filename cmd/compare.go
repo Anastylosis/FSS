@@ -493,7 +493,7 @@ func storeHost(u string) string {
 // identifyingSegment picks the longest path segment that is not purely digits.
 //
 // Store URLs bury the name among structural and numeric segments —
-// `/studio/5674/ines-dahl-taboo`, `/Profile/38331/mara-vance/Store/Videos`
+// `/studio/5674/irene-adler-taboo`, `/Profile/38331/jane-eyre/Store/Videos`
 // — and in both the longest non-numeric segment is the one a human would read.
 // Taking the last segment instead yields "Videos".
 func identifyingSegment(u string) string {

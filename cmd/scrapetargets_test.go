@@ -68,13 +68,13 @@ func TestResolveScrapeTargetsNormalisesBareArguments(t *testing.T) {
 
 func TestResolveScrapeTargetsExpandsACreator(t *testing.T) {
 	dir := t.TempDir()
-	writeCreator(t, dir, "mara-vance.yaml", `name: Mara Vance
+	writeCreator(t, dir, "jane-eyre.yaml", `name: Jane Eyre
 stores:
   - url: https://a.example.com
   - url: https://b.example.com
     delay: 2500
 `)
-	cmd := targetCmd(t, dir, "--creator", "mara")
+	cmd := targetCmd(t, dir, "--creator", "jane")
 	targets, err := resolveScrapeTargets(cmd, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -83,7 +83,7 @@ stores:
 		t.Fatalf("targets = %v", got)
 	}
 	for _, tg := range targets {
-		if tg.creator != "Mara Vance" {
+		if tg.creator != "Jane Eyre" {
 			t.Errorf("%s carries creator %q", tg.url, tg.creator)
 		}
 	}

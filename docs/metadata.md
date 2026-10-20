@@ -156,7 +156,7 @@ re-scrape.
 
 The merge key above resolves spelling differences. It cannot resolve a credit
 that is not a person's name at all: storefronts routinely list *themselves* as
-the performer, so a shop trading as `Vera Quill Films` credits `Vera Quill Films`
+the performer, so a shop trading as `Emma Woodhouse Films` credits `Emma Woodhouse Films`
 on every scene. That is a different string from the person's name by any
 canonical key, so merging keeps them apart — correctly, since nothing in the
 scene says they are the same.

@@ -518,7 +518,7 @@ func catalogueServer(t *testing.T) (*httptest.Server, *hitCounter) {
 			_, _ = fmt.Fprint(w, listingPageHTML(pages[page-1], 0))
 		case strings.HasPrefix(r.URL.Path, "/works/detail/"):
 			code := strings.TrimPrefix(r.URL.Path, "/works/detail/")
-			_, _ = fmt.Fprint(w, detailPageHTML(code, "Title "+code, "Desc", []string{"Ada Stone"}, "Dir", []string{"Tag"}, "", 60, "2026-02-03"))
+			_, _ = fmt.Fprint(w, detailPageHTML(code, "Title "+code, "Desc", []string{"Hester Prynne"}, "Dir", []string{"Tag"}, "", 60, "2026-02-03"))
 		default:
 			http.NotFound(w, r)
 		}

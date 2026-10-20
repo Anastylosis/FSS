@@ -81,13 +81,13 @@ func TestProfileStudiosCountsAPerformerOncePerScene(t *testing.T) {
 
 func TestClusterStudiosByNameContainment(t *testing.T) {
 	var scenes []models.Scene
-	scenes = append(scenes, repeat(4, "https://c4s.example.com/vera-quill-films", "Vera Quill Films")...)
-	scenes = append(scenes, repeat(4, "https://mv.example.com/vera-quill", "Vera Quill")...)
-	scenes = append(scenes, repeat(4, "https://iwc.example.com/veraquill", "VeraQuill")...)
+	scenes = append(scenes, repeat(4, "https://c4s.example.com/emma-woodhouse-films", "Emma Woodhouse Films")...)
+	scenes = append(scenes, repeat(4, "https://mv.example.com/emma-woodhouse", "Emma Woodhouse")...)
+	scenes = append(scenes, repeat(4, "https://iwc.example.com/emmawoodhouse", "EmmaWoodhouse")...)
 	scenes = append(scenes, repeat(4, "https://other.example.com", "Someone Else")...)
 
 	got := groupNames(clusterStudios(profileStudios(scenes)))
-	want := []string{"Someone Else", "Vera Quill+Vera Quill Films+VeraQuill"}
+	want := []string{"Emma Woodhouse+Emma Woodhouse Films+EmmaWoodhouse", "Someone Else"}
 	if strings.Join(got, " | ") != strings.Join(want, " | ") {
 		t.Errorf("groups = %v, want %v", got, want)
 	}
@@ -97,12 +97,12 @@ func TestClusterStudiosByNameContainment(t *testing.T) {
 // nothing, tied together by who is actually in the scenes.
 func TestClusterStudiosByDominantPerformer(t *testing.T) {
 	var scenes []models.Scene
-	scenes = append(scenes, repeat(6, "https://iwc.example.com/duchess-nyx", "Duchess Nyx", "Nyx Vale")...)
-	scenes = append(scenes, repeat(6, "https://c4s.example.com/nyx-vale", "Nyx Vale", "Nyx Vale")...)
+	scenes = append(scenes, repeat(6, "https://iwc.example.com/duchess-mina", "Duchess Mina", "Mina Harker")...)
+	scenes = append(scenes, repeat(6, "https://c4s.example.com/mina-harker", "Mina Harker", "Mina Harker")...)
 	scenes = append(scenes, repeat(6, "https://other.example.com", "Unrelated", "Someone Else")...)
 
 	got := groupNames(clusterStudios(profileStudios(scenes)))
-	want := []string{"Duchess Nyx+Nyx Vale", "Unrelated"}
+	want := []string{"Duchess Mina+Mina Harker", "Unrelated"}
 	if strings.Join(got, " | ") != strings.Join(want, " | ") {
 		t.Errorf("groups = %v, want %v", got, want)
 	}
@@ -128,11 +128,11 @@ func TestClusterStudiosIgnoresShortNameOverlap(t *testing.T) {
 // is not silently swallowing the whole signal.
 func TestClusterStudiosMergesLongEnoughNameOverlap(t *testing.T) {
 	var scenes []models.Scene
-	scenes = append(scenes, repeat(4, "https://a.example.com", "Quill", "Vera Quill")...)
-	scenes = append(scenes, repeat(4, "https://b.example.com", "Quill Films", "Ada Stone")...)
+	scenes = append(scenes, repeat(4, "https://a.example.com", "Woodhouse", "Emma Woodhouse")...)
+	scenes = append(scenes, repeat(4, "https://b.example.com", "Woodhouse Films", "Hester Prynne")...)
 
 	if got := len(clusterStudios(profileStudios(scenes))); got != 1 {
-		t.Errorf("got %d group(s), want 1 — %q is long enough to merge on", got, "quill")
+		t.Errorf("got %d group(s), want 1 — %q is long enough to merge on", got, "woodhouse")
 	}
 }
 
@@ -140,25 +140,25 @@ func TestProposalForPrefersThePerformerName(t *testing.T) {
 	var scenes []models.Scene
 	// Every storefront labels itself with a brand or a handle; the person's
 	// actual name only appears in the performer credits.
-	scenes = append(scenes, repeat(6, "https://c4s.example.com/x", "Vera Quill Films", "Vera Quill")...)
-	scenes = append(scenes, repeat(6, "https://iwc.example.com/x", "VeraQuill", "Vera Quill")...)
+	scenes = append(scenes, repeat(6, "https://c4s.example.com/x", "Emma Woodhouse Films", "Emma Woodhouse")...)
+	scenes = append(scenes, repeat(6, "https://iwc.example.com/x", "EmmaWoodhouse", "Emma Woodhouse")...)
 
 	groups := clusterStudios(profileStudios(scenes))
 	if len(groups) != 1 {
 		t.Fatalf("got %d groups, want 1", len(groups))
 	}
 	c := proposalFor(groups[0])
-	if c.Name != "Vera Quill" {
-		t.Errorf("Name = %q, want the performer name Vera Quill", c.Name)
+	if c.Name != "Emma Woodhouse" {
+		t.Errorf("Name = %q, want the performer name Emma Woodhouse", c.Name)
 	}
 	if len(c.Stores) != 2 {
 		t.Errorf("Stores = %d, want 2", len(c.Stores))
 	}
 	// Storefront spellings become aliases so --creator matches whichever the
-	// operator remembers — but only those that add matching power. "VeraQuill"
-	// keys the same as the name "Vera Quill" and would be dead weight.
+	// operator remembers — but only those that add matching power. "EmmaWoodhouse"
+	// keys the same as the name "Emma Woodhouse" and would be dead weight.
 	sort.Strings(c.Aliases)
-	if strings.Join(c.Aliases, ",") != "Vera Quill Films" {
+	if strings.Join(c.Aliases, ",") != "Emma Woodhouse Films" {
 		t.Errorf("Aliases = %v, want just the spelling that keys differently", c.Aliases)
 	}
 }
