@@ -380,7 +380,27 @@ For `fss stash` subcommands, see [stash.md](stash.md).
 
 ## Config file
 
-Located at the XDG config path for your platform (see [README](../README.md)). All keys are optional — missing keys use the defaults shown below. A fully commented example is available at [`config.example.yaml`](../config.example.yaml) in the repo root.
+The config file is optional. It lives at the platform's config path:
+
+| Platform | Path |
+|----------|------|
+| Linux    | `~/.config/fss/config.yaml` |
+| macOS    | `~/Library/Application Support/fss/config.yaml` |
+| Windows  | `%APPDATA%\fss\config.yaml` |
+
+All keys are optional — missing keys use the defaults shown below, and CLI flags always override config values. A fully commented example is [`config.example.yaml`](../config.example.yaml); to start from it:
+
+```bash
+# Linux
+mkdir -p ~/.config/fss
+curl -fsSL https://raw.githubusercontent.com/Anastylosis/FSS/master/config.example.yaml \
+  -o ~/.config/fss/config.yaml
+
+# macOS
+mkdir -p ~/Library/Application\ Support/fss
+curl -fsSL https://raw.githubusercontent.com/Anastylosis/FSS/master/config.example.yaml \
+  -o ~/Library/Application\ Support/fss/config.yaml
+```
 
 ```yaml
 workers: 3        # int   — parallel metadata fetchers
