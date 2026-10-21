@@ -1,6 +1,6 @@
 # Covered Sites — All Domains
 
-1888 scrapers covering 1965 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
+1894 scrapers covering 1971 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
 
 Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scraper ID(s)** column lists every scraper that claims URLs on that domain — most domains have one entry, but table-driven networks (`adultprime`, `tmw`, `nextdoorstudios`, etc.) host many sub-studios on a single root domain. See [`scrapers.md`](scrapers.md) for what each ID covers.
 
@@ -53,6 +53,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | alettaoceanlive.com | `alettaoceanlive` |
 | alexandrasnow.com (rewritten to goddesssnow.com) | `alexandrasnow` |
 | alexsisfaye.com | `alexsisfaye` |
+| alicebrookes.com | `alicebrookes` |
 | alisonangel.com | `alisonangel` |
 | allanalallthetime.com | `allanalallthetime` |
 | allblackx.com | `allblackx` |
@@ -724,6 +725,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | givingahandjob.com | `givingahandjob` |
 | glamose.com | `glamose` |
 | glamourbunnies.com | `glamourbunnies` |
+| glamourvilla.com | `glamourvilla` |
 | gloryholesecrets.com | `gloryholesecrets` |
 | gloryholeswallow.com | `gloryholeswallow` |
 | gloryquest.tv | `gloryquest` |
@@ -1034,6 +1036,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | megatitsminka.com | `megatitsminka` |
 | meidenvanholland.nl | `meidenvanholland` |
 | melina-may.com | `melinamay` |
+| melissad.co.uk | `melissadebling` |
 | men.com | `men` |
 | menareslaves.com | `menareslaves` |
 | menatplay.com | `menatplay` |
@@ -1210,6 +1213,8 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | nylonsx.com | `tmw-nylonsx` |
 | officecock.com | `officecock` |
 | officialdreddxxx.com | `dreddxxx` |
+| officialrae.com | `officialrae` |
+| officialsammybraddy.com | `officialsammybraddy` |
 | ohmyholes.com | `tmw-ohmyholes` |
 | old-n-young.com | `tmw-old-n-young` |
 | olddicksyoungchix.com | `olddicksyoungchix` |
@@ -1556,6 +1561,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | squirtalicious.com | `squirtalicious` |
 | squirted.com | `squirted` |
 | squirtinglesbian.com | `squirtinglesbian` |
+| staceypoole.co.uk | `staceypoole` |
 | stacyvandenbergboobs.com | `stacyvandenbergboobs` |
 | stagcollective.com | `stagcollective` |
 | staghomme.com | `staghomme` |
