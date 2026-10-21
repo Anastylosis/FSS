@@ -419,3 +419,76 @@ func serveFixture(t *testing.T, name, base string) []byte {
 	}
 	return []byte(rewritten)
 }
+
+func TestEnrichKeepsEveryDescriptionParagraph(t *testing.T) {
+	var item listItem
+	enrichFromDetail(readFixture(t, "detail_lilmissy.html"), &item)
+	if item.title != "Missy is A Witness To The Crime 4K" {
+		t.Errorf("title = %q", item.title)
+	}
+	if !strings.HasPrefix(item.description, "4K Version Missy bursts into her bedroom") {
+		t.Errorf("description = %q", item.description)
+	}
+	if !strings.HasSuffix(item.description, "with nowhere to go.") {
+		t.Errorf("description lost its last paragraph: %q", item.description)
+	}
+	if strings.Contains(item.description, "Description:") || strings.Contains(item.description, "<") {
+		t.Errorf("description kept the heading or markup: %q", item.description)
+	}
+	if len(item.tags) != 9 || item.tags[0] != "Chair tie" {
+		t.Errorf("tags = %v", item.tags)
+	}
+}
+
+func TestModelURLScrapesVideosOnly(t *testing.T) {
+	var (
+		mu    sync.Mutex
+		asked []string
+	)
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		asked = append(asked, r.URL.Path)
+		mu.Unlock()
+		name := "listing_lilmissy_model.html"
+		if strings.HasPrefix(r.URL.Path, "/updates/") {
+			name = "detail_lilmissy.html"
+		}
+		_, _ = w.Write([]byte(strings.ReplaceAll(string(readFixture(t, name)), "https://lilmissy.uk", srv.URL)))
+	}))
+	defer srv.Close()
+
+	s := New(SiteConfig{SiteID: "lilmissyuk", SiteBase: srv.URL, StudioName: "Lil Missy UK", ListPath: "/videos"})
+	const studioURL = "https://lilmissy.uk/models/kat-snow"
+	ch, _ := s.ListScenes(context.Background(), studioURL, scraper.ListOpts{})
+	var ids []string
+	for r := range ch {
+		switch r.Kind {
+		case scraper.KindScene:
+			ids = append(ids, r.Scene.ID)
+			if r.Scene.StudioURL != studioURL {
+				t.Errorf("StudioURL = %q", r.Scene.StudioURL)
+			}
+			if r.Scene.Duration == 0 {
+				t.Errorf("scene %s has no runtime", r.Scene.ID)
+			}
+		case scraper.KindError:
+			t.Errorf("unexpected error: %v", r.Err)
+		}
+	}
+	// The fixture holds the 4K and 1080p videos plus their photo set (44471),
+	// which the model listing mixes in.
+	if len(ids) != 2 {
+		t.Errorf("scenes = %v, want the two videos", ids)
+	}
+	for _, id := range ids {
+		if id == "44471" {
+			t.Error("photo set was scraped as a scene")
+		}
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if len(asked) == 0 || asked[0] != "/models/kat-snow" {
+		t.Errorf("fetched %v, want the model listing first", asked)
+	}
+}

@@ -98,14 +98,15 @@ func (s *Scraper) Patterns() []string {
 		host,
 		host + s.cfg.listPath(),
 		host + "/tags/{tag}",
+		host + "/models/{model}",
 	}
 }
 
 func (s *Scraper) MatchesURL(u string) bool { return s.matchRe.MatchString(u) }
 
-// tagRe recognises a tag listing, which paginates the same way the catalogue
-// does.
-var tagRe = regexp.MustCompile(`/tags/([^/?#]+)`)
+// filterRe recognises a tag or model listing, each of which paginates the
+// same way the catalogue does.
+var filterRe = regexp.MustCompile(`/(tags|models)/([^/?#]+)`)
 
 func (s *Scraper) ListScenes(ctx context.Context, studioURL string, opts scraper.ListOpts) (<-chan scraper.SceneResult, error) {
 	out := make(chan scraper.SceneResult)
@@ -127,21 +128,23 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 	}
 
 	listPath := s.cfg.listPath()
-	if m := tagRe.FindStringSubmatch(studioURL); m != nil {
-		listPath = "/tags/" + m[1]
-		scraper.Debugf(1, "%s: scraping tag %q", s.cfg.SiteID, m[1])
+	filtered := false
+	if m := filterRe.FindStringSubmatch(studioURL); m != nil {
+		listPath = "/" + m[1] + "/" + m[2]
+		filtered = true
+		scraper.Debugf(1, "%s: scraping %s %q", s.cfg.SiteID, strings.TrimSuffix(m[1], "s"), m[2])
 	} else {
 		scraper.Debugf(1, "%s: scraping full catalogue", s.cfg.SiteID)
 	}
 
-	items, ok := s.collectListing(ctx, listPath, opts, out)
+	items, ok := s.collectListing(ctx, listPath, filtered, opts, out)
 	if !ok || ctx.Err() != nil {
 		return
 	}
 	s.fetchDetails(ctx, studioURL, items, opts, out)
 }
 
-func (s *Scraper) collectListing(ctx context.Context, listPath string, opts scraper.ListOpts, out chan<- scraper.SceneResult) (items []listItem, ok bool) {
+func (s *Scraper) collectListing(ctx context.Context, listPath string, videosOnly bool, opts scraper.ListOpts, out chan<- scraper.SceneResult) (items []listItem, ok bool) {
 	seen := make(map[string]bool)
 	sentTotal := false
 	lastPage := 0
@@ -188,6 +191,12 @@ func (s *Scraper) collectListing(ctx context.Context, listPath string, opts scra
 				continue
 			}
 			seen[item.id] = true
+			fresh++
+			// Tag and model listings mix in photo sets, whose cards carry
+			// a photo count but no runtime.
+			if videosOnly && item.duration == 0 {
+				continue
+			}
 			if opts.KnownIDs[item.id] {
 				scraper.Debugf(1, "%s: hit known ID %s, stopping early", s.cfg.SiteID, item.id)
 				select {
@@ -196,7 +205,6 @@ func (s *Scraper) collectListing(ctx context.Context, listPath string, opts scra
 				}
 				return items, true
 			}
-			fresh++
 			items = append(items, item)
 		}
 
@@ -212,10 +220,7 @@ func (s *Scraper) fetchDetails(ctx context.Context, studioURL string, items []li
 	if len(items) == 0 {
 		return
 	}
-	workers := opts.Workers
-	if workers <= 0 {
-		workers = 4
-	}
+	workers := scraper.WorkerCount(opts, 4)
 	scraper.Debugf(1, "%s: fetching %d details with %d workers", s.cfg.SiteID, len(items), workers)
 
 	work := make(chan listItem, workers)
@@ -304,7 +309,9 @@ var (
 	pagerRe     = regexp.MustCompile(`(?s)<[^>]+class="pagination"[^>]*>(.*?)</div>`)
 
 	detailTitleRe = regexp.MustCompile(`(?s)<h1>(.*?)</h1>`)
-	detailDescRe  = regexp.MustCompile(`(?s)<div class="\s*(?:videoDescription|videocontent)\s*">.*?<p>(.*?)</p>`)
+	detailDescRe  = regexp.MustCompile(`(?s)<div class="\s*(?:videoDescription|videocontent)\s*">(.*?)</div>`)
+	headingRe     = regexp.MustCompile(`(?s)<h3>.*?</h3>`)
+	paraBreakRe   = regexp.MustCompile(`(?i)<br\s*/?>|</p>`)
 	buyPriceRe    = regexp.MustCompile(`Buy Video \$([\d.]+)`)
 	ogDescRe      = regexp.MustCompile(`<meta property="og:description" content="([^"]*)"`)
 	detailTagsRe  = regexp.MustCompile(`(?s)<div class="tags">(.*?)</ul>|<p class="date">[^|]*\|\s*Tags:(.*?)</p>`)
@@ -377,7 +384,10 @@ func enrichFromDetail(body []byte, item *listItem) {
 		}
 	}
 	if m := detailDescRe.FindSubmatch(body); m != nil {
-		item.description = cleanText(tagStripRe.ReplaceAllString(strings.ReplaceAll(string(m[1]), "<br>", " "), " "))
+		// The block may hold several paragraphs (Lil Missy UK opens with a
+		// "4K Version" line), so every one is kept, minus the heading.
+		desc := headingRe.ReplaceAllString(string(m[1]), "")
+		item.description = cleanText(tagStripRe.ReplaceAllString(paraBreakRe.ReplaceAllString(desc, " "), " "))
 	}
 	if item.description == "" {
 		// Some tours leave the body block empty and carry the text, as

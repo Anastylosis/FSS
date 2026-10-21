@@ -13,6 +13,7 @@ var sites = []paysitemanagerutil.SiteConfig{
 	{SiteID: "fetishpros", SiteBase: "https://fetishpros.com", StudioName: "Fetish Pros"},
 	{SiteID: "hunterslairbondage", SiteBase: "https://hunterslairbondage.com", StudioName: "Hunter's Lair"},
 	{SiteID: "fragileslave", SiteBase: "https://fragileslave.com", StudioName: "Fragile Slave", AgeGate: true},
+	{SiteID: "lilmissyuk", SiteBase: "https://lilmissy.uk", StudioName: "Lil Missy UK", ListPath: "/videos"},
 }
 
 func init() {
