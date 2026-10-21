@@ -1,6 +1,6 @@
 # Covered Sites — All Domains
 
-1883 scrapers covering 1964 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
+1884 scrapers covering 1965 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
 
 Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scraper ID(s)** column lists every scraper that claims URLs on that domain — most domains have one entry, but table-driven networks (`adultprime`, `tmw`, `nextdoorstudios`, etc.) host many sub-studios on a single root domain. See [`scrapers.md`](scrapers.md) for what each ID covers.
 
@@ -1635,6 +1635,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | teenylovers.com | `teenylovers` |
 | terapatrick.com | `terapatrick` |
 | terrorxxx.com | `terrorxxx` |
+| texasbukkake.com | `texasbukkake` |
 | tgirl40.com | `tgirl40` |
 | tgirlbbw.com | `tgirlbbw` |
 | tgirljapan.com | `tgirljapan` |

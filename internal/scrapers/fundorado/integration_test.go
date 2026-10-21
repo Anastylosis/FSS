@@ -65,3 +65,7 @@ func TestLiveTickleAbuse(t *testing.T) {
 func TestLiveRFMovies(t *testing.T) {
 	liveScrape(t, "https://rfmovies.com", "rfmovies")
 }
+
+func TestLiveTexasBukkake(t *testing.T) {
+	liveScrape(t, "https://texasbukkake.com", "texasbukkake")
+}
