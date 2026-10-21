@@ -158,13 +158,17 @@ func (s *Scraper) get(ctx context.Context, u string) ([]byte, error) {
 
 var (
 	sslSitemapRe = regexp.MustCompile(`<loc>(https?://(?:www\.)?subspaceland\.com/video/[a-z0-9-]+/[a-z0-9-]+)</loc>`)
-	sslTitleRe   = regexp.MustCompile(`(?s)<h1[^>]*>(.*?)</h1>`)
+	sslTitleRe   = regexp.MustCompile(`(?s)<h1([^>]*)>(.*?)</h1>`)
 	sslDateRe    = regexp.MustCompile(`Released on\s+(\d{1,2}\s+[A-Za-z]+\s+\d{4})`)
 	sslModelRe   = regexp.MustCompile(`href="https?://(?:www\.)?subspaceland\.com/model/[a-z0-9-]+"[^>]*>([^<]+)</a>`)
 	sslTagRe     = regexp.MustCompile(`href="https?://(?:www\.)?subspaceland\.com/tag/[^"]+"[^>]*>([^<]+)</a>`)
 	sslSetRe     = regexp.MustCompile(`/sets/(\d+)/`)
 	sslDescRe    = regexp.MustCompile(`<meta name="description" content="([^"]*)"`)
 )
+
+// sslSiteBlurb opens the site-wide meta description every scene page now
+// carries in place of its own.
+const sslSiteBlurb = "Subspaceland is an exclusive BDSM site"
 
 func (s *Scraper) runSubspaceland(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
 	defer close(out)
@@ -280,8 +284,19 @@ func (s *Scraper) scrapeSubspacelandDetail(ctx context.Context, studioURL, u str
 		ScrapedAt: now,
 	}
 
-	if m := sslTitleRe.FindStringSubmatch(page); m != nil {
-		scene.Title = cleanText(m[1])
+	// The scene's own <h1> is gone from the page; the only one left is the
+	// age-gate overlay's class="heading". The URL still carries the model and
+	// title slugs, so those fill in — but only on a page that is recognisably
+	// a scene (it names its set), not an error or holding page.
+	for _, m := range sslTitleRe.FindAllStringSubmatch(page, -1) {
+		if !strings.Contains(m[1], `class="heading"`) {
+			scene.Title = cleanText(m[2])
+			break
+		}
+	}
+	model, slug, _ := strings.Cut(scene.ID, "/")
+	if scene.Title == "" && sslSetRe.MatchString(page) && slug != "" {
+		scene.Title = deslug(slug)
 	}
 	if scene.Title == "" {
 		return models.Scene{}, false
@@ -297,11 +312,16 @@ func (s *Scraper) scrapeSubspacelandDetail(ctx context.Context, studioURL, u str
 			scene.Performers = []string{name}
 		}
 	}
+	if len(scene.Performers) == 0 && model != "" && slug != "" {
+		scene.Performers = []string{deslug(model)}
+	}
 	if m := sslSetRe.FindStringSubmatch(page); m != nil {
 		scene.Thumbnail = s.cfg.base + "/sets/" + m[1] + "/mov_img/movie_preview.jpg"
 	}
 	if m := sslDescRe.FindStringSubmatch(page); m != nil {
-		scene.Description = cleanText(m[1])
+		if d := cleanText(m[1]); !strings.HasPrefix(d, sslSiteBlurb) {
+			scene.Description = d
+		}
 	}
 
 	tagSeen := make(map[string]bool)

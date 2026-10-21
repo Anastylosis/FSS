@@ -128,6 +128,44 @@ func TestScrapeSubspacelandDetail(t *testing.T) {
 	}
 }
 
+// Trimmed from the live page (2026-10-29): the only <h1> is the age-gate
+// overlay, there is no model link, and the meta description is the site-wide
+// blurb. Title and performer come from the URL.
+const subspacelandDetailLive = `<html><head>
+<meta name="description" content="Subspaceland is an exclusive BDSM site where beautiful young girls are taken into submission.">
+</head><body>
+<div id="movie_player"><hgroup><p class="date">Released on 21 Mar 2014</p></hgroup>
+<img src="/sets/204/mov_img/movie_preview.jpg" width="690" height="409"></div>
+<li><a title="Adhesive band" href="https://www.subspaceland.com/tag/duct-tape">duct-tape</a></li>
+<div class="ageWarning"><h1 class="heading">Warning: explicit content for adults only</h1></div>
+</body></html>`
+
+func TestScrapeSubspacelandDetailFallsBackToURL(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprint(w, subspacelandDetailLive)
+	}))
+	defer ts.Close()
+
+	s := NewSubspaceland()
+	s.Client = ts.Client()
+	scene, ok := s.scrapeSubspacelandDetail(context.Background(), "https://www.subspaceland.com", ts.URL+"/video/lyen-parker/slaves-nightmare", time.Now())
+	if !ok {
+		t.Fatal("ok=false")
+	}
+	if scene.Title != "Slaves Nightmare" {
+		t.Errorf("Title = %q", scene.Title)
+	}
+	if len(scene.Performers) != 1 || scene.Performers[0] != "Lyen Parker" {
+		t.Errorf("Performers = %v", scene.Performers)
+	}
+	if scene.Description != "" {
+		t.Errorf("Description = %q, want the site blurb dropped", scene.Description)
+	}
+	if scene.Date.IsZero() || len(scene.Tags) != 1 {
+		t.Errorf("Date = %v, Tags = %v", scene.Date, scene.Tags)
+	}
+}
+
 func TestScrapeSubspacelandDetail_noTitleDropped(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprint(w, "<html><body>no heading here</body></html>")
