@@ -106,6 +106,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/darkkotv"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/darkreach"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/data18"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/dawnsplace"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/deeps"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/defloration"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/dezyred"
