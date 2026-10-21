@@ -1,6 +1,7 @@
 package bdtv
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -11,7 +12,7 @@ import (
 func TestSiteTable(t *testing.T) {
 	ids, studios := map[string]bool{}, map[int]string{}
 	for _, c := range sites {
-		if c.SiteID == "" || c.StudioName == "" || c.StudioID == 0 || len(c.Domains) == 0 {
+		if c.SiteID == "" || c.StudioName == "" || c.StudioID == 0 {
 			t.Errorf("incomplete row: %+v", c)
 		}
 		if !strings.HasPrefix(c.Base, "https://") || strings.HasSuffix(c.Base, "/") {
@@ -50,6 +51,23 @@ func TestEveryRowRegistered(t *testing.T) {
 	for _, c := range sites {
 		if _, err := scraper.ForID(c.SiteID); err != nil {
 			t.Errorf("ForID(%q): %v", c.SiteID, err)
+		}
+	}
+}
+
+// A row without a domain is reachable by its studio id alone.
+func TestDomainlessRowMatchesStudioURL(t *testing.T) {
+	for _, c := range sites {
+		if len(c.Domains) > 0 {
+			continue
+		}
+		s := bdtvutil.New(c)
+		u := fmt.Sprintf("https://bdtv.com/studio-display?studio_id=%d", c.StudioID)
+		if !s.MatchesURL(u) {
+			t.Errorf("%s does not match %s", c.SiteID, u)
+		}
+		if s.MatchesURL("https://bdtv.com/") {
+			t.Errorf("%s claims the bare bdtv.com", c.SiteID)
 		}
 	}
 }

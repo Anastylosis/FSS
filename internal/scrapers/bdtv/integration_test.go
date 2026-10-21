@@ -51,3 +51,19 @@ func TestLiveCloseUpActor(t *testing.T) {
 func TestLiveCloseUpCategory(t *testing.T) {
 	testutil.RunLiveScrape(t, bdtvutil.New(row(t, "closeup")), "https://bdtv.com/display-movies/category/1469", 3)
 }
+
+func TestLiveCurtisDupontWrestling(t *testing.T) {
+	testutil.RunLiveScrape(t, bdtvutil.New(row(t, "curtisdupontwrestling")), "https://bdtv.com/studio-display?studio_id=75", 3)
+}
+
+func TestLiveHelplessHeroes(t *testing.T) {
+	testutil.RunLiveScrape(t, bdtvutil.New(row(t, "helplessheroes")), "https://bdtv.com/studio-display?studio_id=71", 3)
+}
+
+func TestLiveMatrockWrestling(t *testing.T) {
+	testutil.RunLiveScrape(t, bdtvutil.New(row(t, "matrockwrestling")), "https://bdtv.com/studio-display?studio_id=69", 3)
+}
+
+func TestLiveTaoProductions(t *testing.T) {
+	testutil.RunLiveScrape(t, bdtvutil.New(row(t, "taoproductions")), "https://bdtv.com/studio-display?studio_id=59", 3)
+}
