@@ -294,6 +294,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/muku"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/mundomais"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/musclebearporn"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/myboobsparadise"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/mydirtyhobby"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/nadinejansen"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/nakednews"
