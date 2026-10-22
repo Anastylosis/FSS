@@ -559,3 +559,18 @@ func TestFetchPageSendsXHRHeaders(t *testing.T) {
 		t.Error("navigation headers must not be sent on the API call")
 	}
 }
+
+// Riggs Films VIP's og:description is escaped twice (seen 2026-10-29: 19 of
+// 88 synopses stored "&amp;").
+func TestUnescapeTextDoubleEscaped(t *testing.T) {
+	for in, want := range map[string]string{
+		"Isabelle Deltore &amp;amp; Kayla Lea": "Isabelle Deltore & Kayla Lea",
+		"Fit Kitty &amp; Kayla":                "Fit Kitty & Kayla",
+		"Primal Instincts&amp;#39;s cock":      "Primal Instincts's cock",
+		"plain text":                           "plain text",
+	} {
+		if got := unescapeText(in); got != want {
+			t.Errorf("unescapeText(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

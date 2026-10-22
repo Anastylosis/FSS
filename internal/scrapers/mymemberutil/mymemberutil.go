@@ -384,7 +384,7 @@ func (s *Scraper) FetchDetail(ctx context.Context, pageURL string) (SceneDetail,
 
 	og := parseutil.OpenGraph(body)
 	if v := og["og:description"]; v != "" {
-		d.Description = html.UnescapeString(v)
+		d.Description = unescapeText(v)
 	}
 	if v := og["og:image"]; v != "" {
 		d.Thumbnail = html.UnescapeString(v)
@@ -428,5 +428,17 @@ func Slugify(title string) string {
 	s := strings.ToLower(title)
 	s = nonAlphaNum.ReplaceAllString(s, "-")
 	s = strings.Trim(s, "-")
+	return s
+}
+
+// unescapeText decodes HTML entities in a text field. Some MyMember sites
+// escape their synopsis twice ("&amp;amp;" in the attribute), so one pass
+// leaves "&amp;" in stored text; a second pass is applied when the first left
+// an entity behind. Only text fields go through it, never URLs.
+func unescapeText(s string) string {
+	s = html.UnescapeString(s)
+	if strings.Contains(s, "&") {
+		s = html.UnescapeString(s)
+	}
 	return s
 }
