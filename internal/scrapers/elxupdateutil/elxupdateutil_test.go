@@ -399,3 +399,28 @@ func TestListingURLPagingShapes(t *testing.T) {
 		t.Errorf("listingURL = %q", got)
 	}
 }
+
+// Josh Stone's tour appends a "Most Popular Updates" strip below the pager
+// that repeats the same cards on every page, including past the last one.
+func TestParseListingIgnoresPopularStrip(t *testing.T) {
+	body := []byte(`<div class="updateItem">
+	<a  href="https://www.joshstonexxx.com/tour/updates/Tiffany-Torres-Banged-POV-Style.html">
+		<img alt="x" class="stdimage " src="content/Tiffany_Torres_Pov/1.jpg" src0_4x="content/Tiffany_Torres_Pov/1-4x.jpg" />	</a>
+	<div class="updateDetails"><h4><a  href="https://www.joshstonexxx.com/tour/updates/Tiffany-Torres-Banged-POV-Style.html">Tiffany Torres Banged POV Style</a></h4>
+	<p><span class="tour_update_models"><a href="https://www.joshstonexxx.com/tour/models/TiffanyTorres.html">Tiffany Torres</a></span> <span>10/26/2022</span></p></div>
+</div>
+<ul class="pagination"></ul>
+	<h2 class="title">Most Popular Updates</h2>
+<div class="updateItem">
+	<a  href="https://www.joshstonexxx.com/tour/updates/Stunning-Mature-Roberta-Gemma-Jax.html">
+		<img alt="y" class="stdimage " src="content/robert_gemma_jax/1.jpg" />	</a>
+	<div class="updateDetails"><h4><a  href="https://www.joshstonexxx.com/tour/updates/Stunning-Mature-Roberta-Gemma-Jax.html">Stunning Mature Roberta Gemma Jax</a></h4></div>
+</div>`)
+	items := parseListing(body, false)
+	if len(items) != 1 || items[0].id != "Tiffany_Torres_Pov" {
+		t.Fatalf("items = %+v, want only the listing card", items)
+	}
+	if items[0].date != "10/26/2022" || len(items[0].performers) != 1 {
+		t.Errorf("card = %+v", items[0])
+	}
+}

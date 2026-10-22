@@ -357,9 +357,16 @@ var (
 	trailerRe   = regexp.MustCompile(`tload\('([^']+\.mp4)'\)`)
 	anchorRe    = regexp.MustCompile(`(?s)<a[^>]*>(.*?)</a>`)
 	tagStripRe  = regexp.MustCompile(`<[^>]*>`)
+	// popularRe marks the "Most Popular Updates" strip some tours append
+	// below the pager. It repeats the same cards on every page, so cards
+	// after it are not part of the listing.
+	popularRe = regexp.MustCompile(`<h2 class="title">\s*Most Popular Updates`)
 )
 
 func parseListing(body []byte, anyLink bool) []listItem {
+	if loc := popularRe.FindIndex(body); loc != nil {
+		body = body[:loc[0]]
+	}
 	locs := cardStartRe.FindAllIndex(body, -1)
 	items := make([]listItem, 0, len(locs))
 	for i, loc := range locs {
