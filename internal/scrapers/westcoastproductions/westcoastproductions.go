@@ -61,6 +61,26 @@ var matchRe = regexp.MustCompile(`^https?://(?:www\.)?(?:westcoastproductions|bl
 
 func (s *Scraper) MatchesURL(u string) bool { return matchRe.MatchString(u) }
 
+// PreferredStudioURL stores a blackmassivecocks.com URL under the matching
+// westcoastproductions.com one: both hosts serve the same scene ids, so
+// scraping each would otherwise keep the catalogue twice under two studios.
+func (s *Scraper) PreferredStudioURL(studioURL string) string {
+	u, err := url.Parse(studioURL)
+	if err != nil || strings.TrimPrefix(strings.ToLower(u.Host), "www.") == defaultHost {
+		return ""
+	}
+	if !s.MatchesURL(studioURL) {
+		return ""
+	}
+	out := "https://" + defaultHost
+	if f := u.Query().Get("studio"); f != "" {
+		out += siteHosts[defaultHost] + "?studio=" + url.QueryEscape(f)
+	}
+	return out
+}
+
+var _ scraper.StudioURLCanonicalizer = (*Scraper)(nil)
+
 func (s *Scraper) ListScenes(ctx context.Context, studioURL string, opts scraper.ListOpts) (<-chan scraper.SceneResult, error) {
 	out := make(chan scraper.SceneResult)
 	go s.run(ctx, studioURL, opts, out)

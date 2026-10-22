@@ -195,3 +195,18 @@ func TestListScenesEndToEnd(t *testing.T) {
 		t.Errorf("studio filter not forwarded: %v", reqs)
 	}
 }
+
+func TestPreferredStudioURLFoldsMirrorHost(t *testing.T) {
+	s := New()
+	for in, want := range map[string]string{
+		"https://blackmassivecocks.com":      "https://westcoastproductions.com",
+		"https://www.blackmassivecocks.com/": "https://westcoastproductions.com",
+		"https://blackmassivecocks.com/watch-newest-black-massive-cocks-clips-and-scenes.html?studio=42": "https://westcoastproductions.com/watch-newest-west-coast-productions-clips-and-scenes.html?studio=42",
+		"https://westcoastproductions.com": "",
+		"https://example.com":              "",
+	} {
+		if got := s.PreferredStudioURL(in); got != want {
+			t.Errorf("PreferredStudioURL(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
