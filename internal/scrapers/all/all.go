@@ -274,6 +274,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/marsmedia"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/maturefetish"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/maturenl"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/maverickmen"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/maxing"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/maycontaingirl"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/meanawolf"

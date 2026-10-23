@@ -1,6 +1,6 @@
 # Covered Sites — All Domains
 
-1907 scrapers covering 1993 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
+1909 scrapers covering 1996 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
 
 Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scraper ID(s)** column lists every scraper that claims URLs on that domain — most domains have one entry, but table-driven networks (`adultprime`, `tmw`, `nextdoorstudios`, etc.) host many sub-studios on a single root domain. See [`scrapers.md`](scrapers.md) for what each ID covers.
 
@@ -1039,6 +1039,8 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | mature.nl | `maturenl` |
 | maturefetish.com | `maturefetish` |
 | maturefucksteen.com | `porngutter` |
+| maverickmen.com | `maverickmen` |
+| maverickmendirects.com | `maverickmendirects` |
 | maxinex.com | `maxinex` |
 | maxing.jp | `maxing` |
 | maycontaingirl.com | `maycontaingirl` |
@@ -1848,6 +1850,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | vivthomas.com | `vivthomas` |
 | vixen.com | `vixen` |
 | vlogxxx.com | `vlogxxx` |
+| vod.maverickmen.com | `maverickmen`, `maverickmendirects` |
 | vogov.com | `tmw-vogov` |
 | voodooed.com | `voodooed` |
 | vored.com | `vored` |
