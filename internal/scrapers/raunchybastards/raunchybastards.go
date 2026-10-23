@@ -1,4 +1,5 @@
-// Package raunchybastards scrapes raunchybastards.com. See docs/scrapers.md.
+// Package raunchybastards scrapes the Pothos Media tours (Raunchy Bastards,
+// Boys Halfway House). See docs/scrapers.md.
 package raunchybastards
 
 import (
@@ -19,9 +20,7 @@ import (
 )
 
 const (
-	siteID     = "raunchybastards"
-	studioName = "Raunchy Bastards"
-	// detailWorkers caps the detail pool; the catalogue is ~456 scenes.
+	// detailWorkers caps the detail pool; catalogues are a few hundred scenes.
 	detailWorkers = 4
 	// sortNewest is passed on every mode: the default order is the editor's
 	// pick, under which the KnownIDs early-stop would truncate arbitrarily.
@@ -29,7 +28,6 @@ const (
 )
 
 var (
-	matchRe     = regexp.MustCompile(`^https?://(?:www\.)?raunchybastards\.com(?:/|$)`)
 	categoryRe  = regexp.MustCompile(`^/scenes/category/[^/?#]+$`)
 	profileRe   = regexp.MustCompile(`^/profile/[^/?#]+$`)
 	cardSplitRe = regexp.MustCompile(`<div class="scene_container`)
@@ -46,32 +44,56 @@ var (
 	tagStripRe   = regexp.MustCompile(`<[^>]+>`)
 )
 
-// Scraper implements scraper.StudioScraper for raunchybastards.com.
+// SiteConfig is one tour on the Pothos Media CMS.
+type SiteConfig struct {
+	SiteID string
+	Studio string
+	Domain string // bare host, e.g. "raunchybastards.com"
+}
+
+// Sites lists every tour this package registers.
+var Sites = []SiteConfig{
+	{SiteID: "raunchybastards", Studio: "Raunchy Bastards", Domain: "raunchybastards.com"},
+	{SiteID: "boyshalfwayhouse", Studio: "Boys Halfway House", Domain: "boyshalfwayhouse.com"},
+}
+
+// Scraper implements scraper.StudioScraper for one Pothos Media tour.
 type Scraper struct {
-	client *http.Client
-	base   string
+	cfg     SiteConfig
+	client  *http.Client
+	base    string
+	matchRe *regexp.Regexp
 }
 
-// New builds the Raunchy Bastards scraper.
-func New() *Scraper {
-	return &Scraper{client: httpx.NewClient(45 * time.Second), base: "https://www.raunchybastards.com"}
-}
-
-func init() { scraper.Register(New()) }
-
-var _ scraper.StudioScraper = (*Scraper)(nil)
-
-func (s *Scraper) ID() string { return siteID }
-
-func (s *Scraper) Patterns() []string {
-	return []string{
-		"raunchybastards.com",
-		"raunchybastards.com/scenes/category/{id}-{slug}",
-		"raunchybastards.com/profile/{id}-{slug}",
+// New builds the scraper for one tour.
+func New(cfg SiteConfig) *Scraper {
+	return &Scraper{
+		cfg:     cfg,
+		client:  httpx.NewClient(45 * time.Second),
+		base:    "https://www." + cfg.Domain,
+		matchRe: regexp.MustCompile(`^https?://(?:www\.)?` + regexp.QuoteMeta(cfg.Domain) + `(?:/|$)`),
 	}
 }
 
-func (s *Scraper) MatchesURL(u string) bool { return matchRe.MatchString(u) }
+func init() {
+	for _, cfg := range Sites {
+		scraper.Register(New(cfg))
+	}
+}
+
+var _ scraper.StudioScraper = (*Scraper)(nil)
+
+func (s *Scraper) ID() string { return s.cfg.SiteID }
+
+func (s *Scraper) Patterns() []string {
+	return []string{
+		s.cfg.Domain,
+		s.cfg.Domain + "/scenes/category/{id}-{slug}",
+		s.cfg.Domain + "/profile/{id}-{slug}",
+	}
+}
+
+func (s *Scraper) MatchesURL(u string) bool { return s.matchRe.MatchString(u) }
 
 func (s *Scraper) ListScenes(ctx context.Context, studioURL string, opts scraper.ListOpts) (<-chan scraper.SceneResult, error) {
 	out := make(chan scraper.SceneResult)
@@ -108,12 +130,12 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 	defer close(out)
 
 	path := listingPath(studioURL)
-	scraper.Debugf(1, "%s: listing %s", siteID, path)
+	scraper.Debugf(1, "%s: listing %s", s.cfg.SiteID, path)
 
 	now := time.Now().UTC()
 	seen := map[string]bool{}
 
-	scraper.Paginate(ctx, opts, siteID, out, func(ctx context.Context, page int) (scraper.PageResult, error) {
+	scraper.Paginate(ctx, opts, s.cfg.SiteID, out, func(ctx context.Context, page int) (scraper.PageResult, error) {
 		pageURL := fmt.Sprintf("%s%s?sort=%s&page=%d", s.base, path, sortNewest, page)
 		body, err := s.fetch(ctx, pageURL)
 		if err != nil {
@@ -200,9 +222,9 @@ func parseListing(body string) []card {
 func (s *Scraper) baseScene(c card, studioURL string, now time.Time) models.Scene {
 	return models.Scene{
 		ID:         c.id,
-		SiteID:     siteID,
+		SiteID:     s.cfg.SiteID,
 		StudioURL:  studioURL,
-		Studio:     studioName,
+		Studio:     s.cfg.Studio,
 		Title:      c.title,
 		URL:        fmt.Sprintf("%s/scene/%s-%s", s.base, c.id, c.slug),
 		Thumbnail:  c.thumb,
@@ -220,7 +242,7 @@ func (s *Scraper) enrich(ctx context.Context, scenes []models.Scene, opts scrape
 	if len(scenes) == 0 {
 		return
 	}
-	scraper.Debugf(1, "%s: fetching %d details with %d workers", siteID, len(scenes), workers)
+	scraper.Debugf(1, "%s: fetching %d details with %d workers", s.cfg.SiteID, len(scenes), workers)
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, workers)
 	for i := range scenes {

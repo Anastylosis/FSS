@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Anastylosis/FSS/models"
 	"github.com/Anastylosis/FSS/scraper"
@@ -78,7 +79,10 @@ func newTestServer() *httptest.Server {
 }
 
 func newTestScraper(ts *httptest.Server) *Scraper {
-	return &Scraper{client: ts.Client(), base: ts.URL}
+	s := New(Sites[0])
+	s.client = ts.Client()
+	s.base = ts.URL
+	return s
 }
 
 func collect(ch <-chan scraper.SceneResult) (scenes []models.Scene, errs, stopped int) {
@@ -96,7 +100,7 @@ func collect(ch <-chan scraper.SceneResult) (scenes []models.Scene, errs, stoppe
 }
 
 func TestMatchesURL(t *testing.T) {
-	s := New()
+	s := New(Sites[0])
 	tests := []struct {
 		url  string
 		want bool
@@ -199,7 +203,7 @@ func TestListScenes(t *testing.T) {
 		t.Fatalf("got %d scenes, want 3", len(scenes))
 	}
 	sc := scenes[0]
-	if sc.ID != "458" || sc.SiteID != siteID || sc.Studio != studioName {
+	if sc.ID != "458" || sc.SiteID != "raunchybastards" || sc.Studio != "Raunchy Bastards" {
 		t.Errorf("scene = %+v", sc)
 	}
 	if !strings.HasPrefix(sc.URL, ts.URL) {
@@ -288,5 +292,52 @@ func TestEmptyFirstPageIsAParseError(t *testing.T) {
 	}
 	if errs != 1 {
 		t.Errorf("got %d errors, want 1", errs)
+	}
+}
+
+func TestBoysHalfwayHouseRow(t *testing.T) {
+	s := New(Sites[1])
+	if s.ID() != "boyshalfwayhouse" {
+		t.Fatalf("ID = %q", s.ID())
+	}
+	for u, want := range map[string]bool{
+		"https://www.boyshalfwayhouse.com/":              true,
+		"https://boyshalfwayhouse.com/profile/313-kai":   true,
+		"https://www.boyshalfwayhouse.com/scenes?page=2": true,
+		"https://www.raunchybastards.com/":               false,
+		"https://boyshalfwayhouse.com.evil.net/scenes":   false,
+	} {
+		if got := s.MatchesURL(u); got != want {
+			t.Errorf("MatchesURL(%q) = %v, want %v", u, got, want)
+		}
+	}
+	sc := s.baseScene(card{id: "423", slug: "disciplinary-tete-a-tete", title: "Disciplinary Tête-à-Tête"}, "https://www.boyshalfwayhouse.com/", time.Now())
+	if sc.SiteID != "boyshalfwayhouse" || sc.Studio != "Boys Halfway House" ||
+		sc.URL != "https://www.boyshalfwayhouse.com/scene/423-disciplinary-tete-a-tete" ||
+		sc.StudioURL != "https://www.boyshalfwayhouse.com/" {
+		t.Errorf("scene = %+v", sc)
+	}
+}
+
+// Trimmed from a live Boys Halfway House detail page: the title block is also a
+// p-5 div whose <p> holds the model links, and must not be read as the synopsis.
+const bhhDetail = `<div class="p-5">
+		<h2 class="main_title sectionMainTitle">Disciplinary Tête-à-Tête</h2>
+		<div class="row">
+			<p><a href="/profile/313-kai" >Kai</a></p>
+		</div>
+	</div>
+		<div class="p-5">
+			<p>For someone who was brought up educated and all, this new resident sure does have problems.</p>
+			<h5 class="strong">Categories: <a href="/scenes/category/1-bareback" >Bareback</a>, <a href="/scenes/category/7-blowjob" >Blowjob</a></h5>			<h5 class="strong">Details:  <i class="icon-clock-1"></i>36 min</h5>`
+
+func TestApplyDetailBoysHalfwayHouse(t *testing.T) {
+	var sc models.Scene
+	applyDetail(&sc, bhhDetail)
+	if !strings.HasPrefix(sc.Description, "For someone who was brought up") {
+		t.Errorf("description = %q", sc.Description)
+	}
+	if len(sc.Categories) != 2 || sc.Categories[0] != "Bareback" {
+		t.Errorf("categories = %v", sc.Categories)
 	}
 }
