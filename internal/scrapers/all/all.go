@@ -52,6 +52,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/beefcakehunter"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/belamionline"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/bellesa"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/bentleyrace"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/bigbootytgirls"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/blackbullchallenge"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/blackpayback"
