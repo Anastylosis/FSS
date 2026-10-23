@@ -26,3 +26,20 @@ func TestOnlySiteDomainFiltersModelPage(t *testing.T) {
 		t.Fatalf("got %d scenes, want only ID 1", len(got))
 	}
 }
+
+// A brand whose own domain is a shell reads the network feed: every URL it
+// claims, its own domain included, is fetched from FetchDomain.
+func TestFetchDomainOverridesBase(t *testing.T) {
+	s := New(SiteConfig{SiteID: "trailertrashboys", Domain: "trailertrashboys.com", FetchDomain: "ducatistudios.com", Aliases: []string{"trentonducati.com"}})
+	for _, u := range []string{"https://trailertrashboys.com/", "https://www.trentonducati.com/models/x"} {
+		if !s.MatchesURL(u) {
+			t.Errorf("does not match %s", u)
+		}
+		if got := s.baseFor(u); got != "https://ducatistudios.com" {
+			t.Errorf("baseFor(%s) = %s", u, got)
+		}
+	}
+	if s.MatchesURL("https://ducatistudios.com/") {
+		t.Error("the brand row must not claim the network host")
+	}
+}

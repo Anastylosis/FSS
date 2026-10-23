@@ -51,6 +51,10 @@ type SiteConfig struct {
 	// their model URLs "{domain}/models/{id}-{slug}". Display only — MatchesURL
 	// accepts any path on the domain either way.
 	ModelPattern string
+	// FetchDomain, when set, is the host every request goes to instead of
+	// the operator's: a brand whose own domain is a shell over a network
+	// feed (trailertrashboys.com reads ducatistudios.com's).
+	FetchDomain string
 }
 
 // RootListPath is the ListPath value for a site whose home page is the paged
@@ -92,6 +96,9 @@ func New(cfg SiteConfig) *Scraper {
 // A host named in Aliases is the exception — it only redirects to the real one
 // and serves nothing under the listing path itself.
 func (s *Scraper) baseFor(studioURL string) string {
+	if s.cfg.FetchDomain != "" {
+		return "https://" + s.cfg.FetchDomain
+	}
 	u, err := url.Parse(studioURL)
 	if err != nil || u.Host == "" {
 		return "https://" + s.cfg.Domain

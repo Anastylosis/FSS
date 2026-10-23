@@ -34,7 +34,11 @@ var sites = []paysiteutil.SiteConfig{
 	{SiteID: "s3xus", Domain: "s3xus.com", StudioName: "S3XUS", ListPath: "scenes"},
 	// Trailer Trash Boys has no scene pages of its own (a JS-only shell); its
 	// scenes are the trailertrashboys.com items in the Ducati Studios network feed.
-	{SiteID: "trailertrashboys", Domain: "ducatistudios.com", StudioName: "Trailer Trash Boys", OnlySiteDomain: "trailertrashboys.com", Aliases: []string{"trailertrashboys.com", "trentonducati.com"}},
+	{SiteID: "trailertrashboys", Domain: "trailertrashboys.com", FetchDomain: "ducatistudios.com", StudioName: "Trailer Trash Boys", OnlySiteDomain: "trailertrashboys.com", Aliases: []string{"trentonducati.com"}},
+	// The whole Ducati Studios feed: the brands with rows of their own
+	// (Gentlemen's Closet, Nasty Daddy, Bondage Bros, Trailer Trash Boys) plus Ducati
+	// Originals, Daddy Patrick, Johnny Rapid, Edward James and Choice Filmz.
+	{SiteID: "ducatistudios", Domain: "ducatistudios.com", StudioName: "Ducati Studios"},
 	// Yes Girlz serves the same template one path over: /videos 404s, /scenes
 	// is the listing.
 	{SiteID: "yesgirlz", Domain: "yesgirlz.com", StudioName: "YesGirlz", ListPath: "scenes"},
