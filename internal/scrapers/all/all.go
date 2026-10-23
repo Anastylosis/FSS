@@ -49,6 +49,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/bdtv"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/beautifulagony"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/beddableboys"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/beefcakehunter"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/belamionline"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/bellesa"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/bigbootytgirls"
