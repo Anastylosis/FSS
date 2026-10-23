@@ -1,6 +1,6 @@
 # Covered Sites — All Domains
 
-1905 scrapers covering 1983 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
+1907 scrapers covering 1993 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
 
 Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scraper ID(s)** column lists every scraper that claims URLs on that domain — most domains have one entry, but table-driven networks (`adultprime`, `tmw`, `nextdoorstudios`, etc.) host many sub-studios on a single root domain. See [`scrapers.md`](scrapers.md) for what each ID covers.
 
@@ -265,6 +265,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | brandnewfaces.com | `brandnewfaces` |
 | brasilvr.com | `brasilvr` |
 | bratprincess.us | `bratprincess` |
+| brattybrittany.com | `philflash` |
 | brattyfamily.com | `brattyfamily` |
 | brattymilf.com | `nubiles` |
 | brattysis.com | `nubiles` |
@@ -571,6 +572,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | extrabigdicks.com | `extrabigdicks` |
 | extremestreets.com | `extremestreets` |
 | exxxtrasmall.com | `exxxtrasmall` |
+| facedownassupuniversity.com | `philflash` |
 | facefucktour.com | `africanbucks` |
 | facialabuse.com | `facialabuse` |
 | facialcasting.com | `facialcasting` |
@@ -904,8 +906,10 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | justdanica.com | `justdanica` |
 | justpov.com | `pawged` |
 | kanbi-av.com | `prestige` |
+| karensdreamgirls.com | `philflash` |
 | karinahart.com | `karinahart` |
 | karissa-diamond.com | `karissadiamond` |
+| karisweets.com | `karisweets` |
 | karupsha.com | `karupsha` |
 | karupsow.com | `karupsow` |
 | karupspc.com | `karupspc` |
@@ -1039,6 +1043,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | maxing.jp | `maxing` |
 | maycontaingirl.com | `maycontaingirl` |
 | meanawolf.com | `meanawolf` |
+| meganqt.com | `philflash` |
 | megasite.meanworld.com | `meanworld` |
 | megatitsminka.com | `megatitsminka` |
 | meidenvanholland.nl | `meidenvanholland` |
@@ -1191,6 +1196,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | nextdoorhobby.com | `nextdoorhobby` |
 | nextdoorhookups.com | `nextdoorhookups` |
 | nextdoormale.com | `nextdoormale` |
+| nextdoornikki.com | `philflash` |
 | nextdoorraw.com | `nextdoorraw` |
 | nextdoorstudios.com | `austinwilde`, `guysdoingporn`, `nextdoorhomemade` (+4 more) |
 | nextdoortaboo.com | `nextdoortaboo` |
@@ -1290,6 +1296,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | petiteballerinasfucked.com | `nubiles` |
 | petited.com | `petited` |
 | petitehdporn.com | `nubiles` |
+| phil-flash.com | `philflash` |
 | phoenixxx.com | `phoenixxx` |
 | pickinguppussy.com | `pickinguppussy` |
 | pinkkittygirls.com | `pinkkittygirls` |
@@ -1626,6 +1633,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | taratainton.com | `taratainton` |
 | tawny-peaks.com | `tawny-peaks` |
 | taworship.com | `taworship` |
+| taylortwins.com | `philflash` |
 | teacherfucksteens.com | `nubiles` |
 | teamfucksgirl.com | `porngutter` |
 | teamskeet.com | `teamskeet` |
@@ -1639,6 +1647,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | teendreams.com | `teendreams` |
 | teenerotica.xxx | `porngutter` |
 | teenfidelity.com | `teenfidelity` |
+| teenkasia.com | `philflash` |
 | teenmegaworld.net | `tmw-18firstsex`, `tmw-aboutgirlslove`, `tmw-anal-angels` (+32 more) |
 | teenpies.com | `teenpies` |
 | teens3some.com | `tmw-teens3some` |
@@ -1708,6 +1717,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | tieable.com | `tieable` |
 | tiffany-towers.com | `tiffany-towers` |
 | tiffanybrookesxxx.com | `tiffanybrookesxxx` |
+| tiffanyteen.com | `philflash` |
 | tightandteen.com | `private` |
 | timtales.com | `timtales` |
 | tiny4k.com | `tiny4k` |
