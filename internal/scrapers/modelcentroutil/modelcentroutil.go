@@ -152,6 +152,18 @@ type APIScene struct {
 	} `json:"sites"`
 	Description string          `json:"description"`
 	Tags        json.RawMessage `json:"tags"`
+	Resources   json.RawMessage `json:"_resources"`
+}
+
+// ResourcesKey unlocks the `_resources` field of content.load: the front end
+// sends it as transitParameters[v1], and without it the API silently omits
+// every image whatever the field list asks for.
+const ResourcesKey = "QmIZ9uZMnL"
+
+type apiResources struct {
+	Primary []struct {
+		URL string `json:"url"`
+	} `json:"primary"`
 }
 
 type APISiteEntry struct {
@@ -165,10 +177,12 @@ type apiTagEntry struct {
 func (s *Scraper) FetchListing(ctx context.Context, offset int) ([]APIScene, int, error) {
 	u := fmt.Sprintf("%s/api/content.load?_method=content.load&tz=2"+
 		"&fields[0]=id&fields[1]=title&fields[2]=length&fields[3]=sites.publishDate"+
+		"&fields[4]=_resources.primary.url"+
 		"&limit=%d&offset=%d"+
 		"&metaFields[totalCount]=1"+
-		"&transitParameters[preset]=videos",
-		s.cfg.SiteBase, PerPage, offset)
+		"&transitParameters[preset]=videos"+
+		"&transitParameters[v1]=%s",
+		s.cfg.SiteBase, PerPage, offset, ResourcesKey)
 
 	resp, err := httpx.Do(ctx, s.Client, httpx.Request{
 		URL:     u,
@@ -250,6 +264,33 @@ func ParseTags(raw json.RawMessage) []string {
 	return nil
 }
 
+// ParseThumbnail returns the scene's primary image as an absolute URL. PHP
+// encodes an empty `_resources` as `[]`, so a decode failure means no image
+// rather than a broken listing.
+func ParseThumbnail(siteBase string, raw json.RawMessage) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	var res apiResources
+	if err := json.Unmarshal(raw, &res); err != nil {
+		return ""
+	}
+	for _, p := range res.Primary {
+		u := strings.TrimSpace(p.URL)
+		switch {
+		case u == "":
+			continue
+		case strings.HasPrefix(u, "//"):
+			return "https:" + u
+		case strings.HasPrefix(u, "/"):
+			return strings.TrimRight(siteBase, "/") + u
+		default:
+			return u
+		}
+	}
+	return ""
+}
+
 func ParsePublishDate(sc APIScene) time.Time {
 	idStr := strconv.Itoa(sc.ID)
 	if entry, ok := sc.Sites.Collection[idStr]; ok && entry.PublishDate != "" {
@@ -294,6 +335,7 @@ func ToScene(cfg SiteConfig, listing APIScene, detail *APIScene, studioURL strin
 		URL:        sceneURL,
 		Duration:   listing.Len,
 		Date:       ParsePublishDate(listing),
+		Thumbnail:  ParseThumbnail(cfg.SiteBase, listing.Resources),
 		Studio:     cfg.StudioName,
 		Performers: cfg.Performers,
 		ScrapedAt:  now,

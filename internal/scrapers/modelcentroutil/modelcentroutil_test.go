@@ -523,3 +523,64 @@ func TestDetailFailureDoesNotAbortTheWalk(t *testing.T) {
 		t.Errorf("errors = %d, want %d", errs, items)
 	}
 }
+
+func TestParseThumbnail(t *testing.T) {
+	cases := []struct {
+		name, raw, want string
+	}{
+		{"absolute", `{"primary":[{"url":"https://cdn.example/a.jpg"}]}`, "https://cdn.example/a.jpg"},
+		{"protocol-relative", `{"primary":[{"url":"//cdn.example/a.jpg"}]}`, "https://cdn.example/a.jpg"},
+		{"root-relative", `{"primary":[{"url":"/img/a.jpg"}]}`, "https://site.example/img/a.jpg"},
+		{"skips empty", `{"primary":[{"url":""},{"url":"https://cdn.example/b.jpg"}]}`, "https://cdn.example/b.jpg"},
+		{"php empty array", `[]`, ""},
+		{"no primary", `{"hoverPreview":"https://cdn.example/p.mp4"}`, ""},
+		{"absent", ``, ""},
+	}
+	for _, c := range cases {
+		if got := ParseThumbnail("https://site.example/", json.RawMessage(c.raw)); got != c.want {
+			t.Errorf("%s: ParseThumbnail = %q, want %q", c.name, got, c.want)
+		}
+	}
+}
+
+// A live blackpynk.com listing requested with `_resources.primary.url` and the
+// transitParameters[v1] key, kept unedited. Without that key the API drops
+// `_resources` silently, which is how every ModelCentro scene came to be
+// stored with an empty Thumbnail.
+func TestGoldenListingCarriesThumbnail(t *testing.T) {
+	body, err := os.ReadFile(filepath.Join("testdata", "content_load_resources.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var gotQuery string
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotQuery = r.URL.RawQuery
+		_, _ = w.Write(body)
+	}))
+	defer ts.Close()
+
+	s := New(SiteConfig{SiteID: "blackpynk", SiteBase: ts.URL, StudioName: "Black Pynk"})
+	s.Client = ts.Client()
+	listing, _, err := s.FetchListing(context.Background(), 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(gotQuery, "transitParameters[v1]="+ResourcesKey) {
+		t.Errorf("listing request lacks transitParameters[v1]; query was %s", gotQuery)
+	}
+	if !strings.Contains(gotQuery, "_resources.primary.url") {
+		t.Errorf("listing request does not ask for _resources.primary.url; query was %s", gotQuery)
+	}
+	if len(listing) != 1 {
+		t.Fatalf("decoded %d scenes, want 1", len(listing))
+	}
+
+	sc := ToScene(SiteConfig{SiteID: "blackpynk", SiteBase: ts.URL}, listing[0], nil, ts.URL+"/videos", time.Now())
+	if !strings.HasPrefix(sc.Thumbnail, "https://ht-small.centrofiles.com/h3/") || !strings.HasSuffix(sc.Thumbnail, ".jpg") {
+		t.Errorf("Thumbnail = %q, want the primary image from _resources.primary[0].url", sc.Thumbnail)
+	}
+	if sc.ID != "9380141" || sc.Duration != 515 || sc.Date.IsZero() {
+		t.Errorf("listing fields lost alongside _resources: %+v", sc)
+	}
+}
