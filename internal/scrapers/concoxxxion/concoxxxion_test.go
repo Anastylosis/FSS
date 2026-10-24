@@ -46,19 +46,130 @@ func TestMatchesURL(t *testing.T) {
 	}
 }
 
-func TestListingFor(t *testing.T) {
-	cases := []struct{ in, base, path string }{
-		{"https://hornyhousehold.com/", "https://hornyhousehold.com", newestPath},
-		{"https://hornyhousehold.com/watch-newest-clips-and-scenes.html", "https://hornyhousehold.com", newestPath},
-		{"https://www.conorcoxxx.com", "https://www.conorcoxxx.com", "/conor-coxxx-clips.html"},
-		{"https://www.conorcoxxx.com/horny-household-clips.html?page=3", "https://www.conorcoxxx.com", "/horny-household-clips.html"},
-		{"https://conorcoxxx.com/watch-newest-clips-and-scenes.html", "https://conorcoxxx.com", newestPath},
+func TestResolveTarget(t *testing.T) {
+	const perf = "/scenes/648930/conor-coxxx-streaming-pornstar-videos.html"
+	cases := []struct {
+		in, base, path string
+		mode           mode
+	}{
+		{"https://hornyhousehold.com/", "https://hornyhousehold.com", newestPath, modeClips},
+		{"https://hornyhousehold.com/watch-newest-clips-and-scenes.html", "https://hornyhousehold.com", newestPath, modeClips},
+		{"https://www.conorcoxxx.com", "https://www.conorcoxxx.com", "/conor-coxxx-clips.html", modeClips},
+		{"https://www.conorcoxxx.com/horny-household-clips.html?page=3", "https://www.conorcoxxx.com", "/horny-household-clips.html", modeClips},
+		{"https://conorcoxxx.com/watch-newest-clips-and-scenes.html", "https://conorcoxxx.com", newestPath, modeClips},
+		{"https://www.conorcoxxx.com/watch-newest-concoxxxion-movies.html", "https://www.conorcoxxx.com", moviesPath, modeMovies},
+		{"https://hornyhousehold.com/watch-newest-concoxxxion-movies.html", moviesOrigin, moviesPath, modeMovies},
+		{"https://www.conorcoxxx.com/648930/conor-coxxx-streaming-pornstar-videos.html", "https://www.conorcoxxx.com", perf, modePerformer},
+		{"https://www.conorcoxxx.com" + perf + "?page=2", "https://www.conorcoxxx.com", perf, modePerformer},
+		{"https://hornyhousehold.com/scenes/655579/melanie-hicks-streaming-pornstar-videos.html", "https://hornyhousehold.com", "/scenes/655579/melanie-hicks-streaming-pornstar-videos.html", modePerformer},
 	}
 	for _, c := range cases {
-		base, path := listingFor(c.in)
-		if base != c.base || path != c.path {
-			t.Errorf("listingFor(%q) = %q, %q; want %q, %q", c.in, base, path, c.base, c.path)
+		got := resolveTarget(c.in)
+		if got.base != c.base || got.path != c.path || got.mode != c.mode {
+			t.Errorf("resolveTarget(%q) = %+v; want %q, %q, %d", c.in, got, c.base, c.path, c.mode)
 		}
+	}
+}
+
+func TestPageURL(t *testing.T) {
+	movies := target{base: "https://x", path: moviesPath, mode: modeMovies}
+	if got := movies.pageURL(2); got != "https://x"+moviesPath+"?studio=95763&page=2" {
+		t.Errorf("movies page URL = %q", got)
+	}
+	clips := target{base: "https://x", path: newestPath}
+	if got := clips.pageURL(1); got != "https://x"+newestPath+"?page=1" {
+		t.Errorf("clips page URL = %q", got)
+	}
+}
+
+func TestPatternsCoverModes(t *testing.T) {
+	s := New()
+	for _, u := range []string{
+		"https://www.conorcoxxx.com/watch-newest-concoxxxion-movies.html",
+		"https://www.conorcoxxx.com/648930/conor-coxxx-streaming-pornstar-videos.html",
+		"https://hornyhousehold.com/scenes/655579/melanie-hicks-streaming-pornstar-videos.html",
+	} {
+		if !s.MatchesURL(u) || scraper.URLLooksUnhandled(s, u) {
+			t.Errorf("%s not advertised", u)
+		}
+	}
+}
+
+func TestParseMinutes(t *testing.T) {
+	cases := map[string]int{"44 min": 44, "\n\t1 h 3 min\n": 63, "2 hrs. 18 mins.": 138, "1 hrs.": 60, "": 0}
+	for in, want := range cases {
+		if got := parseMinutes(in); got != want {
+			t.Errorf("parseMinutes(%q) = %d, want %d", in, got, want)
+		}
+	}
+}
+
+func TestParseMovies(t *testing.T) {
+	items := parseMovies(readFixture(t, "movies.html"), "https://www.conorcoxxx.com")
+	if len(items) != 2 {
+		t.Fatalf("got %d items, want 2", len(items))
+	}
+	got := items[0]
+	if got.id != "movie-5136756" {
+		t.Errorf("id = %q", got.id)
+	}
+	if got.url != "https://www.conorcoxxx.com/5136756/step-mommys-forbidden-cravings-streaming-porn-videos.html" {
+		t.Errorf("url = %q", got.url)
+	}
+	if got.title != "Step-Mommy's Forbidden Cravings" {
+		t.Errorf("title = %q", got.title)
+	}
+	if got.thumb != "https://imgs4cdn.adultempire.com/movie/5094446?w=500" {
+		t.Errorf("thumb = %q", got.thumb)
+	}
+	if items[1].id != "movie-5123672" || items[1].title != "The Seduction of Super Slut" {
+		t.Errorf("second item = %+v", items[1])
+	}
+}
+
+func TestApplyMovieDetail(t *testing.T) {
+	scene := models.Scene{ID: "movie-5136756", Studio: defaultStudio}
+	applyDetail(&scene, string(readFixture(t, "movie_detail.html")))
+
+	clip := models.Scene{ID: "1802216"}
+	applyDetail(&clip, string(readFixture(t, "movie_detail.html")))
+	if !slices.Equal(clip.Performers, []string{"Adara Jordin", "Chanel Preston"}) {
+		t.Errorf("clip read the scene list: %v", clip.Performers)
+	}
+
+	if scene.Title != "Step-Mommy's Forbidden Cravings" {
+		t.Errorf("Title = %q", scene.Title)
+	}
+	if want := time.Date(2026, time.September, 18, 0, 0, 0, 0, time.UTC); !scene.Date.Equal(want) {
+		t.Errorf("Date = %v, want %v", scene.Date, want)
+	}
+	if scene.Duration != 138*60 {
+		t.Errorf("Duration = %d", scene.Duration)
+	}
+	if scene.Director != "Conor Coxxx" || scene.Studio != "Concoxxxion" {
+		t.Errorf("Director = %q, Studio = %q", scene.Director, scene.Studio)
+	}
+	if !strings.HasPrefix(scene.Description, "Conor becomes the object") {
+		t.Errorf("Description = %q", scene.Description)
+	}
+	if want := []string{"Adara Jordin", "Chanel Preston", "Conor Coxxx"}; !slices.Equal(scene.Performers, want) {
+		t.Errorf("Performers = %v, want %v", scene.Performers, want)
+	}
+	if want := []string{"4K Ultra HD", "Big Dicks", "Cougars"}; !slices.Equal(scene.Tags, want) {
+		t.Errorf("Tags = %v, want %v", scene.Tags, want)
+	}
+}
+
+func TestParsePerformerPage(t *testing.T) {
+	items := parseListing(readFixture(t, "performer.html"), "https://www.conorcoxxx.com")
+	if len(items) != 2 {
+		t.Fatalf("got %d items, want 2", len(items))
+	}
+	if items[0].id != "1797580" || items[0].minutes != 44 || !slices.Equal(items[0].performers, []string{"Lucy Foxx"}) {
+		t.Errorf("first = %+v", items[0])
+	}
+	if items[1].minutes != 63 || !slices.Equal(items[1].performers, []string{"Selena Lust", "Conor Coxxx"}) {
+		t.Errorf("second = %+v", items[1])
 	}
 }
 
@@ -286,5 +397,82 @@ func TestContextCancellation(t *testing.T) {
 	case <-done:
 	case <-time.After(10 * time.Second):
 		t.Fatal("channel did not close after context cancellation")
+	}
+}
+
+func serveMode(t *testing.T, listing, detail, detailSuffix string, queries *[]string) *httptest.Server {
+	t.Helper()
+	list := readFixture(t, listing)
+	det := readFixture(t, detail)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if c, err := r.Cookie("ageConfirmed"); err != nil || c.Value != "true" {
+			http.Redirect(w, r, "/AgeConfirmation", http.StatusFound)
+			return
+		}
+		if strings.HasSuffix(r.URL.Path, detailSuffix) {
+			_, _ = w.Write(det)
+			return
+		}
+		*queries = append(*queries, r.URL.Path+"?"+r.URL.RawQuery)
+		if r.URL.Query().Get("page") == "1" {
+			_, _ = w.Write(list)
+			return
+		}
+		_, _ = fmt.Fprint(w, `<html><body></body></html>`)
+	}))
+	t.Cleanup(srv.Close)
+	orig := siteBase
+	siteBase = srv.URL
+	t.Cleanup(func() { siteBase = orig })
+	return srv
+}
+
+func TestListScenesMovies(t *testing.T) {
+	var queries []string
+	srv := serveMode(t, "movies.html", "movie_detail.html", "-streaming-porn-videos.html", &queries)
+	s := New()
+	s.Client = srv.Client()
+
+	studioURL := "https://www.conorcoxxx.com/watch-newest-concoxxxion-movies.html"
+	ch, err := s.ListScenes(context.Background(), studioURL, scraper.ListOpts{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	scenes := testutil.CollectScenes(t, ch)
+	if len(scenes) != 2 {
+		t.Fatalf("got %d scenes, want 2", len(scenes))
+	}
+	if queries[0] != moviesPath+"?studio=95763&page=1" {
+		t.Errorf("first listing request = %q", queries[0])
+	}
+	sc := scenes[0]
+	if sc.ID != "movie-5136756" || sc.StudioURL != studioURL || !strings.HasPrefix(sc.URL, srv.URL+"/5136756/") {
+		t.Errorf("scene = %+v", sc)
+	}
+	if sc.Date.IsZero() || sc.Duration != 138*60 || len(sc.Tags) == 0 || len(sc.Performers) == 0 || sc.Thumbnail == "" {
+		t.Errorf("scene incomplete: %+v", sc)
+	}
+}
+
+func TestListScenesPerformer(t *testing.T) {
+	var queries []string
+	srv := serveMode(t, "performer.html", "detail.html", "-streaming-scene-video.html", &queries)
+	s := New()
+	s.Client = srv.Client()
+
+	studioURL := "https://www.conorcoxxx.com/648930/conor-coxxx-streaming-pornstar-videos.html"
+	ch, err := s.ListScenes(context.Background(), studioURL, scraper.ListOpts{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	scenes := testutil.CollectScenes(t, ch)
+	if len(scenes) != 2 {
+		t.Fatalf("got %d scenes, want 2", len(scenes))
+	}
+	if queries[0] != "/scenes/648930/conor-coxxx-streaming-pornstar-videos.html?page=1" {
+		t.Errorf("first listing request = %q", queries[0])
+	}
+	if scenes[0].ID != "1797580" || scenes[0].StudioURL != studioURL || scenes[0].Date.IsZero() {
+		t.Errorf("scene = %+v", scenes[0])
 	}
 }

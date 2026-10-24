@@ -2,7 +2,8 @@
 // (hornyhousehold.com), Concoxxxion's two AdultEmpire "EWC" white-label sites.
 //
 // Both sites share one scene catalogue (same IDs on either domain) and the
-// same listing skin, which differs from spankmonster and helixstudios.
+// same listing skin, which differs from spankmonster and helixstudios. Besides
+// the clip listings it scrapes the full-DVD movie list and performer pages.
 package concoxxxion
 
 import (
@@ -27,6 +28,10 @@ const (
 	detailWorkers = 4
 	dateLayout    = "Jan 2, 2006"
 	newestPath    = "/watch-newest-clips-and-scenes.html"
+	moviesPath    = "/watch-newest-concoxxxion-movies.html"
+	moviesStudio  = "95763"
+	moviesOrigin  = "https://www.conorcoxxx.com"
+	movieIDPrefix = "movie-"
 )
 
 // siteBase overrides the origin taken from the studio URL (tests only).
@@ -56,6 +61,12 @@ func (s *Scraper) Patterns() []string {
 		"conorcoxxx.com/conor-coxxx-clips.html",
 		"conorcoxxx.com/horny-household-clips.html",
 		"conorcoxxx.com/watch-newest-clips-and-scenes.html",
+		"conorcoxxx.com/watch-newest-concoxxxion-movies.html",
+		"conorcoxxx.com/{id}/{slug}-streaming-pornstar-videos.html",
+		"conorcoxxx.com/scenes/{id}/{slug}-streaming-pornstar-videos.html",
+		"hornyhousehold.com/watch-newest-concoxxxion-movies.html",
+		"hornyhousehold.com/{id}/{slug}-streaming-pornstar-videos.html",
+		"hornyhousehold.com/scenes/{id}/{slug}-streaming-pornstar-videos.html",
 	}
 }
 
@@ -63,25 +74,59 @@ var matchRe = regexp.MustCompile(`^https?://(?:www\.)?(?:hornyhousehold|conorcox
 
 func (s *Scraper) MatchesURL(u string) bool { return matchRe.MatchString(u) }
 
-// listingFor returns the origin and listing path for a studio URL.
-func listingFor(studioURL string) (base, path string) {
+type mode int
+
+const (
+	modeClips mode = iota
+	modeMovies
+	modePerformer
+)
+
+// target is what a studio URL resolves to: an origin, a listing path and how
+// to read the cards on it.
+type target struct {
+	base, path string
+	mode       mode
+}
+
+var performerPathRe = regexp.MustCompile(`^/(?:scenes/)?(\d+)/([^/]+)-streaming-pornstar-videos\.html$`)
+
+func resolveTarget(studioURL string) target {
 	u, err := url.Parse(studioURL)
 	if err != nil || u.Host == "" {
-		return "https://hornyhousehold.com", newestPath
+		return target{base: "https://hornyhousehold.com", path: newestPath}
 	}
-	base = u.Scheme + "://" + u.Host
+	base := u.Scheme + "://" + u.Host
+	host := strings.TrimPrefix(strings.ToLower(u.Hostname()), "www.")
+	if u.Path == moviesPath && host != "conorcoxxx.com" {
+		// Horny Household serves an error page here; the list lives on Conor Coxxx.
+		base = moviesOrigin
+	}
 	if siteBase != "" {
 		base = siteBase
 	}
-	host := strings.TrimPrefix(strings.ToLower(u.Hostname()), "www.")
 	switch {
+	case u.Path == moviesPath:
+		return target{base: base, path: moviesPath, mode: modeMovies}
+	case performerPathRe.MatchString(u.Path):
+		// The bare performer page does not paginate its scenes; the /scenes/ tab does.
+		m := performerPathRe.FindStringSubmatch(u.Path)
+		return target{base: base, path: "/scenes/" + m[1] + "/" + m[2] + "-streaming-pornstar-videos.html", mode: modePerformer}
 	case u.Path == newestPath,
 		host == "conorcoxxx.com" && (u.Path == "/conor-coxxx-clips.html" || u.Path == "/horny-household-clips.html"):
-		return base, u.Path
+		return target{base: base, path: u.Path}
 	case host == "conorcoxxx.com":
-		return base, "/conor-coxxx-clips.html"
+		return target{base: base, path: "/conor-coxxx-clips.html"}
 	}
-	return base, newestPath
+	return target{base: base, path: newestPath}
+}
+
+func (t target) pageURL(page int) string {
+	if t.mode == modeMovies {
+		// Unfiltered, this path lists the whole AdultEmpire marketplace.
+		return fmt.Sprintf("%s%s?studio=%s&page=%d", t.base, t.path, moviesStudio, page)
+	}
+	return fmt.Sprintf("%s%s?page=%d", t.base, t.path, page)
 }
 
 func (s *Scraper) ListScenes(ctx context.Context, studioURL string, opts scraper.ListOpts) (<-chan scraper.SceneResult, error) {
@@ -93,17 +138,27 @@ func (s *Scraper) ListScenes(ctx context.Context, studioURL string, opts scraper
 func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
 	defer close(out)
 
-	base, path := listingFor(studioURL)
+	t := resolveTarget(studioURL)
+	switch t.mode {
+	case modeMovies:
+		scraper.Debugf(1, "%s: scraping movie list", siteID)
+	case modePerformer:
+		scraper.Debugf(1, "%s: scraping performer page %s", siteID, t.path)
+	}
 	now := time.Now().UTC()
 	seen := make(map[string]bool)
 	scraper.Paginate(ctx, opts, siteID, out, func(ctx context.Context, page int) (scraper.PageResult, error) {
-		pageURL := fmt.Sprintf("%s%s?page=%d", base, path, page)
-		body, err := s.fetchPage(ctx, pageURL)
+		body, err := s.fetchPage(ctx, t.pageURL(page))
 		if err != nil {
 			return scraper.PageResult{}, err
 		}
 
-		items := parseListing(body, base)
+		var items []listItem
+		if t.mode == modeMovies {
+			items = parseMovies(body, t.base)
+		} else {
+			items = parseListing(body, t.base)
+		}
 		fresh := items[:0]
 		for _, it := range items {
 			if !seen[it.id] {
@@ -126,7 +181,7 @@ var (
 	linkRe      = regexp.MustCompile(`<a class="scene-img"\s+href="(/[^"]+)"`)
 	cardTitleRe = regexp.MustCompile(`(?s)<a class="scene-title".*?<h6>\s*(.*?)\s*</h6>`)
 	cardPerfRe  = regexp.MustCompile(`(?s)<p class="scene-performer-names">\s*(.*?)\s*</p>`)
-	cardLenRe   = regexp.MustCompile(`(?s)<p class="scene-length">\s*(\d+)\s*min`)
+	cardLenRe   = regexp.MustCompile(`(?s)<p class="scene-length">\s*([^<]+)`)
 	thumbRe     = regexp.MustCompile(`data-srcset="(https://[^"\s]+)\s+700w`)
 )
 
@@ -158,16 +213,55 @@ func parseListing(body []byte, base string) []listItem {
 			it.title = cleanText(t[1])
 		}
 		if p := cardPerfRe.FindStringSubmatch(card); p != nil {
-			for _, name := range strings.Split(cleanText(p[1]), ",") {
+			for _, name := range strings.Split(cleanText(markupRe.ReplaceAllString(p[1], "")), ",") {
 				if name = strings.TrimSpace(name); name != "" {
 					it.performers = append(it.performers, name)
 				}
 			}
 		}
 		if l := cardLenRe.FindStringSubmatch(card); l != nil {
-			it.minutes = atoi(l[1])
+			it.minutes = parseMinutes(l[1])
 		}
 		if th := thumbRe.FindStringSubmatch(card); th != nil {
+			it.thumb = html.UnescapeString(th[1])
+		}
+		items = append(items, it)
+	}
+	return items
+}
+
+var (
+	movieCardRe  = regexp.MustCompile(`<div id="item_(\d+)"><div class="grid-item">`)
+	movieLinkRe  = regexp.MustCompile(`<a class="boxcover"\s+href="/shop/(\d+)/([^"]+)-porn-videos\.html"`)
+	movieTitleRe = regexp.MustCompile(`alt="[^"]*"\s+title="([^"]*)"`)
+	movieThumbRe = regexp.MustCompile(`data-src="(https://[^"\s]+/movie/\d+\?w=500)"`)
+)
+
+// parseMovies reads the boxcover grid of the movie list. Movies get the
+// streaming URL (the /shop/ link is the DVD store page) and a prefixed ID, as
+// they are products rather than scenes.
+func parseMovies(body []byte, base string) []listItem {
+	page := string(body)
+	locs := movieCardRe.FindAllStringSubmatchIndex(page, -1)
+	items := make([]listItem, 0, len(locs))
+	for i, loc := range locs {
+		end := len(page)
+		if i+1 < len(locs) {
+			end = locs[i+1][0]
+		}
+		card := page[loc[0]:end]
+		m := movieLinkRe.FindStringSubmatch(card)
+		if m == nil {
+			continue
+		}
+		it := listItem{
+			id:  movieIDPrefix + m[1],
+			url: base + "/" + m[1] + "/" + m[2] + "-streaming-porn-videos.html",
+		}
+		if t := movieTitleRe.FindStringSubmatch(card); t != nil {
+			it.title = cleanText(t[1])
+		}
+		if th := movieThumbRe.FindStringSubmatch(card); th != nil {
 			it.thumb = html.UnescapeString(th[1])
 		}
 		items = append(items, it)
@@ -210,15 +304,20 @@ func (s *Scraper) enrich(ctx context.Context, workers int, studioURL string, ite
 }
 
 var (
-	titleRe    = regexp.MustCompile(`(?s)<h1 class="description">\s*(.*?)\s*</h1>`)
-	synopsisRe = regexp.MustCompile(`(?s)<div class="synopsis">\s*(.*?)\s*</div>`)
-	releasedRe = regexp.MustCompile(`(?s)Released:</span>\s*([A-Z][a-z]{2} \d{1,2}, \d{4})`)
-	lengthRe   = regexp.MustCompile(`(?s)Length:</span>\s*(\d+)\s*min`)
-	directorRe = regexp.MustCompile(`(?s)Director:</span>\s*([^<]+?)\s*<`)
-	studioRe   = regexp.MustCompile(`(?s)Studio:</span>\s*<span>\s*([^<]+?)\s*</span>`)
-	perfRe     = regexp.MustCompile(`(?s)<div class="performer-name">\s*(.*?)\s*</div>`)
-	tagRe      = regexp.MustCompile(`data-Label="Tag"[^>]*>\s*([^<]+?)\s*</a>`)
-	markupRe   = regexp.MustCompile(`<[^>]+>`)
+	titleRe     = regexp.MustCompile(`(?s)<h1 class="description">\s*(.*?)\s*</h1>`)
+	synopsisRe  = regexp.MustCompile(`(?s)<div class="synopsis">\s*(.*?)\s*</div>`)
+	releasedRe  = regexp.MustCompile(`(?s)Released:</span\s*>\s*([A-Z][a-z]{2} \d{1,2}, \d{4})`)
+	lengthRe    = regexp.MustCompile(`(?s)Length:</span>\s*([^<]+)`)
+	directorRe  = regexp.MustCompile(`(?s)Director:</span>\s*(?:<a[^>]*>)?\s*([^<]+?)\s*<`)
+	studioRe    = regexp.MustCompile(`(?s)Studio:</span>\s*<(?:span|a[^>]*)>\s*([^<]+?)\s*</`)
+	perfRe      = regexp.MustCompile(`(?s)<div class="performer-name">\s*(.*?)\s*</div>`)
+	scenePerfRe = regexp.MustCompile(`<p class="scene-performer-names">(?s:(.*?))</p>`)
+	perfLinkRe  = regexp.MustCompile(`-streaming-pornstar-videos\.html">\s*([^<]+?)\s*</a>`)
+	tagRe       = regexp.MustCompile(`data-Label="Tag"[^>]*>\s*([^<]+?)\s*</a>`)
+	categoryRe  = regexp.MustCompile(`data-Label="Category - [^"]*">\s*([^<]+?)\s*</a>`)
+	markupRe    = regexp.MustCompile(`<[^>]+>`)
+	hoursRe     = regexp.MustCompile(`(\d+)\s*h`)
+	minutesRe   = regexp.MustCompile(`(\d+)\s*min`)
 )
 
 func (s *Scraper) toScene(ctx context.Context, studioURL string, it listItem, now time.Time) models.Scene {
@@ -259,7 +358,9 @@ func applyDetail(scene *models.Scene, detail string) {
 		}
 	}
 	if m := lengthRe.FindStringSubmatch(detail); m != nil {
-		scene.Duration = atoi(m[1]) * 60
+		if n := parseMinutes(m[1]); n > 0 {
+			scene.Duration = n * 60
+		}
 	}
 	if m := directorRe.FindStringSubmatch(detail); m != nil {
 		scene.Director = cleanText(m[1])
@@ -269,10 +370,44 @@ func applyDetail(scene *models.Scene, detail string) {
 			scene.Studio = n
 		}
 	}
-	if names := collect(perfRe, detail); len(names) > 0 {
+	// A movie's headshot grid stops at eight and skips the men; its scene
+	// list credits the rest. A scene cut from a movie lists its siblings too,
+	// so only movies read it.
+	names := collect(perfRe, detail)
+	if strings.HasPrefix(scene.ID, movieIDPrefix) {
+		for _, block := range scenePerfRe.FindAllStringSubmatch(detail, -1) {
+			names = append(names, collect(perfLinkRe, block[1])...)
+		}
+	}
+	if names = dedupe(names); len(names) > 0 {
 		scene.Performers = names
 	}
-	scene.Tags = collect(tagRe, detail)
+	scene.Tags = dedupe(append(collect(tagRe, detail), collect(categoryRe, detail)...))
+}
+
+// parseMinutes reads the CMS's length strings: "44 min", "1 h 3 min" and
+// "2 hrs. 18 mins.".
+func parseMinutes(s string) int {
+	n := 0
+	if m := hoursRe.FindStringSubmatch(s); m != nil {
+		n = atoi(m[1]) * 60
+	}
+	if m := minutesRe.FindStringSubmatch(s); m != nil {
+		n += atoi(m[1])
+	}
+	return n
+}
+
+func dedupe(in []string) []string {
+	var out []string
+	seen := make(map[string]bool)
+	for _, v := range in {
+		if !seen[v] {
+			seen[v] = true
+			out = append(out, v)
+		}
+	}
+	return out
 }
 
 func collect(re *regexp.Regexp, s string) []string {
