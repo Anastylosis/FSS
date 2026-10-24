@@ -187,7 +187,7 @@ func TestSitesRegistered(t *testing.T) {
 		}
 		seen[cfg.SiteID] = true
 	}
-	if len(sites) != 5 {
-		t.Errorf("got %d sites, want 5", len(sites))
+	if len(sites) != 6 {
+		t.Errorf("got %d sites, want 6", len(sites))
 	}
 }
