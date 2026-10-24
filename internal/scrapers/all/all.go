@@ -303,6 +303,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/musclebearporn"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/myboobsparadise"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/mydirtyhobby"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/mysatin"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/nadinejansen"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/nakednews"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/nakedsword"
