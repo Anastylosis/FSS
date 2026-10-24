@@ -7,6 +7,8 @@ import (
 	"net/http/httptest"
 	"os"
 	"regexp"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -492,6 +494,10 @@ func TestNATSListingURLStartsAtMoviesPage1(t *testing.T) {
 func TestGridWalkTerminatesOnRepeats(t *testing.T) {
 	var pages int
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/videos/") {
+			_, _ = fmt.Fprint(w, "<html></html>")
+			return
+		}
 		pages++
 		// Page 1 is fresh; every page after it repeats those same cards.
 		_, _ = fmt.Fprint(w, gridListingHTML)
@@ -560,11 +566,24 @@ func TestJockpackListScenes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var queries []string
+	detail, err := os.ReadFile("testdata/jockpack_detail.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var (
+		mu      sync.Mutex
+		queries []string
+	)
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
 		queries = append(queries, r.URL.RawQuery)
+		mu.Unlock()
 		if r.URL.Path == "/videos" && r.URL.Query().Get("page") == "" {
 			_, _ = w.Write(fixture)
+			return
+		}
+		if r.URL.Path == "/videos/perks-of-brotherhood-pledge-oliver-vol-1.html" {
+			_, _ = w.Write(detail)
 			return
 		}
 		_, _ = fmt.Fprint(w, "<html></html>")
@@ -580,16 +599,36 @@ func TestJockpackListScenes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var scenes []models.Scene
+	var (
+		scenes []models.Scene
+		errs   []error
+	)
 	for r := range ch {
-		if r.Kind == scraper.KindScene {
+		switch r.Kind {
+		case scraper.KindScene:
 			scenes = append(scenes, r.Scene)
+		case scraper.KindError:
+			errs = append(errs, r.Err)
 		}
 	}
 	if len(scenes) != 2 {
 		t.Fatalf("got %d scenes, want 2", len(scenes))
 	}
 	got := scenes[0]
+	if got.Date.Format("2006-01-02") != "2026-10-26" || got.Duration != 24*60+14 {
+		t.Errorf("date/duration = %v / %d", got.Date, got.Duration)
+	}
+	if len(got.Performers) != 2 || got.Director != "Brian Fitzgibbons" || len(got.Tags) != 13 || got.Description == "" {
+		t.Errorf("detail fields = %+v", got)
+	}
+	// The second card's detail page carries nothing: the error is reported and
+	// the listing scene is still emitted, unchanged.
+	if len(errs) != 1 || scraper.Classify(errs[0]) != scraper.FailureParse {
+		t.Errorf("errors = %v, want one parse error", errs)
+	}
+	if !scenes[1].Date.IsZero() || scenes[1].ID == "" {
+		t.Errorf("second scene = %+v", scenes[1])
+	}
 	if got.ID != "86262" || got.Title != "perks of brotherhood" || got.Series != "BetaBetaPi" {
 		t.Errorf("scene = %+v", got)
 	}

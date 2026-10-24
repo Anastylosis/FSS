@@ -28,6 +28,9 @@
 //     map the standard REST fields onto models.Scene, same as the
 //     romeromultimedia package.
 //
+// Grid rows fetch each card's detail page for date, duration, description,
+// performers, director and tags (detail.go).
+//
 // Detail pages are public on every NATS sister site (and on growlboys),
 // so we lift the real scene URL straight from each card's `<a href>`
 // instead of synthesising an anchor. The parent carnalplus.com aggregates
@@ -355,6 +358,9 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 		scenes := make([]models.Scene, len(items))
 		for i, item := range items {
 			scenes[i] = s.toScene(item, studioURL, now)
+		}
+		if s.cfg.Variant == VariantGrid {
+			s.enrichGrid(ctx, opts, scenes, out)
 		}
 
 		// WordPress pagination: stop once total_pages reached.
