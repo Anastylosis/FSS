@@ -358,6 +358,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/portagloryhole"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/povperv"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/povr"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/powershotz"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/premiumbukkake"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/prestige"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/primalfetish"
