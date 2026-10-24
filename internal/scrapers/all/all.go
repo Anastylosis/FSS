@@ -89,6 +89,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/claudiamarie"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/clips4sale"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/clubdom"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/clubfilly"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/cockyboys"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/coedproductions"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/colbyknox"
