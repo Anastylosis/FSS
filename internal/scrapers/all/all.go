@@ -100,6 +100,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/cruelgirlfriend"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/crunchboy"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/crystaleizou"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/cumfortune"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/cumlouder"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/cumperfection"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/cutlersden"
