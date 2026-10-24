@@ -1,6 +1,6 @@
 # Covered Sites — All Domains
 
-1913 scrapers covering 2000 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
+1914 scrapers covering 2001 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
 
 Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scraper ID(s)** column lists every scraper that claims URLs on that domain — most domains have one entry, but table-driven networks (`adultprime`, `tmw`, `nextdoorstudios`, etc.) host many sub-studios on a single root domain. See [`scrapers.md`](scrapers.md) for what each ID covers.
 
@@ -946,6 +946,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | krisskiss.com | `krisskiss` |
 | krissy4u.com | `krissy4u` |
 | kristenbjorn.com | `kristenbjorn` |
+| laceystarr.com | `laceystarr` |
 | lady-sonia.com | `ladysonia` |
 | ladyboy-ladyboy.com | `ladyboyladyboy` |
 | ladyboy.xxx | `ladyboy` |
