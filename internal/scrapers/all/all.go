@@ -438,6 +438,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/stylerotica"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/swallowsalon"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/swearl"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/switch1"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/tadpolexstudio"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/tainster"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/takaratv"
