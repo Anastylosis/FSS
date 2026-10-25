@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"net/url"
 	"os"
 	"regexp"
@@ -181,7 +182,10 @@ func siteIsDown(studioURL string, errs []error) (string, bool) {
 				// Report it as a failure, unless the 4xx is the site's own
 				// maintenance notice (see underMaintenance).
 				if is4xx(err) {
-					return underMaintenance(studioURL)
+					if reason, ok := underMaintenance(studioURL); ok {
+						return reason, true
+					}
+					return homePageGone(studioURL)
 				}
 				return "", false
 			}
@@ -324,6 +328,30 @@ func underMaintenance(studioURL string) (string, bool) {
 	defer func() { _ = resp.Body.Close() }()
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	return maintenanceNotice(body)
+}
+
+// homePageGone reports a site whose own home page answers 404 or 410. A
+// scraper that builds a wrong URL cannot cause that, so it is the site that
+// went away (PEA-TV's host serves a stock LiteSpeed 404 on every path).
+func homePageGone(studioURL string) (string, bool) {
+	u, err := url.Parse(studioURL)
+	if err != nil || u.Host == "" {
+		return "", false
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	resp, err := httpx.DoWithStatus(ctx, httpx.NewClient(20*time.Second), httpx.Request{
+		URL:     u.Scheme + "://" + u.Host + "/",
+		Headers: httpx.BrowserHeaders(httpx.UserAgentFirefox),
+	})
+	if err != nil {
+		return "", false
+	}
+	_ = resp.Body.Close()
+	if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusGone {
+		return fmt.Sprintf("the site's home page itself answers HTTP %d", resp.StatusCode), true
+	}
+	return "", false
 }
 
 func maintenanceNotice(body []byte) (string, bool) {

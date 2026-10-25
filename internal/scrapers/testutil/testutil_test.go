@@ -659,3 +659,28 @@ func TestSiteIsDownSkips4xxOnlyForAMaintenanceNotice(t *testing.T) {
 		t.Error("the word in body text is not a maintenance notice")
 	}
 }
+
+// A 4xx skips when the whole site is gone — its home page 404s too — but not
+// when only the page the scraper asked for is missing.
+func TestSiteIsDownSkips4xxWhenTheHomePageIsGone(t *testing.T) {
+	gone := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	defer gone.Close()
+	alive := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" {
+			_, _ = fmt.Fprint(w, `<html><title>Home</title></html>`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer alive.Close()
+
+	notFound := &httpx.StatusError{StatusCode: http.StatusNotFound}
+	if _, ok := siteIsDown(gone.URL+"/search.php?b=1", []error{notFound}); !ok {
+		t.Error("a site whose home page 404s should skip")
+	}
+	if _, ok := siteIsDown(alive.URL+"/search.php?b=1", []error{notFound}); ok {
+		t.Error("a 404 on one path of a live site must stay a failure")
+	}
+}
