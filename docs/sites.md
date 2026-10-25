@@ -1,6 +1,6 @@
 # Covered Sites — All Domains
 
-1926 scrapers covering 2013 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
+1927 scrapers covering 2015 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
 
 Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scraper ID(s)** column lists every scraper that claims URLs on that domain — most domains have one entry, but table-driven networks (`adultprime`, `tmw`, `nextdoorstudios`, etc.) host many sub-studios on a single root domain. See [`scrapers.md`](scrapers.md) for what each ID covers.
 
@@ -1176,6 +1176,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | nakedgirlssmoking.com | `nakedgirlssmoking` |
 | nakednews.com | `nakednews` |
 | nakedsword.com | `nakedsword` |
+| nanairo.co | `nanairo` |
 | nannyspy.com | `nannyspy` |
 | nastydaddy.com | `nastydaddy` |
 | nastylittlefacials.com | `nastylittlefacials` |
@@ -1461,6 +1462,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | russianfakeagent.com | `private` |
 | russianteenass.com | `private` |
 | rylskyart.com | `rylskyart` |
+| s-cute.com | `nanairo` |
 | s1s1s1.com | `s1no1style` |
 | s3xus.com | `s3xus` |
 | sallydangeloxxx.com | `citygirlz` |

@@ -309,6 +309,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/nadinejansen"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/nakednews"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/nakedsword"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/nanairo"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/nastymedia"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/naughtyamerica"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/nerdpervert"
