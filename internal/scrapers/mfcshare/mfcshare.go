@@ -105,9 +105,14 @@ func (s *Scraper) ListScenes(ctx context.Context, studioURL string, opts scraper
 }
 
 func (s *Scraper) get(ctx context.Context, u string) ([]byte, error) {
+	h := httpx.BrowserHeaders(httpx.UserAgentFirefox)
+	// gw=true is the cookie the age gate's own "I am 18" button sets. Without
+	// it some sessions get the gate's "blur" variant: SFW cards with masked
+	// titles and no media type, which parse as an empty page.
+	h["Cookie"] = "gw=true"
 	resp, err := httpx.Do(ctx, s.Client, httpx.Request{
 		URL:     u,
-		Headers: httpx.BrowserHeaders(httpx.UserAgentFirefox),
+		Headers: h,
 	})
 	if err != nil {
 		return nil, err

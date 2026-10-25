@@ -280,3 +280,21 @@ func TestRunReportsAnEmptyFirstPage(t *testing.T) {
 		t.Fatalf("got %d errors, want 1", len(errs))
 	}
 }
+
+// Without the age gate's gw=true cookie, some sessions get the gate's "blur"
+// variant (SFW cards, masked titles, no media type), which parses as empty.
+func TestGetSendsTheAgeGateCookie(t *testing.T) {
+	var cookie string
+	ts := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		cookie = r.Header.Get("Cookie")
+	}))
+	defer ts.Close()
+	s := New(siteByID(t, "kerriking"))
+	s.Client = ts.Client()
+	if _, err := s.get(context.Background(), ts.URL); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(cookie, "gw=true") {
+		t.Errorf("Cookie = %q, want gw=true", cookie)
+	}
+}
