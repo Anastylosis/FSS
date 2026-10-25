@@ -1,6 +1,6 @@
 # Covered Sites — All Domains
 
-1921 scrapers covering 2008 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
+1925 scrapers covering 2012 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
 
 Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scraper ID(s)** column lists every scraper that claims URLs on that domain — most domains have one entry, but table-driven networks (`adultprime`, `tmw`, `nextdoorstudios`, etc.) host many sub-studios on a single root domain. See [`scrapers.md`](scrapers.md) for what each ID covers.
 
@@ -776,6 +776,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | hardbrazil.com.br | `hardbrazil` |
 | hardcoredoorway.com | `hardcoredoorway` |
 | hardkinks.com | `hardkinks` |
+| hardupstraightguys.com | `hardupstraightguys` |
 | hardwerk.com | `hardwerk` |
 | hardx.com | `hardx` |
 | harlemsex.com | `harlemsex` |
@@ -1429,6 +1430,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | redhotstraightboys.com | `redhotstraightboys` |
 | redneckjohn.com | `redneckjohn` |
 | reflectivedesire.com | `reflectivedesire` |
+| reluctantyoungmen.com | `reluctantyoungmen` |
 | reneerossvideos.com | `reneerossvideos` |
 | restrainedelegance.com | `restrainedelegance` |
 | revengeisabitch.com | `revengeisabitch` |
@@ -1544,6 +1546,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | slimewave.com | `tainster` |
 | slipperymassage.com | `slipperymassage` |
 | sloppygirl.com | `sloppygirl` |
+| slowteasinghandjobs.com | `slowteasinghandjobs` |
 | slutinspection.com | `slutinspection` |
 | slutsaroundtown.com | `slutsaroundtown` |
 | sluttybbws.com | `sluttybbws` |
@@ -1605,6 +1608,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | str8hell.com | `str8hell` |
 | str8togay.com | `men` |
 | straightguysforgayeyes.com | `straightguysforgayeyes` |
+| straightmenintrouble.com | `straightmenintrouble` |
 | straplez.com | `straplez` |
 | strippers4k.com | `strippers4k` |
 | stripzvr.com | `stripzvr` |
