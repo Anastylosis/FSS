@@ -178,7 +178,11 @@ func siteIsDown(studioURL string, errs []error) (string, bool) {
 			reason, ok := siteSideError(err)
 			if !ok {
 				// Not obviously the site's fault — a parse failure or a 4xx.
-				// Report it as a failure.
+				// Report it as a failure, unless the 4xx is the site's own
+				// maintenance notice (see underMaintenance).
+				if is4xx(err) {
+					return underMaintenance(studioURL)
+				}
 				return "", false
 			}
 			if first == "" {
@@ -290,6 +294,41 @@ var cmsOutageRe = regexp.MustCompile(`(?i)Your license key expired|log into your
 func cmsOutage(body []byte) (string, bool) {
 	if cmsOutageRe.Match(body) {
 		return "the site's CMS licence has expired (it serves a product-key error instead of the tour)", true
+	}
+	return "", false
+}
+
+func is4xx(err error) bool {
+	var se *httpx.StatusError
+	return errors.As(err, &se) && se.StatusCode >= 400 && se.StatusCode < 500
+}
+
+// maintenanceTitleRe matches a page whose <title> announces maintenance —
+// Heyzo's Cloudflare front answers every path with
+// 「メンテナンスのお知らせ」 under HTTP 403.
+var maintenanceTitleRe = regexp.MustCompile(`(?is)<title>[^<]*(?:メンテナンス|under maintenance|maintenance mode|scheduled maintenance)[^<]*</title>`)
+
+// underMaintenance is the one way a 4xx run may skip: the studio page itself
+// is a maintenance notice. Any other 4xx stays a failure, since it is usually
+// a URL the scraper built wrongly.
+func underMaintenance(studioURL string) (string, bool) {
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	resp, err := httpx.DoWithStatus(ctx, httpx.NewClient(20*time.Second), httpx.Request{
+		URL:     studioURL,
+		Headers: httpx.BrowserHeaders(httpx.UserAgentFirefox),
+	})
+	if err != nil {
+		return "", false
+	}
+	defer func() { _ = resp.Body.Close() }()
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	return maintenanceNotice(body)
+}
+
+func maintenanceNotice(body []byte) (string, bool) {
+	if maintenanceTitleRe.Match(body) {
+		return "the site is serving a maintenance notice", true
 	}
 	return "", false
 }

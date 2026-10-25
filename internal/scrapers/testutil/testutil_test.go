@@ -631,3 +631,31 @@ func TestAllTimeouts(t *testing.T) {
 		t.Error("an empty error list is not all-timeouts")
 	}
 }
+
+// A 4xx normally fails a live test, but not when the studio page is the
+// site's own maintenance notice — Heyzo's Cloudflare front serves
+// 「メンテナンスのお知らせ」 under 403 on every path (2026-10-29).
+func TestSiteIsDownSkips4xxOnlyForAMaintenanceNotice(t *testing.T) {
+	const notice = `<!doctype html><html lang=ja><title>メンテナンスのお知らせ</title><main><h1>メンテナンスのお知らせ</h1></main>`
+	maint := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = fmt.Fprint(w, notice)
+	}))
+	defer maint.Close()
+	plain := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = fmt.Fprint(w, `<html><title>Forbidden</title></html>`)
+	}))
+	defer plain.Close()
+
+	forbidden := &httpx.StatusError{StatusCode: http.StatusForbidden}
+	if _, ok := siteIsDown(maint.URL, []error{forbidden}); !ok {
+		t.Error("a maintenance notice under 403 should skip")
+	}
+	if _, ok := siteIsDown(plain.URL, []error{forbidden}); ok {
+		t.Error("a plain 403 must stay a failure")
+	}
+	if _, ok := maintenanceNotice([]byte(`<html><title>Latest updates</title><p>maintenance tips</p></html>`)); ok {
+		t.Error("the word in body text is not a maintenance notice")
+	}
+}
