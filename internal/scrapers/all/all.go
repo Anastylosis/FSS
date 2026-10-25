@@ -504,6 +504,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/xxxfollow"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/xxxjobinterviews"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/yezzclips"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/youlovejack"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/yourvids"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/youthlust"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/ypptour"
