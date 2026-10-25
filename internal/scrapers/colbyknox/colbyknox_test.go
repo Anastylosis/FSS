@@ -17,7 +17,7 @@ import (
 
 func cardsHTML() string {
 	card := func(slug, title, dur string) string {
-		return fmt.Sprintf(`<a href="/videos/%s" class="card card--video text-white">
+		return fmt.Sprintf(`<a href="/video/%s" class="card card--video text-white">
   <div class="card-info p-2 p-lg-3">
     <h3 class="h6 mb-1 text-truncate">%s</h3>
     <div class="d-flex">
@@ -141,7 +141,7 @@ func TestToScene(t *testing.T) {
 	if sc.ID != "pup-poundtown" || sc.SiteID != siteID || sc.Studio != studioName {
 		t.Errorf("identity = %+v", sc)
 	}
-	if sc.URL != siteBase+"/videos/pup-poundtown" {
+	if sc.URL != siteBase+"/video/pup-poundtown" {
 		t.Errorf("URL = %q", sc.URL)
 	}
 	if sc.Duration != 1392 {
@@ -197,5 +197,17 @@ func TestListScenes(t *testing.T) {
 	}
 	if got["pup-poundtown"] != "Take a Pup to Poundtown" {
 		t.Errorf("scenes = %v", got)
+	}
+}
+
+// The tour moved scene links from /videos/{slug} to /video/{slug} (the old
+// form 301s); cards in either form must parse.
+func TestCardReAcceptsBothLinkForms(t *testing.T) {
+	for _, href := range []string{"/video/movie-can-wait", "/videos/movie-can-wait"} {
+		card := `<a href="` + href + `" class="card card--video text-white position-relative"><h3 class="h6 mb-1">T</h3></a>`
+		m := cardRe.FindStringSubmatch(card)
+		if m == nil || m[1] != "movie-can-wait" {
+			t.Errorf("%s: got %v", href, m)
+		}
 	}
 }

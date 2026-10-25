@@ -48,7 +48,7 @@ func (s *Scraper) ID() string { return siteID }
 func (s *Scraper) Patterns() []string {
 	return []string{
 		"colbyknox.com/videos",
-		"colbyknox.com/videos/{slug}",
+		"colbyknox.com/video/{slug}",
 	}
 }
 
@@ -65,7 +65,7 @@ func (s *Scraper) ListScenes(ctx context.Context, studioURL string, opts scraper
 var (
 	// Listing card: the anchor carries the slug; the h3 the title; the
 	// icon-clock span the duration; the img alt+src the thumbnail.
-	cardRe     = regexp.MustCompile(`(?s)<a href="/videos/([^"]+)" class="card card--video[^"]*">(.*?)</a>`)
+	cardRe     = regexp.MustCompile(`(?s)<a href="/videos?/([^"]+)" class="card card--video[^"]*">(.*?)</a>`)
 	titleRe    = regexp.MustCompile(`<h3 class="h6[^"]*">([^<]+)</h3>`)
 	durationRe = regexp.MustCompile(`icon-clock[^>]*></i>\s*<span>([0-9:]+)</span>`)
 	thumbRe    = regexp.MustCompile(`(?s)<img[^>]*\bsrc="([^"]+)"`)
@@ -192,7 +192,7 @@ func (s *Scraper) toScene(ctx context.Context, studioURL string, it listItem, no
 		SiteID:    siteID,
 		StudioURL: studioURL,
 		Title:     it.title,
-		URL:       siteBase + "/videos/" + it.slug,
+		URL:       siteBase + "/video/" + it.slug,
 		Duration:  it.duration,
 		Thumbnail: it.thumbnail,
 		Studio:    studioName,
