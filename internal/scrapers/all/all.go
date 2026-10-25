@@ -420,6 +420,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/shopmaker"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/showybeauty"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/sindrive"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/sinnistar"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/sketchysex"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/smqueenroad"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/sofiemarie"

@@ -18,7 +18,7 @@ date on later runs.
   or writes `.nfo` sidecars for Kodi and Jellyfin.
 - **Stores** JSON files by default, or a SQLite database; exports CSV.
 
-**1920 sites** are supported, from the big networks (Aylo, Gamma/Adult Time,
+**1921 sites** are supported, from the big networks (Aylo, Gamma/Adult Time,
 Vixen, TeamSkeet, MetArt, Score, Jules Jordan, …) to clip stores (Clips4Sale,
 ManyVids, IWantClips, …) and hundreds of independent sites —
 [by platform →](docs/scrapers.md) · [A–Z domain list →](docs/sites.md)
