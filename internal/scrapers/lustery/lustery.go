@@ -2,6 +2,7 @@ package lustery
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -17,8 +18,7 @@ import (
 func init() { scraper.Register(New()) }
 
 const (
-	siteID   = "lustery"
-	pageSize = 24
+	siteID = "lustery"
 	// imgBase serves the resized thumbnail variants. The raw staticPath jpg
 	// is not directly reachable, but the resize CDN is.
 	imgBase = "https://img.lustery.com/cache/image/resize/width=1080/%s.convert.webp"
@@ -61,12 +61,6 @@ func (s *Scraper) ListScenes(ctx context.Context, studioURL string, opts scraper
 	return out, nil
 }
 
-// listResponse is the shape of GET /api/videos?page=N.
-type listResponse struct {
-	CurrentPagePermalinks []string `json:"currentPagePermalinks"`
-	TotalCount            int      `json:"totalCount"`
-}
-
 // videoResponse is the shape of GET /api/video/{permalink}.
 type videoResponse struct {
 	Video videoDetail `json:"video"`
@@ -95,104 +89,112 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 
 	now := time.Now().UTC()
 
-	scraper.Paginate(ctx, opts, siteID, out, func(ctx context.Context, page int) (scraper.PageResult, error) {
-		list, err := s.fetchList(ctx, page)
-		if err != nil {
-			return scraper.PageResult{}, err
+	// /api/videos returns an empty list to anonymous clients since 2026-10,
+	// so the catalogue is enumerated from the sitemap's /video/ entries. The
+	// sitemap is not in release order: stored scenes are skipped, never
+	// treated as the end of the walk.
+	permalinks, err := s.fetchSitemap(ctx)
+	if err != nil {
+		send(ctx, out, scraper.Error(err))
+		return
+	}
+	if len(permalinks) == 0 {
+		send(ctx, out, scraper.Error(scraper.ParseError(s.base+"/sitemap.xml", errors.New("no /video/ entries"))))
+		return
+	}
+	if !send(ctx, out, scraper.Progress(len(permalinks))) {
+		return
+	}
+
+	fresh := permalinks[:0]
+	skipped := false
+	for _, pl := range permalinks {
+		if opts.KnownIDs[pl] {
+			skipped = true
+			continue
 		}
-		if len(list.CurrentPagePermalinks) == 0 {
-			return scraper.PageResult{}, nil
-		}
-
-		total := 0
-		if page == 1 {
-			total = list.TotalCount
-		}
-
-		scenes := s.fetchDetails(ctx, list.CurrentPagePermalinks, studioURL, opts, now)
-
-		done := list.TotalCount > 0 && page*pageSize >= list.TotalCount
-
-		return scraper.PageResult{
-			Scenes: scenes,
-			Total:  total,
-			Done:   done,
-		}, nil
-	})
+		fresh = append(fresh, pl)
+	}
+	s.fetchDetails(ctx, fresh, studioURL, opts, now, out)
+	if skipped && ctx.Err() == nil {
+		send(ctx, out, scraper.StoppedEarly())
+	}
 }
 
-func (s *Scraper) fetchList(ctx context.Context, page int) (listResponse, error) {
-	url := fmt.Sprintf("%s/api/videos?page=%d", s.base, page)
+func send(ctx context.Context, out chan<- scraper.SceneResult, r scraper.SceneResult) bool {
+	select {
+	case out <- r:
+		return true
+	case <-ctx.Done():
+		return false
+	}
+}
+
+var sitemapVideoRe = regexp.MustCompile(`<loc>\s*https?://[^/<]+/video/([^/<\s]+)\s*</loc>`)
+
+func (s *Scraper) fetchSitemap(ctx context.Context) ([]string, error) {
+	u := s.base + "/sitemap.xml"
 	resp, err := httpx.Do(ctx, s.client, httpx.Request{
-		URL:     url,
+		URL:     u,
 		Headers: httpx.BrowserHeaders(httpx.UserAgentFirefox),
 	})
 	if err != nil {
-		return listResponse{}, err
+		return nil, err
 	}
 	defer func() { _ = resp.Body.Close() }()
-
-	var lr listResponse
-	if err := httpx.DecodeJSON(resp.Body, &lr); err != nil {
-		return listResponse{}, err
+	body, err := httpx.ReadBody(resp.Body)
+	if err != nil {
+		return nil, err
 	}
-	return lr, nil
+	var out []string
+	seen := map[string]bool{}
+	for _, m := range sitemapVideoRe.FindAllSubmatch(body, -1) {
+		pl := string(m[1])
+		if !seen[pl] {
+			seen[pl] = true
+			out = append(out, pl)
+		}
+	}
+	return out, nil
 }
 
-func (s *Scraper) fetchDetails(ctx context.Context, permalinks []string, studioURL string, opts scraper.ListOpts, now time.Time) []models.Scene {
-	workers := opts.Workers
-	if workers <= 0 {
-		workers = 4
-	}
-
+func (s *Scraper) fetchDetails(ctx context.Context, permalinks []string, studioURL string, opts scraper.ListOpts, now time.Time, out chan<- scraper.SceneResult) {
+	workers := scraper.WorkerCount(opts, 4)
 	scraper.Debugf(1, "lustery: fetching %d details with %d workers", len(permalinks), workers)
 
-	results := make([]models.Scene, len(permalinks))
+	jobs := make(chan string)
 	var wg sync.WaitGroup
-	sem := make(chan struct{}, workers)
-
-	for i, pl := range permalinks {
-		if ctx.Err() != nil {
-			break
-		}
-		// Known IDs become lightweight stubs so Paginate's early-stop fires
-		// without a detail fetch. The list is newest-first.
-		if opts.KnownIDs[pl] {
-			results[i] = models.Scene{ID: pl, SiteID: siteID}
-			continue
-		}
+	for range workers {
 		wg.Add(1)
-		go func(idx int, permalink string) {
+		go func() {
 			defer wg.Done()
-			sem <- struct{}{}
-			defer func() { <-sem }()
-
-			if !scraper.Pace(ctx, opts.Delay) {
-				// Leaving results[idx] unwritten is deliberate: the zero value has an
-				// empty ID and the consumer below skips those, so a cancelled fetch
-				// contributes no scene. Do not "fix" this by writing a stub here —
-				// a populated slot is emitted as a real scene with no title or URL.
-				return
+			for pl := range jobs {
+				if !scraper.Pace(ctx, opts.Delay) {
+					return
+				}
+				detail, err := s.fetchDetail(ctx, pl)
+				var r scraper.SceneResult
+				if err != nil {
+					r = scraper.Error(fmt.Errorf("detail %s: %w", pl, err))
+				} else {
+					r = scraper.Scene(toScene(s.base, studioURL, detail, now))
+				}
+				if !send(ctx, out, r) {
+					return
+				}
 			}
-
-			detail, err := s.fetchDetail(ctx, permalink)
-			if err != nil {
-				scraper.Debugf(1, "lustery: detail %s failed: %v (skipping)", permalink, err)
-				return
-			}
-			results[idx] = toScene(s.base, studioURL, detail, now)
-		}(i, pl)
+		}()
 	}
-	wg.Wait()
-
-	scenes := make([]models.Scene, 0, len(results))
-	for _, sc := range results {
-		if sc.ID == "" { // failed fetch
-			continue
+feed:
+	for _, pl := range permalinks {
+		select {
+		case jobs <- pl:
+		case <-ctx.Done():
+			break feed
 		}
-		scenes = append(scenes, sc)
 	}
-	return scenes
+	close(jobs)
+	wg.Wait()
 }
 
 func (s *Scraper) fetchDetail(ctx context.Context, permalink string) (videoDetail, error) {

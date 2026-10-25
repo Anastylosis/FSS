@@ -17,17 +17,16 @@ import (
 func newTestServer(t *testing.T) *httptest.Server {
 	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
 		switch {
-		case r.URL.Path == "/api/videos":
-			if r.URL.Query().Get("page") != "1" {
-				// no more pages
-				_, _ = fmt.Fprint(w, `{"currentPagePermalinks":[],"totalCount":2143,"recommendedPagePermalinks":[]}`)
-				return
-			}
-			_, _ = fmt.Fprint(w, readFixture(t, "videos_page1.json"))
+		case r.URL.Path == "/sitemap.xml":
+			_, _ = fmt.Fprint(w, readFixture(t, "sitemap.xml"))
 		case strings.HasPrefix(r.URL.Path, "/api/video/"):
 			permalink := strings.TrimPrefix(r.URL.Path, "/api/video/")
+			if permalink == "missing" {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
 			_, _ = fmt.Fprint(w, readFixture(t, "video_"+permalink+".json"))
 		default:
 			http.NotFound(w, r)
@@ -86,8 +85,9 @@ func TestScrape(t *testing.T) {
 		}
 	}
 
-	if total != 2143 {
-		t.Errorf("total = %d, want 2143", total)
+	// Three distinct /video/ entries; the couple page and the repeat are not scenes.
+	if total != 3 {
+		t.Errorf("total = %d, want 3", total)
 	}
 	if len(scenes) != 3 {
 		t.Fatalf("got %d scenes, want 3", len(scenes))
@@ -147,7 +147,7 @@ func TestScrape(t *testing.T) {
 	}
 }
 
-func TestScrapeKnownIDsEarlyStop(t *testing.T) {
+func TestScrapeKnownIDsSkip(t *testing.T) {
 	ts := newTestServer(t)
 	defer ts.Close()
 
@@ -155,8 +155,8 @@ func TestScrapeKnownIDsEarlyStop(t *testing.T) {
 	s.base = ts.URL
 	s.client = ts.Client()
 
-	// The first listed permalink is known: it is skipped, the rest of the page
-	// is emitted, and the walk stops at the end of the page.
+	// The sitemap is not in release order, so a stored scene is skipped and
+	// the walk carries on; StoppedEarly reports that something was skipped.
 	results, err := collect(t, s, scraper.ListOpts{
 		KnownIDs: map[string]bool{"quick-suck": true},
 	})
@@ -177,8 +177,34 @@ func TestScrapeKnownIDsEarlyStop(t *testing.T) {
 	if !stopped {
 		t.Error("expected StoppedEarly")
 	}
-	if sceneCount == 0 {
-		t.Error("the rest of the page must still be emitted")
+	if sceneCount != 2 {
+		t.Errorf("got %d scenes, want the 2 unstored ones", sceneCount)
+	}
+}
+
+// A detail that will not load is reported, not dropped silently: the walk
+// must count as incomplete so --full cannot delete that scene.
+func TestDetailFailureIsReported(t *testing.T) {
+	ts := newTestServer(t)
+	defer ts.Close()
+	s := New()
+	s.base = ts.URL
+	s.client = ts.Client()
+
+	out := make(chan scraper.SceneResult, 8)
+	s.fetchDetails(context.Background(), []string{"quick-suck", "missing"}, "https://lustery.com/", scraper.ListOpts{Workers: 1}, time.Now(), out)
+	close(out)
+	scenes, errs := 0, 0
+	for r := range out {
+		switch r.Kind {
+		case scraper.KindScene:
+			scenes++
+		case scraper.KindError:
+			errs++
+		}
+	}
+	if scenes != 1 || errs != 1 {
+		t.Errorf("scenes=%d errs=%d, want 1 and 1", scenes, errs)
 	}
 }
 
