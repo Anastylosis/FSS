@@ -313,8 +313,8 @@ func TestSitesTable_uniqueIDsAndDomainIsolation(t *testing.T) {
 			t.Errorf("site %q has nil MatchRe", cfg.ID)
 		}
 	}
-	if len(sites) != 17 {
-		t.Errorf("expected 17 sites, got %d", len(sites))
+	if len(sites) != 18 {
+		t.Errorf("expected 18 sites, got %d", len(sites))
 	}
 }
 
@@ -328,3 +328,21 @@ func mustParse(t *testing.T, j string) []wpPost {
 }
 
 func testNow() time.Time { return time.Date(2026, 5, 28, 0, 0, 0, 0, time.UTC) }
+
+// A non-Romero row names its own studio, can read post tags as keywords
+// rather than cast, and picks up Chica's Place's "[Video: Nmin" runtime note.
+func TestNonRomeroRowOptions(t *testing.T) {
+	s := New(SiteConfig{ID: "chicasplace", SiteName: "Chica's Place", Studio: "Chica's Place", KeywordTags: true})
+	var p wpPost
+	p.ID = 1
+	p.Title.Rendered = "Sexting"
+	p.Content.Rendered = "<p>text [Video: 13min | Photos: 59]</p>"
+	p.Embedded.Terms = [][]term{{{Name: "ass", Taxonomy: "post_tag"}}, {{Name: "Blowjob", Taxonomy: "category"}}}
+	sc := s.toScene(p, "http://www.chicasplace.com/", time.Now())
+	if sc.Studio != "Chica's Place" || sc.Duration != 13*60 {
+		t.Errorf("Studio = %q, Duration = %d", sc.Studio, sc.Duration)
+	}
+	if len(sc.Tags) != 1 || sc.Tags[0] != "ass" || len(sc.Performers) != 0 {
+		t.Errorf("Tags = %v, Performers = %v", sc.Tags, sc.Performers)
+	}
+}

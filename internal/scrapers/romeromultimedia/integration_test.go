@@ -38,3 +38,8 @@ func TestLiveAnatomikMedia(t *testing.T) {
 	cfg := findSite(t, "anatomikmedia")
 	testutil.RunLiveScrape(t, New(cfg), cfg.SiteBase+"/", 3)
 }
+
+func TestLiveChicasPlace(t *testing.T) {
+	cfg := findSite(t, "chicasplace")
+	testutil.RunLiveScrape(t, New(cfg), "http://www.chicasplace.com/", 3)
+}

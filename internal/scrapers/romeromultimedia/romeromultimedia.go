@@ -65,8 +65,16 @@ type SiteConfig struct {
 	SiteBase        string
 	SiteName        string // human-readable display name (Scene.Series)
 	OriginWebsiteID int    // 0 = none; otherwise filter posts by this term
-	Patterns        []string
-	MatchRe         *regexp.Regexp
+	// Studio overrides the network name for a non-Romero site that reuses
+	// this parser.
+	Studio string
+	// KeywordTags files post tags as Tags: Romero sites tag posts with the
+	// cast, other sites with keywords.
+	KeywordTags bool
+	// Performers credits every scene to a fixed cast (a solo performer's site).
+	Performers []string
+	Patterns   []string
+	MatchRe    *regexp.Regexp
 }
 
 type Scraper struct {
@@ -178,6 +186,10 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 	})
 }
 
+// runtimeNoteRe reads the "[Video: 13min | Photos: 59]" note Chica's Place
+// ends each post with.
+var runtimeNoteRe = regexp.MustCompile(`\[Video:\s*(\d+)\s*min`)
+
 func (s *Scraper) toScene(p wpPost, studioURL string, now time.Time) models.Scene {
 	id := strconv.Itoa(p.ID)
 	sceneURL := p.Link
@@ -189,6 +201,7 @@ func (s *Scraper) toScene(p wpPost, studioURL string, now time.Time) models.Scen
 	var (
 		performers []string
 		categories []string
+		tags       []string
 		director   string
 		thumb      string
 	)
@@ -203,7 +216,11 @@ func (s *Scraper) toScene(p wpPost, studioURL string, now time.Time) models.Scen
 			}
 			switch t.Taxonomy {
 			case "post_tag":
-				performers = append(performers, name)
+				if s.cfg.KeywordTags {
+					tags = append(tags, name)
+				} else {
+					performers = append(performers, name)
+				}
 			case "category":
 				categories = append(categories, name)
 			case "directors":
@@ -214,19 +231,36 @@ func (s *Scraper) toScene(p wpPost, studioURL string, now time.Time) models.Scen
 		}
 	}
 
+	studio := studioName
+	if s.cfg.Studio != "" {
+		studio = s.cfg.Studio
+	}
+	if len(performers) == 0 && len(s.cfg.Performers) > 0 {
+		performers = append([]string(nil), s.cfg.Performers...)
+	}
+	description := cleanHTML(p.Content.Rendered)
+	duration := 0
+	if m := runtimeNoteRe.FindStringSubmatch(description); m != nil {
+		if n, err := strconv.Atoi(m[1]); err == nil {
+			duration = n * 60
+		}
+	}
+
 	return models.Scene{
 		ID:          id,
 		SiteID:      s.cfg.ID,
 		StudioURL:   studioURL,
 		Title:       cleanHTML(p.Title.Rendered),
 		URL:         sceneURL,
-		Description: cleanHTML(p.Content.Rendered),
+		Description: description,
 		Thumbnail:   thumb,
 		Date:        parseWPDate(p.DateGMT),
+		Duration:    duration,
 		Performers:  performers,
+		Tags:        tags,
 		Categories:  categories,
 		Director:    director,
-		Studio:      studioName,
+		Studio:      studio,
 		Series:      s.cfg.SiteName,
 		ScrapedAt:   now,
 	}

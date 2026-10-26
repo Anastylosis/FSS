@@ -137,8 +137,20 @@ var sites = []SiteConfig{
 		ID:       "anatomikmedia",
 		SiteBase: "https://anatomikmedia.com",
 		SiteName: "Anatomik Media",
+		Studio:   "Anatomik Media",
 		Patterns: []string{"anatomikmedia.com/"},
 		MatchRe:  regexp.MustCompile(`^https?://(?:www\.)?anatomikmedia\.com(?:/|$)`),
+	},
+	// Not a Romero site either: Chica's Place is a WordPress blog under
+	// /V2.0/ whose posts are the updates, tagged with keywords.
+	{
+		ID:          "chicasplace",
+		SiteBase:    "http://www.chicasplace.com/V2.0",
+		SiteName:    "Chica's Place",
+		Studio:      "Chica's Place",
+		KeywordTags: true,
+		Patterns:    []string{"chicasplace.com/"},
+		MatchRe:     regexp.MustCompile(`^https?://(?:www\.)?chicasplace\.com(?:/|$)`),
 	},
 }
 
