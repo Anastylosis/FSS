@@ -473,6 +473,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/underwatershow"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/updateitem"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/uptimely"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/velvetveronica"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/venusav"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/videoelements"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/vintageflash"
