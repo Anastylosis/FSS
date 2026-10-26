@@ -131,6 +131,15 @@ var sites = []SiteConfig{
 		Patterns: []string{"vored.com/"},
 		MatchRe:  regexp.MustCompile(`^https?://(?:www\.)?vored\.com(?:/|$)`),
 	},
+	// Not a Romero site: Anatomik Media publishes its scenes as plain WP REST
+	// posts the same way, so it reuses this parser.
+	{
+		ID:       "anatomikmedia",
+		SiteBase: "https://anatomikmedia.com",
+		SiteName: "Anatomik Media",
+		Patterns: []string{"anatomikmedia.com/"},
+		MatchRe:  regexp.MustCompile(`^https?://(?:www\.)?anatomikmedia\.com(?:/|$)`),
+	},
 }
 
 func init() {

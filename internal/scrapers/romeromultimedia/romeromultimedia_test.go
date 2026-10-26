@@ -313,8 +313,8 @@ func TestSitesTable_uniqueIDsAndDomainIsolation(t *testing.T) {
 			t.Errorf("site %q has nil MatchRe", cfg.ID)
 		}
 	}
-	if len(sites) != 16 {
-		t.Errorf("expected 16 sites, got %d", len(sites))
+	if len(sites) != 17 {
+		t.Errorf("expected 17 sites, got %d", len(sites))
 	}
 }
 

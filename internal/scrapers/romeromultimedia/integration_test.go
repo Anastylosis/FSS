@@ -33,3 +33,8 @@ func findSite(t *testing.T, id string) SiteConfig {
 	t.Fatalf("no site config registered with ID %q", id)
 	return SiteConfig{}
 }
+
+func TestLiveAnatomikMedia(t *testing.T) {
+	cfg := findSite(t, "anatomikmedia")
+	testutil.RunLiveScrape(t, New(cfg), cfg.SiteBase+"/", 3)
+}
