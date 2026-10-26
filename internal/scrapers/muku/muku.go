@@ -73,76 +73,90 @@ func (s *Scraper) ListScenes(ctx context.Context, studioURL string, opts scraper
 func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
 	defer close(out)
 
-	var codes []string
+	workers := scraper.WorkerCount(opts, defaultWorkers)
+	now := time.Now().UTC()
+
 	if m := actressRe.FindStringSubmatch(studioURL); m != nil {
 		scraper.Debugf(1, "muku: scraping actress %s", m[1])
-		codes = s.codesFrom(ctx, fmt.Sprintf("%s/actress/detail/%s", s.base, m[1]))
-	} else {
-		codes = s.catalogue(ctx, opts)
-	}
-	if len(codes) == 0 {
-		send(ctx, out, scraper.Error(scraper.ParseError(s.base, fmt.Errorf("no works found"))))
+		codes, err := s.codesFrom(ctx, fmt.Sprintf("%s/actress/detail/%s", s.base, m[1]))
+		if err != nil {
+			send(ctx, out, scraper.Error(err))
+			return
+		}
+		if len(codes) == 0 {
+			send(ctx, out, scraper.Error(scraper.ParseError(studioURL, fmt.Errorf("no works found"))))
+			return
+		}
+		s.fetchWorks(ctx, codes, studioURL, workers, opts.Delay, now, out)
 		return
 	}
-	if !send(ctx, out, scraper.Progress(len(codes))) {
-		return
-	}
-
-	workers := opts.Workers
-	if workers <= 0 {
-		workers = defaultWorkers
-	}
-	now := time.Now().UTC()
-	s.fetchWorks(ctx, codes, studioURL, workers, opts.Delay, now, out)
+	s.catalogue(ctx, studioURL, workers, opts, now, out)
 }
 
-// catalogue collects every work code: the release list for the newest, then
-// each actress page reached through the kana index for the rest.
-func (s *Scraper) catalogue(ctx context.Context, opts scraper.ListOpts) []string {
+// catalogue walks every work: the release list for the newest, then each
+// actress page reached through the kana index for the rest. Works are fetched
+// as each page names them, so scenes stream out instead of waiting on the
+// whole index walk (several minutes) to finish first.
+func (s *Scraper) catalogue(ctx context.Context, studioURL string, workers int, opts scraper.ListOpts, now time.Time, out chan<- scraper.SceneResult) {
 	seen := map[string]bool{}
-	var codes []string
-	add := func(found []string) {
+	total := 0
+	emit := func(pageURL string) {
+		found, err := s.codesFrom(ctx, pageURL)
+		if err != nil {
+			send(ctx, out, scraper.Error(err))
+			return
+		}
+		var fresh []string
 		for _, c := range found {
 			if !seen[c] {
 				seen[c] = true
-				codes = append(codes, c)
+				fresh = append(fresh, c)
 			}
 		}
+		total += len(fresh)
+		s.fetchWorks(ctx, fresh, studioURL, workers, opts.Delay, now, out)
 	}
 
-	add(s.codesFrom(ctx, s.base+"/works/list/release/"))
+	emit(s.base + "/works/list/release/")
+	if len(seen) == 0 && ctx.Err() == nil {
+		send(ctx, out, scraper.Error(scraper.ParseError(s.base+"/works/list/release/", fmt.Errorf("no works found"))))
+	}
 
-	actresses := map[string]bool{}
+	var actresses []string
+	known := map[string]bool{}
 	for _, kana := range kanaIndexes {
 		if ctx.Err() != nil {
-			return codes
+			return
 		}
+		delay(ctx, opts.Delay)
 		body, err := s.fetchPage(ctx, s.base+"/actress/"+kana)
 		if err != nil {
+			send(ctx, out, scraper.Error(err))
 			continue
 		}
 		for _, m := range actressRe.FindAllStringSubmatch(body, -1) {
-			actresses[m[1]] = true
+			if !known[m[1]] {
+				known[m[1]] = true
+				actresses = append(actresses, m[1])
+			}
 		}
-		delay(ctx, opts.Delay)
 	}
 	scraper.Debugf(1, "muku: %d actresses in the kana index", len(actresses))
 
-	for id := range actresses {
+	for _, id := range actresses {
 		if ctx.Err() != nil {
-			return codes
+			return
 		}
-		add(s.codesFrom(ctx, fmt.Sprintf("%s/actress/detail/%s", s.base, id)))
 		delay(ctx, opts.Delay)
+		emit(fmt.Sprintf("%s/actress/detail/%s", s.base, id))
 	}
-	scraper.Debugf(1, "muku: %d works in the catalogue", len(codes))
-	return codes
+	scraper.Debugf(1, "muku: %d works in the catalogue", total)
 }
 
-func (s *Scraper) codesFrom(ctx context.Context, pageURL string) []string {
+func (s *Scraper) codesFrom(ctx context.Context, pageURL string) ([]string, error) {
 	body, err := s.fetchPage(ctx, pageURL)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	seen := map[string]bool{}
 	var codes []string
@@ -153,7 +167,7 @@ func (s *Scraper) codesFrom(ctx context.Context, pageURL string) []string {
 		seen[m[1]] = true
 		codes = append(codes, m[1])
 	}
-	return codes
+	return codes, nil
 }
 
 func (s *Scraper) fetchWorks(ctx context.Context, codes []string, studioURL string, workers int, pause time.Duration, now time.Time, out chan<- scraper.SceneResult) {

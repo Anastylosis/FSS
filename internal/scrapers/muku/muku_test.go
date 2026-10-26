@@ -187,3 +187,47 @@ func TestActressURLScrapesOneActress(t *testing.T) {
 		t.Errorf("fetched %d other pages — an actress URL must not walk the index", kana)
 	}
 }
+
+// The release list's works stream out before the kana walk starts, so a
+// caller that stops after a few scenes is not held behind the whole index
+// walk; and an index page that fails is reported, not skipped silently.
+func TestCatalogueStreamsReleasesFirstAndReportsFailedPages(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/works/detail/"):
+			_, _ = fmt.Fprint(w, workPage)
+		case r.URL.Path == "/works/list/release/":
+			_, _ = fmt.Fprint(w, `<a href="/works/detail/MUCD360">x</a>`)
+		case r.URL.Path == "/actress/ka":
+			w.WriteHeader(http.StatusForbidden)
+		default:
+			_, _ = fmt.Fprint(w, `<html>nothing</html>`)
+		}
+	}))
+	defer srv.Close()
+
+	s := New()
+	s.client = srv.Client()
+	s.base = srv.URL
+
+	ch, err := s.ListScenes(context.Background(), srv.URL, scraper.ListOpts{Workers: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var kinds []scraper.ResultKind
+	for r := range ch {
+		kinds = append(kinds, r.Kind)
+	}
+	if len(kinds) == 0 || kinds[0] != scraper.KindScene {
+		t.Fatalf("results = %v, want the release-list scene first", kinds)
+	}
+	errs := 0
+	for _, k := range kinds {
+		if k == scraper.KindError {
+			errs++
+		}
+	}
+	if errs != 1 {
+		t.Errorf("got %d errors, want the failed kana page reported once", errs)
+	}
+}
