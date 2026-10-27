@@ -122,6 +122,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/dogma"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/dorcelclub"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/doubleviewcasting"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/dreamboyplus"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/dreamnet"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/dreamtranny"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/dreddxxx"

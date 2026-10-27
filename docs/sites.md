@@ -1,6 +1,6 @@
 # Covered Sites — All Domains
 
-1937 scrapers covering 2043 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
+1941 scrapers covering 2047 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
 
 Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scraper ID(s)** column lists every scraper that claims URLs on that domain — most domains have one entry, but table-driven networks (`adultprime`, `tmw`, `nextdoorstudios`, etc.) host many sub-studios on a single root domain. See [`scrapers.md`](scrapers.md) for what each ID covers.
 
@@ -253,6 +253,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | boundhoneys.com | `boundhoneys` |
 | boundmusclejocks.com | `boundmusclejocks` |
 | boundtwinks.com | `boundtwinks` |
+| boundupboys.com | `boundupboys` |
 | bountyhunterporn.com | `nubiles` |
 | boyforsale.com | `boyforsale` |
 | boyfriendsharing.com | `boyfriendsharing` |
@@ -537,6 +538,8 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | downblousewow.com | `downblousewow` |
 | dpfanatics.com | `dpfanatics` |
 | drdaddypov.com | `drdaddypov` |
+| dreamboybondage.com | `dreamboybondage` |
+| dreamboyplus.com | `boundupboys`, `dreamboybondage`, `dreamboyplus` (+1 more) |
 | dreamtranny.com | `dreamtranny` |
 | drillmyhole.com | `men` |
 | dripdropprod.net | `dripdropprod` |
@@ -1470,6 +1473,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | rodsroom.com | `rodsroom` |
 | romemajor.com | `romemajor` |
 | rookie-av.jp | `rookie` |
+| ropedstuds.com | `ropedstuds` |
 | rosella-extrem.com | `rosellaextrem` |
 | roxired.com | `roxired` |
 | rubber-empire.com | `rubberempire` |
