@@ -487,6 +487,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/vrhush"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/vrlatina"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/vrporn"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/vrproduce"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/vrspy"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/waap"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/wankitnow"
