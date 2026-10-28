@@ -192,6 +192,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/goldwinpass"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/grandparentsx"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/grooby"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/guybone"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/guysinsweatpants"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/handdomination"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/hegre"
