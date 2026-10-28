@@ -22,4 +22,3 @@ func live(t *testing.T, id string) {
 
 func TestLiveSheSeducedMe(t *testing.T)     { live(t, "sheseducedme") }
 func TestLiveLesbianSexuality(t *testing.T) { live(t, "lesbiansexuality") }
-func TestLiveMySweetApple(t *testing.T)     { live(t, "mysweetapple") }

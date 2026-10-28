@@ -1,6 +1,6 @@
-// Package updateitem scrapes three Elevated X tours built on the `updateItem`
-// card skin: She Seduced Me and Lesbian Sexuality (both LesbianCash) and
-// MySweetApple.
+// Package updateitem scrapes Elevated X tours built on the `updateItem` card
+// skin: She Seduced Me and Lesbian Sexuality (both LesbianCash). MySweetApple
+// left this skin in 2026-10 and is now a `latestupdateutil` row.
 //
 // They share the same markup vocabulary — `updateItem` cards wrapping an
 // `updateDetails` block with a `tour_update_models` cast span, and detail pages
@@ -49,16 +49,14 @@ type siteConfig struct {
 	StudioName string
 	// Prefix is the tour root, "" or "/tour".
 	Prefix string
-	// Performers, when set, is the site's own resident cast. MySweetApple is a
-	// couple's site whose every scene lists the brand as the model, so guests
-	// only ever appear in titles.
+	// Performers, when set, is the site's own resident cast (for a couple's
+	// site whose every scene lists the brand as the model).
 	Performers []string
 }
 
 var sites = []siteConfig{
 	{"sheseducedme", "www.sheseducedme.com", "She Seduced Me", "", nil},
 	{"lesbiansexuality", "www.lesbiansexuality.com", "Lesbian Sexuality", "/tour", nil},
-	{"mysweetapple", "mysweetapple.com", "MySweetApple", "", nil},
 }
 
 // Scraper implements scraper.StudioScraper for one `updateItem` site.

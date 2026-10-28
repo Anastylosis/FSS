@@ -142,7 +142,7 @@ func TestParseListingLesbianSexualityCardDate(t *testing.T) {
 }
 
 func TestParseListingMySweetApple(t *testing.T) {
-	s := newScraper(siteByID(t, "mysweetapple"))
+	s := newScraper(siteConfig{"mysweetapple", "mysweetapple.com", "MySweetApple", "", nil})
 	items := s.parseListing(readFixture(t, "listing_msa.html"))
 	if len(items) != 2 {
 		t.Fatalf("got %d items, want 2", len(items))
