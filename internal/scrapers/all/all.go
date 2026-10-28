@@ -510,6 +510,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/xespl"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/xevbellringer"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/xsinsvr"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/xsiteability"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/xxcel"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/xxxfollow"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/xxxjobinterviews"
