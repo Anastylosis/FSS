@@ -187,7 +187,9 @@ func siteIsDown(studioURL string, errs []error) (string, bool) {
 					}
 					return homePageGone(studioURL)
 				}
-				return "", false
+				// A parse failure is ours unless the site has stopped serving
+				// pages at all (see placeholderHome).
+				return placeholderHome(studioURL)
 			}
 			if first == "" {
 				first = reason
@@ -350,6 +352,36 @@ func homePageGone(studioURL string) (string, bool) {
 	_ = resp.Body.Close()
 	if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusGone {
 		return fmt.Sprintf("the site's home page itself answers HTTP %d", resp.StatusCode), true
+	}
+	return "", false
+}
+
+// placeholderHome reports a site whose home page is no longer a page: a few
+// bytes of plain text and no markup at all (VR Allure answers every path with
+// just "vrallure.com"). A parser regression cannot cause that.
+func placeholderHome(studioURL string) (string, bool) {
+	u, err := url.Parse(studioURL)
+	if err != nil || u.Host == "" {
+		return "", false
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	resp, err := httpx.DoWithStatus(ctx, httpx.NewClient(20*time.Second), httpx.Request{
+		URL:     u.Scheme + "://" + u.Host + "/",
+		Headers: httpx.BrowserHeaders(httpx.UserAgentFirefox),
+	})
+	if err != nil {
+		return "", false
+	}
+	defer func() { _ = resp.Body.Close() }()
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	return placeholderPage(body)
+}
+
+func placeholderPage(body []byte) (string, bool) {
+	b := strings.TrimSpace(string(body))
+	if len(b) < 256 && !strings.Contains(b, "<") {
+		return fmt.Sprintf("the site's home page is a placeholder (%q)", b), true
 	}
 	return "", false
 }

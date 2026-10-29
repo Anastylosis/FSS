@@ -684,3 +684,25 @@ func TestSiteIsDownSkips4xxWhenTheHomePageIsGone(t *testing.T) {
 		t.Error("a 404 on one path of a live site must stay a failure")
 	}
 }
+
+// A parse failure fails the test unless the site's home page is no longer a
+// page at all — VR Allure answers every path with the bare text
+// "vrallure.com" (2026-10-29).
+func TestSiteIsDownSkipsAParseErrorOnlyForAPlaceholderHome(t *testing.T) {
+	placeholder := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = fmt.Fprint(w, "vrallure.com\n")
+	}))
+	defer placeholder.Close()
+	tour := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = fmt.Fprint(w, `<html><title>Tour</title></html>`)
+	}))
+	defer tour.Close()
+
+	parse := scraper.ParseError("x", errors.New("EOF"))
+	if _, ok := siteIsDown(placeholder.URL+"/sitemap.xml", []error{parse}); !ok {
+		t.Error("a placeholder home page should skip")
+	}
+	if _, ok := siteIsDown(tour.URL+"/sitemap.xml", []error{parse}); ok {
+		t.Error("a parse error against a real site must stay a failure")
+	}
+}
