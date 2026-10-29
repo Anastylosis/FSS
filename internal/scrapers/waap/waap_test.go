@@ -383,3 +383,21 @@ func TestRunStopsWhenTheOriginIgnoresThePageParameter(t *testing.T) {
 		t.Fatal("the walk did not terminate against an origin that ignores pg")
 	}
 }
+
+// CloudFront's gzip variant of WAAP's pages is a stale copy with empty
+// titles, so every fetch must ask for the uncompressed one.
+func TestFetchAsksForIdentityEncoding(t *testing.T) {
+	var got string
+	srv := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		got = r.Header.Get("Accept-Encoding")
+	}))
+	defer srv.Close()
+	s := New()
+	s.client = srv.Client()
+	if _, err := s.fetchShiftJIS(context.Background(), srv.URL); err != nil {
+		t.Fatal(err)
+	}
+	if got != "identity" {
+		t.Errorf("Accept-Encoding = %q, want identity", got)
+	}
+}

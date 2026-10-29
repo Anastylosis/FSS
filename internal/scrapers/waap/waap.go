@@ -395,6 +395,10 @@ func (s *Scraper) fetchShiftJIS(ctx context.Context, rawURL string) (string, err
 		URL: rawURL,
 		Headers: map[string]string{
 			"User-Agent": httpx.UserAgentChrome,
+			// CloudFront caches a separate gzip variant of each page, and that
+			// copy has gone stale (an item page with an empty title). Go asks
+			// for gzip by default; asking for identity reaches the good copy.
+			"Accept-Encoding": "identity",
 		},
 	})
 	if err != nil {
