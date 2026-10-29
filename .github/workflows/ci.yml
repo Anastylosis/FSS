@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   ci:
-    uses: Anastylosis/.github/.github/workflows/go-ci.yml@v1
+    uses: Anastylosis/.github/.github/workflows/go-ci.yml@ci-test-shards
     permissions:
       contents: read
       checks: write
@@ -31,6 +31,8 @@ jobs:
       # and ListScenes across every registered scraper; without -coverpkg those
       # ~1400 exercised statements read as uncovered (80.6% vs 83.8%).
       coverpkg: true
+      # Four runners split the ~6.5 min test step.
+      test-shards: 4
       # flock_windows.go makes the process lock a no-op on Windows,
       # output.atomicWriteFile relies on rename-over-existing semantics that
       # differ there, and the 250-byte Slugify cap is reasoned from POSIX.
