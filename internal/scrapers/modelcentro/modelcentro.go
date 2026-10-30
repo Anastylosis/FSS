@@ -73,6 +73,7 @@ var sites = []siteConfig{
 	{"getyourkneesdirty", "getyourkneesdirty.com", "Get Your Knees Dirty", nil, nil},
 	{"jerkoffwithme", "jerkoffwithme.com", "Jerk Off With Me", nil, nil},
 	{"oopsmodels", "oopsmodels.com", "oopsmodels", nil, nil},
+	{"elouiseplease", "elouiseplease.com", "Elouise Please", []string{"Elouise Please"}, nil},
 	{"annaclaireclouds", "annaclaireclouds.site", "Anna Claire Clouds", []string{"Anna Claire Clouds"}, nil},
 }
 

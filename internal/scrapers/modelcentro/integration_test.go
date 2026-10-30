@@ -222,3 +222,15 @@ func TestLiveOopsmodels(t *testing.T) {
 	}
 	testutil.RunLiveScrape(t, s, url, 2)
 }
+
+func TestLiveElouisePlease(t *testing.T) {
+	url := "https://elouiseplease.com/videos"
+	s, err := scraper.ForURL(url)
+	if err != nil {
+		t.Fatalf("no scraper matched %s: %v", url, err)
+	}
+	if s.ID() != "elouiseplease" {
+		t.Fatalf("expected elouiseplease, got %s", s.ID())
+	}
+	testutil.RunLiveScrape(t, s, url, 2)
+}
