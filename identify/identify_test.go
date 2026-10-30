@@ -277,7 +277,7 @@ func TestWriteReportSkipsWhenAllMatched(t *testing.T) {
 func TestRunPosterDownloadsAndReferencesLocalFile(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "image/jpeg")
-		_, _ = w.Write([]byte("jpegdata"))
+		_, _ = w.Write([]byte("\xff\xd8\xffjpegdata"))
 	}))
 	defer srv.Close()
 
@@ -307,7 +307,7 @@ func TestRunPosterDownloadsAndReferencesLocalFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("poster not written: %v", err)
 	}
-	if string(data) != "jpegdata" {
+	if string(data) != "\xff\xd8\xffjpegdata" {
 		t.Errorf("poster content = %q", data)
 	}
 

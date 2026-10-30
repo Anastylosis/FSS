@@ -222,8 +222,8 @@ The reverse (`--cover --fields title`) still skips cover, because `--fields` is 
 When enabled, FSS downloads each scene's `thumbnail` URL from the FSS JSON and pushes it to Stash as base64. To prevent SSRF when importing third-party JSON dumps, the URL is validated:
 
 - Scheme must be `http` or `https`. `file://`, `gopher://`, `data:`, etc. are rejected.
-- Host must not resolve to a private (RFC1918), loopback, link-local, or unspecified address. This stops a malicious JSON from coercing FSS to fetch from `localhost`, cloud metadata services (`169.254.169.254`), or your internal network.
-- Response body is capped at 10 MiB.
+- Host must not resolve to a non-public address: the IANA special-purpose ranges (RFC1918, loopback, link-local, CGNAT `100.64.0.0/10`, benchmarking, multicast, reserved, ULA, IPv4-mapped/compatible/translated forms, and the newer documentation and discard ranges). NAT64 addresses (`64:ff9b::/96`, `64:ff9b:1::/48`) are judged by the IPv4 address embedded in their last 32 bits, so DNS64 networks work while `64:ff9b::7f00:1` stays blocked. The check runs again on the address actually dialled, and on every redirect hop, so redirects and DNS rebinding cannot reach those ranges either. A policy refusal is never retried. This stops a malicious JSON from coercing FSS to fetch from `localhost`, cloud metadata services (`169.254.169.254`), or your internal network.
+- Response body is capped at 10 MiB and must sniff as JPEG, PNG, WebP, GIF or AVIF (the stored type is always the sniffed one, never the server header). A bad cover is reported as a cover failure and skipped; the scene update still goes ahead. The same rules apply to `identify --poster`.
 
 If you legitimately host cover images on your own LAN (e.g. a media server at `192.168.1.50`), pass `--cover-allow-private` to bypass the IP check. The scheme and size cap still apply.
 

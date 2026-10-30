@@ -5,12 +5,16 @@ package mediafetch
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"strconv"
 	"strings"
+	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/Anastylosis/FSS/internal/httpx"
@@ -29,13 +33,26 @@ type Asset struct {
 // Fetch downloads rawURL after validating it. allowPrivate permits hosts that
 // resolve to private or loopback addresses, for local media servers.
 func Fetch(ctx context.Context, client *http.Client, rawURL string, allowPrivate bool) (Asset, error) {
-	if err := ValidateURL(rawURL, allowPrivate); err != nil {
+	if err := validateURL(ctx, rawURL, allowPrivate); err != nil {
 		return Asset{}, fmt.Errorf("rejecting URL: %w", err)
 	}
+
+	client, refused := guardedClient(client, allowPrivate)
 
 	resp, err := httpx.Do(ctx, client, httpx.Request{
 		URL:     rawURL,
 		Headers: map[string]string{"User-Agent": httpx.UserAgentFirefox},
+		BackoffSleep: func(ctx context.Context, d time.Duration) error {
+			if refused.Load() {
+				return ErrBlocked
+			}
+			select {
+			case <-time.After(d):
+				return nil
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		},
 	})
 	if err != nil {
 		return Asset{}, fmt.Errorf("downloading: %w", err)
@@ -50,12 +67,20 @@ func Fetch(ctx context.Context, client *http.Client, rawURL string, allowPrivate
 		return Asset{}, fmt.Errorf("image exceeds %d bytes", MaxBytes)
 	}
 
-	ct := resp.Header.Get("Content-Type")
-	if ct == "" {
-		ct = http.DetectContentType(data)
+	ct := strings.ToLower(http.DetectContentType(data))
+	if !allowedImageTypes[ct] {
+		return Asset{}, fmt.Errorf("response is %s, not a supported image", ct)
 	}
 	return Asset{Data: data, ContentType: ct}, nil
 }
+
+var allowedImageTypes = map[string]bool{
+	"image/jpeg": true, "image/png": true, "image/webp": true,
+	"image/gif": true, "image/avif": true,
+}
+
+// ErrBlocked marks a request refused by the SSRF policy. It is never retried.
+var ErrBlocked = errors.New("blocked by SSRF policy")
 
 // DataURI fetches an image and encodes it as a data URI, the form Stash's
 // cover_image field takes.
@@ -74,19 +99,32 @@ func DataURI(ctx context.Context, client *http.Client, rawURL string, allowPriva
 }
 
 // ValidateURL enforces the SSRF defense: http(s) only, and unless allowPrivate
-// is set, no host that resolves to a private or loopback address.
-//
-// This resolves DNS once, before the request, so DNS rebinding is not
-// mitigated. For the threat model here — consuming someone else's scraped JSON
-// — the dump author would also need to control DNS for a domain the importer
-// resolves.
+// is set, no host that resolves to a non-public address. It is a fast pre-check;
+// the dialer (guardedClient) re-checks the address actually connected to, which
+// closes DNS rebinding, and every redirect hop is validated the same way.
 func ValidateURL(rawURL string, allowPrivate bool) error {
+	return validateURL(context.Background(), rawURL, allowPrivate)
+}
+
+var lookupIPs = func(ctx context.Context, host string) ([]net.IP, error) {
+	addrs, err := net.DefaultResolver.LookupIPAddr(ctx, host)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]net.IP, len(addrs))
+	for i, a := range addrs {
+		out[i] = a.IP
+	}
+	return out, nil
+}
+
+func validateURL(ctx context.Context, rawURL string, allowPrivate bool) error {
 	u, err := url.Parse(rawURL)
 	if err != nil {
 		return fmt.Errorf("parsing URL: %w", err)
 	}
 	if u.Scheme != "http" && u.Scheme != "https" {
-		return fmt.Errorf("scheme %q not allowed (only http/https)", u.Scheme)
+		return fmt.Errorf("%w: scheme %q not allowed (only http/https)", ErrBlocked, u.Scheme)
 	}
 	host := u.Hostname()
 	if host == "" {
@@ -97,29 +135,136 @@ func ValidateURL(rawURL string, allowPrivate bool) error {
 	}
 	if ip := net.ParseIP(host); ip != nil {
 		if isPrivateOrLocal(ip) {
-			return fmt.Errorf("host %s is a private/loopback address", ip)
+			return fmt.Errorf("%w: host %s is a private/loopback address", ErrBlocked, ip)
 		}
 		return nil
 	}
-	ips, err := net.LookupIP(host)
+	ips, err := lookupIPs(ctx, host)
 	if err != nil {
 		return fmt.Errorf("resolving host %q: %w", host, err)
 	}
 	for _, ip := range ips {
 		if isPrivateOrLocal(ip) {
-			return fmt.Errorf("host %q resolves to private/loopback IP %s", host, ip)
+			return fmt.Errorf("%w: host %q resolves to private/loopback IP %s", ErrBlocked, host, ip)
 		}
 	}
 	return nil
 }
 
+const maxRedirects = 5
+
+// guardedClient returns a copy of base whose redirects are validated hop by
+// hop and, unless allowPrivate, whose connections are refused to non-public
+// addresses at dial time. The flag is set when the policy refused a request.
+func guardedClient(base *http.Client, allowPrivate bool) (*http.Client, *atomic.Bool) {
+	refused := &atomic.Bool{}
+	c := &http.Client{Timeout: base.Timeout}
+	c.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		if len(via) >= maxRedirects {
+			refused.Store(true)
+			return fmt.Errorf("%w: stopped after %d redirects", ErrBlocked, maxRedirects)
+		}
+		if err := validateURL(req.Context(), req.URL.String(), allowPrivate); err != nil {
+			refused.Store(true)
+			return fmt.Errorf("redirect rejected: %w", err)
+		}
+		return nil
+	}
+	if allowPrivate {
+		c.Transport = base.Transport
+		return c, refused
+	}
+	c.Transport = flagRefusals{publicTransport, refused}
+	return c, refused
+}
+
+type flagRefusals struct {
+	next    http.RoundTripper
+	refused *atomic.Bool
+}
+
+func (f flagRefusals) RoundTrip(r *http.Request) (*http.Response, error) {
+	resp, err := f.next.RoundTrip(r)
+	if errors.Is(err, ErrBlocked) {
+		f.refused.Store(true)
+	}
+	return resp, err
+}
+
+var dialRewrite = func(addr string) string { return addr }
+
+var dialBlocked = func(_ string, ip net.IP) bool { return isPrivateOrLocal(ip) }
+
+var baseDialer = &net.Dialer{Timeout: 15 * time.Second, Control: dialControl}
+
+var publicTransport = &http.Transport{
+	DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+		return baseDialer.DialContext(ctx, network, dialRewrite(addr))
+	},
+	TLSHandshakeTimeout: 15 * time.Second,
+	ForceAttemptHTTP2:   true,
+	MaxIdleConns:        10,
+	IdleConnTimeout:     30 * time.Second,
+}
+
+func dialControl(_, address string, _ syscall.RawConn) error {
+	host, _, err := net.SplitHostPort(address)
+	if err != nil {
+		return err
+	}
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return fmt.Errorf("%w: dial address %q is not an IP", ErrBlocked, address)
+	}
+	if dialBlocked(address, ip) {
+		return fmt.Errorf("%w: refusing to connect to non-public address %s", ErrBlocked, ip)
+	}
+	return nil
+}
+
+var blockedPrefixes = parsePrefixes(
+	"0.0.0.0/8", "10.0.0.0/8", "100.64.0.0/10", "127.0.0.0/8", "169.254.0.0/16",
+	"172.16.0.0/12", "192.0.0.0/24", "192.0.2.0/24", "192.88.99.0/24",
+	"192.168.0.0/16", "198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24",
+	"224.0.0.0/4", "240.0.0.0/4", "255.255.255.255/32",
+	"::/96", "::ffff:0:0:0/96", "100::/64", "2001::/32", "2001:2::/48",
+	"2001:10::/28", "2001:20::/28", "2001:db8::/32", "2002::/16", "3fff::/20",
+	"5f00::/16", "fc00::/7", "fe80::/10", "fec0::/10", "ff00::/8",
+)
+
+// translationPrefixes embed an IPv4 address in their last 32 bits; DNS64
+// networks use them, so the embedded address is judged instead.
+var translationPrefixes = parsePrefixes("64:ff9b::/96", "64:ff9b:1::/48")
+
+func parsePrefixes(ss ...string) []netip.Prefix {
+	out := make([]netip.Prefix, len(ss))
+	for i, s := range ss {
+		out[i] = netip.MustParsePrefix(s)
+	}
+	return out
+}
+
 func isPrivateOrLocal(ip net.IP) bool {
-	return ip.IsLoopback() ||
-		ip.IsPrivate() ||
-		ip.IsLinkLocalUnicast() ||
-		ip.IsLinkLocalMulticast() ||
-		ip.IsInterfaceLocalMulticast() ||
-		ip.IsUnspecified()
+	addr, ok := netip.AddrFromSlice(ip)
+	if !ok {
+		return true
+	}
+	return blockedAddr(addr.Unmap().WithZone(""))
+}
+
+func blockedAddr(addr netip.Addr) bool {
+	for _, p := range translationPrefixes {
+		if p.Contains(addr) {
+			b := addr.As16()
+			return blockedAddr(netip.AddrFrom4([4]byte{b[12], b[13], b[14], b[15]}))
+		}
+	}
+	for _, p := range blockedPrefixes {
+		if p.Contains(addr) {
+			return true
+		}
+	}
+	return false
 }
 
 // plausible bounds for a signed-URL expiry, so a random numeric query parameter

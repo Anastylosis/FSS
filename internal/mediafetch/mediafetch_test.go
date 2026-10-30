@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"errors"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -146,7 +148,7 @@ func TestExpiredAWSPresigned(t *testing.T) {
 func TestFetchReadsImage(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "image/jpeg")
-		_, _ = w.Write([]byte("jpegbytes"))
+		_, _ = w.Write([]byte("\xff\xd8\xffjpegbytes"))
 	}))
 	defer ts.Close()
 
@@ -154,14 +156,14 @@ func TestFetchReadsImage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Fetch: %v", err)
 	}
-	if string(asset.Data) != "jpegbytes" || asset.ContentType != "image/jpeg" {
+	if string(asset.Data) != "\xff\xd8\xffjpegbytes" || asset.ContentType != "image/jpeg" {
 		t.Errorf("got %+v", asset)
 	}
 }
 
 func TestFetchRejectsOversized(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write(make([]byte, MaxBytes+1))
+		_, _ = w.Write(append([]byte("\x89PNG\r\n\x1a\n"), make([]byte, MaxBytes+1)...))
 	}))
 	defer ts.Close()
 
@@ -257,5 +259,162 @@ func TestDataURISkipsExpiredURL(t *testing.T) {
 	}
 	if hits != 0 {
 		t.Errorf("made %d requests, want 0", hits)
+	}
+}
+
+func TestFetchRefusesHTMLBody(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "image/jpeg")
+		_, _ = w.Write([]byte("<!DOCTYPE html><html><body>secret</body></html>"))
+	}))
+	defer ts.Close()
+
+	if _, err := DataURI(context.Background(), ts.Client(), ts.URL+"/c.jpg", true); err == nil {
+		t.Fatal("want an HTML body refused as a cover")
+	}
+}
+
+func TestRedirectToLoopbackRefused(t *testing.T) {
+	c, _ := guardedClient(&http.Client{}, false)
+	req, _ := http.NewRequest(http.MethodGet, "http://127.0.0.1:9/x", nil)
+	if err := c.CheckRedirect(req, []*http.Request{{}}); err == nil {
+		t.Fatal("want redirect to loopback refused")
+	}
+	if err := c.CheckRedirect(req, make([]*http.Request, maxRedirects)); err == nil {
+		t.Fatal("want redirect limit enforced")
+	}
+}
+
+func TestDialControlRefusesNonPublic(t *testing.T) {
+	for _, a := range []string{"127.0.0.1:80", "10.1.2.3:80", "100.64.0.1:80", "[64:ff9b::7f00:1]:80", "[::127.0.0.1]:80", "[::ffff:0:0:0]:80", "[2001:20::1]:80", "[3fff::1]:80", "[5f00::1]:80", "255.255.255.255:80", "198.18.0.1:80", "[::ffff:127.0.0.1]:80", "169.254.169.254:80"} {
+		if err := dialControl("tcp", a, nil); err == nil {
+			t.Errorf("dialControl(%s) should refuse", a)
+		}
+	}
+	if err := dialControl("tcp", "93.184.216.34:443", nil); err != nil {
+		t.Errorf("public address refused: %v", err)
+	}
+}
+
+func TestGuardedDialerBlocksLoopbackConnect(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("x"))
+	}))
+	defer ts.Close()
+
+	c, _ := guardedClient(ts.Client(), false)
+	resp, err := c.Get(ts.URL)
+	if err == nil {
+		_ = resp.Body.Close()
+		t.Fatal("want dial to loopback refused")
+	}
+}
+
+func TestPublicAddressesNotBlocked(t *testing.T) {
+	for _, a := range []string{"8.8.8.8", "93.184.216.34", "1.1.1.1", "100.63.255.255", "100.128.0.1", "172.15.0.1", "172.32.0.1", "198.17.0.1", "198.20.0.1", "2606:4700:4700::1111", "2001:4860:4860::8888", "64:ff9b::808:808"} {
+		if isPrivateOrLocal(net.ParseIP(a)) {
+			t.Errorf("%s must not be blocked", a)
+		}
+	}
+	for _, a := range []string{"64:ff9b::7f00:1", "64:ff9b::a00:1", "64:ff9b:1::c0a8:1"} {
+		if !isPrivateOrLocal(net.ParseIP(a)) {
+			t.Errorf("%s must be blocked", a)
+		}
+	}
+}
+
+func TestContentTypeIsSniffedNotHeader(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "image/svg+xml")
+		_, _ = w.Write([]byte("\x89PNG\r\n\x1a\n"))
+	}))
+	defer ts.Close()
+	a, err := Fetch(context.Background(), ts.Client(), ts.URL, true)
+	if err != nil || a.ContentType != "image/png" {
+		t.Fatalf("got %+v, %v", a, err)
+	}
+}
+
+func TestAllowPrivateStillFollowsLANRedirect(t *testing.T) {
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("\x89PNG\r\n\x1a\n"))
+	}))
+	defer target.Close()
+	redir := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, target.URL, http.StatusFound)
+	}))
+	defer redir.Close()
+	if _, err := Fetch(context.Background(), redir.Client(), redir.URL, true); err != nil {
+		t.Fatalf("Fetch: %v", err)
+	}
+}
+
+// hookPublic makes the name host look public and dial it at addr, with the
+// dial policy admitting only allowAddr (empty: the real policy).
+func hookPublic(t *testing.T, host, addr, allowAddr string) {
+	t.Helper()
+	oldL, oldR, oldB := lookupIPs, dialRewrite, dialBlocked
+	t.Cleanup(func() { lookupIPs, dialRewrite, dialBlocked = oldL, oldR, oldB })
+	lookupIPs = func(context.Context, string) ([]net.IP, error) { return []net.IP{net.ParseIP("93.184.216.34")}, nil }
+	dialRewrite = func(string) string { return addr }
+	if allowAddr != "" {
+		dialBlocked = func(a string, ip net.IP) bool { return a != allowAddr && isPrivateOrLocal(ip) }
+	}
+}
+
+func TestFetchRefusesRedirectToLoopbackEndToEnd(t *testing.T) {
+	var secretHits int
+	secret := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		secretHits++
+		_, _ = w.Write([]byte("\x89PNG\r\n\x1a\n"))
+	}))
+	defer secret.Close()
+	var hits int
+	redir := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		http.Redirect(w, r, secret.URL, http.StatusFound)
+	}))
+	defer redir.Close()
+	hookPublic(t, "pub.test", redir.Listener.Addr().String(), redir.Listener.Addr().String())
+
+	_, err := Fetch(context.Background(), http.DefaultClient, "http://pub.test/c.png", false)
+	if !errors.Is(err, ErrBlocked) {
+		t.Fatalf("want ErrBlocked, got %v", err)
+	}
+	if secretHits != 0 {
+		t.Error("loopback target was reached")
+	}
+	if hits != 1 {
+		t.Errorf("policy refusal was retried: %d requests", hits)
+	}
+}
+
+func TestFetchRefusesRedirectToFTPWithoutRetry(t *testing.T) {
+	var hits int
+	redir := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		http.Redirect(w, r, "ftp://example.com/x.png", http.StatusFound)
+	}))
+	defer redir.Close()
+	hookPublic(t, "pub.test", redir.Listener.Addr().String(), redir.Listener.Addr().String())
+
+	_, err := Fetch(context.Background(), http.DefaultClient, "http://pub.test/c.png", false)
+	if !errors.Is(err, ErrBlocked) || hits != 1 {
+		t.Fatalf("err=%v hits=%d", err, hits)
+	}
+}
+
+func TestFetchRefusesRebindingNameEndToEnd(t *testing.T) {
+	var hits int
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		hits++
+		_, _ = w.Write([]byte("\x89PNG\r\n\x1a\n"))
+	}))
+	defer ts.Close()
+	hookPublic(t, "rebind.test", ts.Listener.Addr().String(), "")
+
+	_, err := Fetch(context.Background(), http.DefaultClient, "http://rebind.test/c.png", false)
+	if !errors.Is(err, ErrBlocked) || hits != 0 {
+		t.Fatalf("err=%v hits=%d", err, hits)
 	}
 }
