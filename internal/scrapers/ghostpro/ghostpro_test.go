@@ -373,7 +373,7 @@ func TestListingURL(t *testing.T) {
 	}
 }
 
-// Registry sanity check — make sure all 10 sites in the table register
+// Registry sanity check — make sure all 11 sites in the table register
 // distinct IDs and each MatchRe rejects the others' domains.
 func TestSitesTable_uniqueIDsAndDomainIsolation(t *testing.T) {
 	seen := map[string]bool{}
@@ -397,8 +397,8 @@ func TestSitesTable_uniqueIDsAndDomainIsolation(t *testing.T) {
 			t.Errorf("site %q.MatchRe does not match its own SiteBase", cfg.ID)
 		}
 	}
-	if len(sites) != 10 {
-		t.Errorf("expected 10 registered sites, got %d", len(sites))
+	if len(sites) != 11 {
+		t.Errorf("expected 11 registered sites, got %d", len(sites))
 	}
 }
 
