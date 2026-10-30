@@ -95,6 +95,7 @@
   "only use scenes from this creator's storefronts, as defined in creators.d (repeatable: any match)": "only use scenes from this creator's storefronts, as defined in creators.d (repeatable: any match)",
   "output a markdown table": "output a markdown table",
   "output directory (default from config)": "output directory (default from config)",
+  "overwrite an existing studio file that holds more scenes than the export": "overwrite an existing studio file that holds more scenes than the export",
   "overwrite existing .nfo files": "overwrite existing .nfo files",
   "path to SQLite database (no value = default location)": "path to SQLite database (no value = default location)",
   "path to SQLite database (no value = the configured db, or the default location)": "path to SQLite database (no value = the configured db, or the default location)",

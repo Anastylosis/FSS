@@ -3,6 +3,7 @@ package cmd
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -349,12 +350,11 @@ func scrapeOne(ctx context.Context, st store.Store, tgt scrapeTarget, name, dbPa
 	}
 
 	if dbPath != "" {
-		slug := output.Slugify(studioURL)
-		for _, format := range formats {
-			path := filepath.Join(outDir, slug+"."+format)
-			if err := st.Export(format, path, studioURL); err != nil {
-				return fmt.Errorf("exporting %s: %w", format, err)
-			}
+		_, eErr := exportStudio(st, store.NewFlat(outDir, nil), studioURL, outDir, formats, nil, false, !sameDir(outDir, filepath.Dir(dbPath)))
+		if errors.Is(eErr, errExportRefused) {
+			fmt.Fprintf(os.Stderr, "warning: %v\n", eErr)
+		} else if eErr != nil {
+			return eErr
 		}
 	}
 
@@ -973,4 +973,12 @@ func proceedAfterCollapse(cov coverage, studioURL, siteID string, destructive, f
 		fmt.Fprintln(os.Stderr, "       skipping the save")
 		return false
 	}
+}
+
+// sameDir reports whether a and b name one directory; scrape --db already
+// holds the SQLite lock, whose file is the flat lock when the two coincide.
+func sameDir(a, b string) bool {
+	aa, err1 := filepath.Abs(a)
+	bb, err2 := filepath.Abs(b)
+	return err1 == nil && err2 == nil && filepath.Clean(aa) == filepath.Clean(bb)
 }

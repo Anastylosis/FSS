@@ -183,6 +183,9 @@ Writes studio JSON/CSV files out of the SQLite database, named exactly as the fl
 | `--db` | string | _(from config)_ | Source database |
 | `--output`, `-o` | string | `json` | Export format(s): `json`, `csv`, or `json,csv` |
 | `--out-dir` | string | `.` | Output directory |
+| `--force` | bool | `false` | Overwrite an existing JSON file that holds scenes the database lacks |
+
+A studio the database does not hold is an error, never an empty file, and a file in the output directory (often the flat store itself) holding scenes the database lacks, or that cannot be read, is left alone (with its CSV) unless `--force`; `scrape --db` skips its own export of such a file with a warning. File names come from the canonical studio URL, so differently spelled URLs write one file, and the studio's flat-store lock is held while writing.
 
 ```bash
 fss export --db --out-dir ./out -o json,csv
