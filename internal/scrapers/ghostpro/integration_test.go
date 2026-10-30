@@ -35,6 +35,11 @@ func TestLiveLegendaryX(t *testing.T) {
 	testutil.RunLiveScrape(t, New(cfg), cfg.SiteBase+"/videos", 3)
 }
 
+func TestLiveAmazingFilms(t *testing.T) {
+	cfg := findSite(t, "amazingfilms")
+	testutil.RunLiveScrape(t, New(cfg), cfg.SiteBase+"/videos", 3)
+}
+
 func findSite(t *testing.T, id string) SiteConfig {
 	t.Helper()
 	for _, cfg := range sites {
