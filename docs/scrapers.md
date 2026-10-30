@@ -579,6 +579,7 @@
 | [Southern Strokes](https://www.southernstrokes.com) | `southernstrokes.com` | My Gay Cash NATS CMS | No | Thin wrapper in `marsmedia` |
 | [Touch That Boy](https://www.touchthatboy.com) | `touchthatboy.com` | My Gay Cash NATS CMS | No | Thin wrapper in `marsmedia` |
 | [Twinks In Shorts](https://www.twinksinshorts.com) | `twinksinshorts.com` | My Gay Cash NATS CMS | No | Thin wrapper in `marsmedia` |
+| [Whoa Boyz](https://whoaboyz.com) | `whoaboyz.com` | My Gay Cash NATS CMS | No | Standalone `whoaboyz` package over `natscmsutil`; self-hosted NATS backend `whoabucks.com` (cms_area_id from `/natscms-app/config.json`). ~134 scenes with title, date, thumbnail and views; no performers or duration on the listing. |
 | [Cosplayground](https://cosplayground.com) | `cosplayground.com` | My Gay Cash NATS CMS | No | Cosplay XXX parodies (skinfluentialmedia). Standalone `cosplayground` package over the shared `natscmsutil` core; same CMS as `marsmedia` but a self-hosted NATS backend (`api.cosplayground.com`) |
 | [Mature Fetish](https://maturefetish.com) | `maturefetish.com/en/updates`, `maturefetish.com/en/model/{id}/{page}/{slug}`, `maturefetish.com/en/niche/{id}/{page}/{slug}` | SvelteKit | No | HTML scraping, listing + detail worker pool for all modes. Same backend/CDN as Mature.nl |
 | [Mature.nl](https://www.mature.nl) | `mature.nl/en/updates`, `mature.nl/en/model/{id}`, `mature.nl/en/niche/{id}/{page}/{slug}` | Custom | No | HTML scraping, paginated listing + detail page worker pool for model URLs |
