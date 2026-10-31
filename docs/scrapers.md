@@ -2,6 +2,7 @@
 
 | Site | URL Pattern | Platform | Pricing | Notes |
 |------|-------------|----------|---------|-------|
+| [18 Close Up](https://18closeup.com) | `18closeup.com`, `18closeup.com/updates.php` | Standalone | No | Standalone `closeup18`. ~740 updates from `updates.php?sort1=date&ascending=0&show=100&page=N` (the pager's `show` accepts 100). Model, duration, description, thumbnail, resolution label; scene ID is the site's own update number. No release date and no public detail pages (every link goes to the join page), so `Date` is empty and `URL` is the listing. |
 | [18Eighteen](https://www.18eighteen.com) | `18eighteen.com`, `18eighteen.com/teen-babes/{name}/{id}` | Score Group | No | Score Group, table-driven `scoregroup` package |
 | [40 Something Mag](https://www.40somethingmag.com) | `40somethingmag.com`, `40somethingmag.com/xxx-mature-models/{name}/{id}` | Score Group | No | Score Group, table-driven `scoregroup` package |
 | [50 Plus MILFs](https://www.50plusmilfs.com) | `50plusmilfs.com`, `50plusmilfs.com/xxx-milf-models/{name}/{id}` | Score Group | No | Score Group, table-driven `scoregroup` package |
