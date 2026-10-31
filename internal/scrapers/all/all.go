@@ -151,6 +151,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/femjoy"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/fetishkitsch"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/fetishnetwork"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/fightingdolls"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/finishesthejob"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/firstanalquest"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/fittingroom"
