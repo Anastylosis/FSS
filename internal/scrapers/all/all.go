@@ -34,6 +34,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/arx"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/assylum"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/auntjudys"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/avamoore"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/avidolz"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/avjiali"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/aylo"
