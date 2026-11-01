@@ -1,6 +1,6 @@
 # Covered Sites — All Domains
 
-1957 scrapers covering 2063 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
+1960 scrapers covering 2066 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
 
 Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scraper ID(s)** column lists every scraper that claims URLs on that domain — most domains have one entry, but table-driven networks (`adultprime`, `tmw`, `nextdoorstudios`, etc.) host many sub-studios on a single root domain. See [`scrapers.md`](scrapers.md) for what each ID covers.
 
@@ -399,6 +399,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | creampiled.com | `creampiled` |
 | creativeporn.com | `creativeporn` |
 | cristiannlive.com | `cristiann` |
+| cruel-mistresses.com | `cruelmistresses` |
 | cruelgf.com | `cruelgirlfriend` |
 | crunchboy.com | `crunchboy` |
 | crystal-eizou.jp | `crystaleizou` |
@@ -561,6 +562,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | ebonycumdumps.com | `ebonycumdumps` |
 | ebonythots.com | `ebonythots` |
 | elegantangel.com | `elegantangel` |
+| elitepain.com | `elitepain` |
 | elouiseplease.com | `elouiseplease` |
 | emilybloom.com | `emilybloom` |
 | englishlads.com | `englishlads` |
@@ -1159,6 +1161,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | monstermalesprod.com | `monstermalesprod` |
 | monsterporn.com | `monsterporn` |
 | monstersofjizz.com | `monstersofjizz` |
+| mood-pictures.com | `moodpictures` |
 | moodyz.com | `moodyz` |
 | morethannylons.com | `morethannylons` |
 | mormongirlz.com | `mormongirlz` |

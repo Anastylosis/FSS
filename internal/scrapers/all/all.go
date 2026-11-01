@@ -307,6 +307,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/modelcentro"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/momcomesfirst"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/monstersofjizz"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/mooduniverse"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/mousouzoku"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/mplstudios"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/muku"
