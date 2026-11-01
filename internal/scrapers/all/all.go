@@ -139,6 +139,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/ericvideos"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/erikalust"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/erosarts"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/evilerotic"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/evolvedfights"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/expliciteart"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/exploitedteens"
