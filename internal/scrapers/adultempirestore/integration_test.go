@@ -15,3 +15,7 @@ func TestLiveForbiddenFruitsFilms(t *testing.T) {
 func TestLiveRodneyMoore(t *testing.T) {
 	testutil.RunLiveScrape(t, New(sites[1]), "https://rodneymoorestore.com/", 3)
 }
+
+func TestLiveEdPowers(t *testing.T) {
+	testutil.RunLiveScrape(t, New(sites[2]), "https://www.edpowersvod.com/", 3)
+}

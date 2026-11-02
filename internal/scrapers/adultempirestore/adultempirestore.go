@@ -64,6 +64,11 @@ var sites = []SiteConfig{
 			{ID: "94085", Name: "Rodney Moore Clips"},
 		},
 	},
+	{
+		SiteID: "edpowers", StudioName: "Ed Powers",
+		Host:    "www.edpowersvod.com",
+		Studios: []StudioFilter{{ID: "93332", Name: "Ed Powers"}},
+	},
 }
 
 type Scraper struct {
