@@ -291,13 +291,22 @@ CREATE INDEX IF NOT EXISTS idx_price_history_scene ON price_history(scene_id, si
 `
 
 func (s *SQLite) migrate() error {
-	if _, err := s.db.Exec(baseSchema); err != nil {
-		return err
+	var version int
+	var haveTable int
+	if err := s.db.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='schema_version'`).Scan(&haveTable); err != nil {
+		return fmt.Errorf("reading schema version: %w", err)
+	}
+	if haveTable > 0 {
+		if err := s.db.QueryRow(`SELECT COALESCE(MAX(version), 0) FROM schema_version`).Scan(&version); err != nil {
+			return fmt.Errorf("reading schema version: %w", err)
+		}
+	}
+	if version > latestSchemaVersion {
+		return fmt.Errorf("database schema is version %d but this fss only understands up to %d; upgrade fss", version, latestSchemaVersion)
 	}
 
-	var version int
-	if err := s.db.QueryRow(`SELECT COALESCE(MAX(version), 0) FROM schema_version`).Scan(&version); err != nil {
-		return fmt.Errorf("reading schema version: %w", err)
+	if _, err := s.db.Exec(baseSchema); err != nil {
+		return err
 	}
 
 	if version < 1 {
@@ -343,6 +352,11 @@ func (s *SQLite) migrate() error {
 	if version < 9 {
 		if err := s.applyMigration9(); err != nil {
 			return fmt.Errorf("migration 9: %w", err)
+		}
+	}
+	if version < 10 {
+		if err := s.applyMigration10(); err != nil {
+			return fmt.Errorf("migration 10: %w", err)
 		}
 	}
 	return nil
@@ -1644,6 +1658,24 @@ func (s *SQLite) SceneCounts() (map[string]int, error) {
 		counts[url] = n
 	}
 	return counts, rows.Err()
+}
+
+// JunctionTablesMissingCascade names the junction tables lacking the
+// ON DELETE CASCADE foreign key to scenes that Save's hard delete relies on.
+func (s *SQLite) JunctionTablesMissingCascade() ([]string, error) {
+	var missing []string
+	for _, t := range []string{"scene_performers", "scene_tags", "scene_categories", "scene_external_ids"} {
+		var n int
+		err := s.db.QueryRow(`SELECT COUNT(*) FROM pragma_foreign_key_list(?)
+			WHERE "table" = 'scenes' AND on_delete = 'CASCADE'`, t).Scan(&n)
+		if err != nil {
+			return nil, fmt.Errorf("reading foreign keys of %s: %w", t, err)
+		}
+		if n == 0 {
+			missing = append(missing, t)
+		}
+	}
+	return missing, nil
 }
 
 func (s *SQLite) UnreferencedVocabulary() (map[string]int, error) {

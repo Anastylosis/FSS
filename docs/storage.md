@@ -177,6 +177,49 @@ ingest spent a third of its CPU re-parsing SQL and resolved every
 performer/tag/category name with its own round trip. Its statements are bound to
 the transaction, so the session is closed before `Commit`.
 
+### Migration 10 repairs migration 9
+
+> **Release note.** Migration 10 runs once on every existing database the first
+> time it is opened (about 12 s on a 136k-scene database), rebuilding the four
+> junction tables. Afterwards the first scrape of each studio rewrites every
+> scene's relations once, as though `content_hash` were new. Stored studio URLs
+> change only if they ended in more than one slash or repeated a default port
+> (`:443:443`); path encoding is never touched.
+
+Migration 9 rebuilt the four junction tables (`scene_performers`, `scene_tags`,
+`scene_categories`, `scene_external_ids`) without their
+`FOREIGN KEY ... ON DELETE CASCADE` clause, so `Save`'s hard delete left orphan
+rows behind and `fss doctor` / `--prune` counted them as references. It also
+copied each merged scene's `content_hash` verbatim, and the survivor received the
+union of every colliding variant's tags and performers; because the hash still
+matched, re-saving the correct content was skipped and the union never healed.
+
+Migration 10:
+
+- rebuilds the four tables with their foreign keys and the migration-8 covering
+  indexes, dropping rows whose scene or entity no longer exists (and orphan
+  `price_history` rows);
+- sets `content_hash = ''` on **every** scene. Merged scenes cannot be told apart
+  after the fact, and the cost is one rewrite per scene on the next save of its
+  studio. A scene a re-scrape does not touch keeps the union until a `--full` or
+  `--refresh` reaches it;
+- re-canonicalises stored URLs that change on a second pass, merging collisions
+  like migration 9 except that a colliding scene keeps only the winning (newest)
+  row's performers, tags, categories and external IDs, not the union
+  (`CanonicalStudioURL` was not idempotent for URLs such as `https://x.com/a//`;
+  it now is, pinned by `FuzzCanonicalStudioURLIdempotent`).
+
+A database stamped with a schema version newer than the binary knows is refused
+with "upgrade fss", mirroring the flat store's refusal of a newer file: an older
+binary's `Save` would otherwise write rows the newer schema's invariants forbid.
+`fss doctor` checks that the junction tables still carry their cascade keys, so a
+future table rebuild cannot drop them silently.
+
+Three reflection tests keep a new `models.Scene` field from being silently
+dropped: every exported field must reach `sceneContentHash` and survive a SQLite
+round trip, be restored by `preserveEnrichment`, and show up in the CSV, or sit
+on that test's explicit exclusion list with a reason.
+
 ## What is still not optimised
 
 **Single-studio `Load` (1.7 s for 59k scenes)** is still ~2.5× the flat store's

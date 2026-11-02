@@ -686,7 +686,7 @@ The data directory is created automatically if it doesn't exist. When `--db` is 
 ### Schema
 
 Eleven tables (three core + six junction/lookup + one metadata + `schema_version`),
-at schema version 9. Inspect with any SQLite client (`sqlite3`, DB Browser for
+at schema version 10. Inspect with any SQLite client (`sqlite3`, DB Browser for
 SQLite, DBeaver, Datasette, …). Migrations run automatically on open.
 
 **`scenes`** — one row per scene. Primary key is **`(id, site_id, studio_url)`**:

@@ -48,5 +48,6 @@ jobs:
         ./parseutil/... FuzzParseDurationColon
         ./parseutil/... FuzzParseDurationISO
         ./output/... FuzzSlugify
+        ./output/... FuzzCanonicalStudioURLIdempotent
         ./output/... FuzzWriteCSVNeverEmitsAFormula
         ./nfo/... FuzzMarshalProducesWellFormedXML

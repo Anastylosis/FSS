@@ -134,6 +134,21 @@ func runDoctor(cmd *cobra.Command, _ []string) error {
 		// so it is the only state that fails the check.
 		return b.String(), len(d.OnlyInFlat) == 0 && len(broken) == 0
 	})
+	check("junction foreign keys", func() (string, bool) {
+		db, _, err := openConfiguredDB()
+		if err != nil || db == nil {
+			return "no database", true
+		}
+		defer func() { _ = db.Close() }()
+		missing, err := db.JunctionTablesMissingCascade()
+		if err != nil {
+			return err.Error(), false
+		}
+		if len(missing) > 0 {
+			return "missing ON DELETE CASCADE on " + strings.Join(missing, ", "), false
+		}
+		return "scene_performers, scene_tags, scene_categories, scene_external_ids cascade", true
+	})
 	check("vocabulary", func() (string, bool) {
 		db, path, err := openConfiguredDB()
 		if err != nil || db == nil {

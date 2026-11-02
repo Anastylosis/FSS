@@ -327,7 +327,10 @@ func formatTimePtr(t *time.Time) string {
 //	https://example.com/studio  ->  https://example.com/studio
 //
 // It normalises the scheme to https, lowercases the host, drops a default port,
-// removes any fragment, and strips a trailing slash from the path. The path's
+// removes any fragment, and strips every trailing slash from the path. Repeated
+// default ports (`:443:443`) collapse too, so the result is a fixed point:
+// CanonicalStudioURL applied to its own output returns it unchanged. The path's
+// percent-encoding is never rewritten. The path's
 // case, the query string and everything else are left alone — paths are
 // case-sensitive on most servers, and a query can genuinely select a different
 // catalogue.
@@ -346,14 +349,19 @@ func CanonicalStudioURL(rawURL string) string {
 	}
 	u.Scheme = "https"
 	u.Host = strings.ToLower(u.Host)
-	u.Host = strings.TrimSuffix(u.Host, ":443")
-	u.Host = strings.TrimSuffix(u.Host, ":80")
+	for {
+		trimmed := strings.TrimSuffix(strings.TrimSuffix(u.Host, ":443"), ":80")
+		if trimmed == u.Host {
+			break
+		}
+		u.Host = trimmed
+	}
+	if u.Host == "" {
+		return rawURL
+	}
 	u.Fragment = ""
 	u.RawFragment = ""
-	if u.Path != "/" {
-		u.Path = strings.TrimSuffix(u.Path, "/")
-	} else {
-		u.Path = ""
-	}
-	return u.String()
+	u.Path = strings.TrimRight(u.Path, "/")
+	u.RawPath = strings.TrimRight(u.RawPath, "/")
+	return strings.TrimSpace(u.String())
 }

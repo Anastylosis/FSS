@@ -2,6 +2,7 @@ package output
 
 import (
 	"encoding/csv"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -124,6 +125,62 @@ func FuzzWriteCSVNeverEmitsAFormula(f *testing.F) {
 						"formula (cell %q, from input %q)", ri, ci, cell[0], cell, s)
 				}
 			}
+		}
+	})
+}
+
+func FuzzCanonicalStudioURLIdempotent(f *testing.F) {
+	for _, s := range []string{
+		"http://x.com//", "https://x.com/a//", "https://x.com/%2F", "https://x.com/a%2F/",
+		"HTTP://X.com:443/", "http://x.com:80", "https://x.com:80:443", "https://x.com/?q=1",
+		"https://x.com//?q=1#f", "x.com", "", "https://[::1]:443/", "https://x.com:443:443",
+	} {
+		f.Add(s)
+	}
+	f.Fuzz(func(t *testing.T, raw string) {
+		once := CanonicalStudioURL(raw)
+		if twice := CanonicalStudioURL(once); twice != once {
+			t.Errorf("not idempotent: %q -> %q -> %q", raw, once, twice)
+		}
+	})
+}
+
+// canonicalStudioURLV1 is the single-pass form stored by migration 9.
+func canonicalStudioURLV1(rawURL string) string {
+	u, err := url.Parse(strings.TrimSpace(rawURL))
+	if err != nil || u.Host == "" {
+		return rawURL
+	}
+	u.Scheme = "https"
+	u.Host = strings.ToLower(u.Host)
+	u.Host = strings.TrimSuffix(u.Host, ":443")
+	u.Host = strings.TrimSuffix(u.Host, ":80")
+	u.Fragment = ""
+	u.RawFragment = ""
+	if u.Path != "/" {
+		u.Path = strings.TrimSuffix(u.Path, "/")
+	} else {
+		u.Path = ""
+	}
+	return u.String()
+}
+
+func FuzzCanonicalStudioURLConvergesFromV1(f *testing.F) {
+	for _, s := range []string{"http://x.com//", "https://x.com/a%2Fb/", "https://x.com/a(b)/", "https://x.com/%c3%a9//", "https://x.com/%2F"} {
+		f.Add(s)
+	}
+	f.Fuzz(func(t *testing.T, raw string) {
+		// A trailing slash on a path with a non-default encoding made V1 re-encode
+		// it (a(b)/ -> a%28b%29); those keys cannot converge without rewriting
+		// encoding, which the contract forbids.
+		if u, err := url.Parse(strings.TrimSpace(raw)); err == nil && (u.RawPath != "" || u.Hostname() == "" || strings.HasPrefix(u.Host, ":")) {
+			t.Skip()
+		}
+		if _, err := url.Parse(canonicalStudioURLV1(raw)); err != nil {
+			t.Skip()
+		}
+		if got, want := CanonicalStudioURL(canonicalStudioURLV1(raw)), CanonicalStudioURL(raw); got != want {
+			t.Errorf("%q: C(V1(x)) = %q, C(x) = %q", raw, got, want)
 		}
 	})
 }
