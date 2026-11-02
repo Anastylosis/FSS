@@ -1,6 +1,6 @@
 # Covered Sites — All Domains
 
-1961 scrapers covering 2067 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
+1967 scrapers covering 2073 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
 
 Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scraper ID(s)** column lists every scraper that claims URLs on that domain — most domains have one entry, but table-driven networks (`adultprime`, `tmw`, `nextdoorstudios`, etc.) host many sub-studios on a single root domain. See [`scrapers.md`](scrapers.md) for what each ID covers.
 
@@ -687,6 +687,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | fuckingglasses.com | `fuckingglasses` |
 | fuckingparties.com | `fuckingparties` |
 | fuckmepov.com | `fuckmepov` |
+| fuckmesensei.com | `fuckmesensei` |
 | fuckmyjeans.com | `africanbucks` |
 | fuckstudies.com | `tmw-fuckstudies` |
 | fuckthegeek.com | `fuckthegeek` |
@@ -724,6 +725,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | getupclose.com | `getupclose` |
 | getyourkneesdirty.com | `getyourkneesdirty` |
 | ghettogaggers.com | `ghettogaggers` |
+| ghost-porn.com | `ghostporn` |
 | giga-web.jp | `giga` |
 | gilfed.com | `milehigh` |
 | gingerpatch.com | `gingerpatch` |
@@ -754,6 +756,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | givemeteens.com | `givemeteens` |
 | givingahandjob.com | `givingahandjob` |
 | gkaproductions.com | `gkaproductions` |
+| glaminogirls.com | `glaminogirls` |
 | glamose.com | `glamose` |
 | glamourbunnies.com | `glamourbunnies` |
 | glamourvilla.com | `glamourvilla` |
@@ -1030,6 +1033,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | lollyhardcore.com | `tmw-lollyhardcore` |
 | lonelymeow.com | `lonelymeow` |
 | lostbetsgames.com | `lostbetsgames` |
+| loveasmr.com | `loveasmr` |
 | lovehairy.com | `lovehairy` |
 | loveherboobs.com | `loveherboobs` |
 | loveherbutt.com | `loveherbutt` |
@@ -1631,6 +1635,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | spritzz.com | `spritzz` |
 | spungygunkfilms.empirestores.co | `spungygunkfilms` |
 | spunkworthy.com | `spunkworthy` |
+| spy26.com | `spy26` |
 | spyfam.com | `spyfam` |
 | spypov.com | `spypov` |
 | spytug.com | `spytug` |
@@ -1762,6 +1767,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | thelisaann.com | `thelisaann`, `thelisaannvod` |
 | thepantyhosesite.com | `thepantyhosesite` |
 | thepovgod.com | `nubiles` |
+| therapyasmr.com | `therapyasmr` |
 | therealworkout.com | `therealworkout` |
 | thesensitivespot.com | `thesensitivespot` |
 | thestripperexperience.com | `thestripperexperience` |
