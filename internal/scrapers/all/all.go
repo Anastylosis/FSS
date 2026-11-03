@@ -496,6 +496,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/videoelements"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/vintageflash"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/vip4k"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/vipsexvault"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/virtualrealporn"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/virtualtaboo"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/visitx"
