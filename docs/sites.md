@@ -1,6 +1,6 @@
 # Covered Sites — All Domains
 
-1968 scrapers covering 2074 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
+1969 scrapers covering 2075 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
 
 Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scraper ID(s)** column lists every scraper that claims URLs on that domain — most domains have one entry, but table-driven networks (`adultprime`, `tmw`, `nextdoorstudios`, etc.) host many sub-studios on a single root domain. See [`scrapers.md`](scrapers.md) for what each ID covers.
 
@@ -380,6 +380,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | codycummings.com | `codycummings` |
 | colbyknox.com | `colbyknox` |
 | colettevideos.com | `colettevideos` |
+| collectivecorruption.com | `collectivecorruption` |
 | college-uniform.com | `collegeuniform` |
 | collegeboyphysicals.com | `collegeboyphysicals` |
 | collegedudes.com | `collegedudes` |

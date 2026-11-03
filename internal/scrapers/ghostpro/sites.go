@@ -98,6 +98,14 @@ var sites = []SiteConfig{
 		Patterns:   []string{"amazingfilms.com/", "amazingfilms.com/videos"},
 		MatchRe:    regexp.MustCompile(`^https?://(?:www\.)?amazingfilms\.com(?:/|$)`),
 	},
+	{
+		ID:         "collectivecorruption",
+		SiteBase:   "https://collectivecorruption.com",
+		SiteName:   "Collective Corruption",
+		StudioName: "Collective Corruption",
+		Patterns:   []string{"collectivecorruption.com/", "collectivecorruption.com/videos"},
+		MatchRe:    regexp.MustCompile(`^https?://(?:www\.)?collectivecorruption\.com(?:/|$)`),
+	},
 }
 
 func init() {

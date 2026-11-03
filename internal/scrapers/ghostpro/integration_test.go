@@ -50,3 +50,8 @@ func findSite(t *testing.T, id string) SiteConfig {
 	t.Fatalf("no site config registered with ID %q", id)
 	return SiteConfig{}
 }
+
+func TestLiveCollectiveCorruption(t *testing.T) {
+	cfg := findSite(t, "collectivecorruption")
+	testutil.RunLiveScrape(t, New(cfg), cfg.SiteBase+"/videos", 4)
+}
