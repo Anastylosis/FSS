@@ -397,8 +397,8 @@ func TestSitesTable_uniqueIDsAndDomainIsolation(t *testing.T) {
 			t.Errorf("site %q.MatchRe does not match its own SiteBase", cfg.ID)
 		}
 	}
-	if len(sites) != 13 {
-		t.Errorf("expected 13 registered sites, got %d", len(sites))
+	if len(sites) != 14 {
+		t.Errorf("expected 14 registered sites, got %d", len(sites))
 	}
 }
 

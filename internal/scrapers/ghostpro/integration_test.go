@@ -55,3 +55,8 @@ func TestLiveCollectiveCorruption(t *testing.T) {
 	cfg := findSite(t, "collectivecorruption")
 	testutil.RunLiveScrape(t, New(cfg), cfg.SiteBase+"/videos", 4)
 }
+
+func TestLiveDivineDD(t *testing.T) {
+	cfg := findSite(t, "divinedd")
+	testutil.RunLiveScrape(t, New(cfg), cfg.SiteBase+"/videos", 4)
+}
