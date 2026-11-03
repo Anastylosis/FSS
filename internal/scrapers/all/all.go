@@ -361,6 +361,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/pkfstudios"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/planetplus"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/playboyplus"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/plushies"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/pornbox"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/porncz"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/porndudecasting"
