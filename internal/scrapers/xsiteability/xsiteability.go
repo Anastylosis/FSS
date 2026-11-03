@@ -34,6 +34,7 @@ type SiteConfig struct {
 
 var sites = []SiteConfig{
 	{SiteID: "gkaproductions", Domain: "gkaproductions.com", User: "gkaproductions", StudioName: "Ginary's Kinky Adventures"},
+	{SiteID: "sandrasilvers", Domain: "sandrasilvers.com", User: "sandrasilvers", StudioName: "Sandra Silvers"},
 }
 
 func init() {
