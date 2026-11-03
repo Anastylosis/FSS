@@ -26,7 +26,10 @@ const (
 	// batchSize bounds how many scenes wait on their detail pages before
 	// being sent, so output starts streaming early.
 	batchSize   = 24
-	sitemapPath = "/sitemap/?type=videos&from_links_videos=1"
+	sitemapPath = "/sitemap/?type=videos&from_links_videos="
+	// sitemapPageSize is the entry count of a full sitemap page; a shorter
+	// one is the last.
+	sitemapPageSize = 500
 )
 
 // SiteConfig describes one site. PerformerRe and TagRe have one capture group
@@ -129,15 +132,9 @@ func (s *Scraper) filter(studioURL string) (section, slug string, ok bool) {
 func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
 	defer close(out)
 
-	smURL := s.cfg.Base + sitemapPath
-	body, err := s.fetch(ctx, smURL)
+	scenes, err := s.fetchSitemap(ctx, studioURL, opts)
 	if err != nil {
 		send(ctx, out, scraper.Error(err))
-		return
-	}
-	scenes, err := s.parseSitemap(body, studioURL, time.Now().UTC())
-	if err != nil {
-		send(ctx, out, scraper.Error(scraper.ParseError(smURL, err)))
 		return
 	}
 
@@ -176,6 +173,43 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 			if !send(ctx, out, scraper.Scene(sc)) {
 				return
 			}
+		}
+	}
+}
+
+// fetchSitemap reads the sitemap pages in order; the first is mandatory and
+// each further one is requested only after a full page.
+func (s *Scraper) fetchSitemap(ctx context.Context, studioURL string, opts scraper.ListOpts) ([]models.Scene, error) {
+	var all []models.Scene
+	seen := map[string]bool{}
+	now := time.Now().UTC()
+	for page := 1; ; page++ {
+		if page > 1 && !scraper.Pace(ctx, opts.Delay) {
+			return all, ctx.Err()
+		}
+		smURL := s.cfg.Base + sitemapPath + strconv.Itoa(page)
+		body, err := s.fetch(ctx, smURL)
+		if err != nil {
+			if page > 1 {
+				return all, nil
+			}
+			return nil, err
+		}
+		scenes, err := s.parseSitemap(body, studioURL, now)
+		if err != nil {
+			if page > 1 {
+				return all, nil
+			}
+			return nil, scraper.ParseError(smURL, err)
+		}
+		for _, sc := range scenes {
+			if !seen[sc.ID] {
+				seen[sc.ID] = true
+				all = append(all, sc)
+			}
+		}
+		if len(scenes) < sitemapPageSize {
+			return all, nil
 		}
 	}
 }

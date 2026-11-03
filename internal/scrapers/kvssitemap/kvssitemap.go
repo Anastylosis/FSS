@@ -28,6 +28,15 @@ var sites = []kvssitemaputil.SiteConfig{
 		PerformerRe:    regexp.MustCompile(`(?s)<a[^>]*href="[^"]*/models/[^"/]+/"[^>]*>(.*?)</a>`),
 		TagRe:          regexp.MustCompile(`(?s)<a[^>]*href="[^"]*/categories/[^"/]+/"[^>]*>(.*?)</a>`),
 	},
+	{
+		SiteID:      "slim4k",
+		Base:        "https://www.slim4k.com",
+		StudioName:  "Slim 4K",
+		Filters:     []string{"models", "categories", "tags"},
+		Region:      regexp.MustCompile(`(?s)(<div class="item">\s*Categories:.*?Models:.*?</div>)`),
+		PerformerRe: regexp.MustCompile(`href="[^"]*/models/[^"/]+/">([^<]+)</a>`),
+		TagRe:       regexp.MustCompile(`href="[^"]*/(?:categories|tags)/[^"/]+/">([^<]+)</a>`),
+	},
 }
 
 func init() {

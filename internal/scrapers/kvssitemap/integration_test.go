@@ -18,6 +18,8 @@ func TestLiveSites(t *testing.T) {
 		{"lafranceapoil", "https://www.lafranceapoil.com/models/phoebe/"},
 		{"lafranceapoil", "https://www.lafranceapoil.com/categories/amatrice/"},
 		{"lafranceapoil", "https://www.lafranceapoil.com/series/les-lecons-hard-de-lhermite/"},
+		{"slim4k", "https://www.slim4k.com/"},
+		{"slim4k", "https://www.slim4k.com/models/tanya-ray/"},
 	}
 	for _, c := range cases {
 		t.Run(c.url, func(t *testing.T) {
