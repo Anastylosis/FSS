@@ -232,6 +232,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/iwantclips"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/jacquieetmichel"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/jakecruise"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/japanboyz"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/japanhdv"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/javdatabase"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/javhd"
