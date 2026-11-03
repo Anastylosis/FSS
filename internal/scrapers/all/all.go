@@ -471,6 +471,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/teendreams"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/tgirlnetwork"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/thatfetishgirl"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/thefullenglish"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/thehabibshow"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/thejerkoffgames"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/thelisaannvod"
