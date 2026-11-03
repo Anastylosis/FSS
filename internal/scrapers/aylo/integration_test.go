@@ -126,3 +126,18 @@ func TestLiveCulioneros(t *testing.T) {
 		})
 	}
 }
+
+// Reality Thugs is collection 149 on the Black Male Me instance
+// (realitythugs.com redirects there).
+func TestLiveBlackMaleMe(t *testing.T) {
+	s := newTestScraper(siteByID(t, "blackmaleme"))
+	for name, u := range map[string]string{
+		"all":          "https://www.blackmaleme.com/",
+		"collectionID": "https://www.blackmaleme.com/site/149/reality-thugs",
+		"slug":         "https://www.blackmaleme.com/sites/reality-thugs",
+	} {
+		t.Run(name, func(t *testing.T) {
+			testutil.RunLiveScrape(t, s, u, 3)
+		})
+	}
+}

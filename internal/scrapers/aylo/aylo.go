@@ -24,6 +24,7 @@ var sites = []siteConfig{
 	{"bigstr", "czechhunter.com", "BigStr", nil, []string{"bigstr.com", "debtdandy.com", "dirtyscout.com"}, ""},
 	{"brazzers", "brazzers.com", "Brazzers", nil, nil, ""},
 	{"bromo", "bromo.com", "Bromo", nil, nil, "scene"},
+	{"blackmaleme", "blackmaleme.com", "Black Male Me", []string{"blackmaleme.com/sites/reality-thugs"}, nil, ""},
 	{"deviante", "deviante.com", "Deviante", nil, nil, ""},
 	{"culioneros", "culioneros.com", "Culioneros", nil, nil, ""},
 	{"digitalplayground", "digitalplayground.com", "Digital Playground", []string{"digitalplayground.com/modelprofile/{id}/{slug}"}, []string{"digitalplaygroundnetwork.com"}, ""},
