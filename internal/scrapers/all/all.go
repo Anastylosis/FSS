@@ -459,6 +459,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/strokies"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/studsvr"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/stylerotica"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/swallowingangels"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/swallowsalon"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/swearl"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/switch1"
