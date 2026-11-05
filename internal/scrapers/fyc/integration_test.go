@@ -22,3 +22,8 @@ func TestLiveTiny4K(t *testing.T) {
 	s := fycutil.New(sites[1])
 	testutil.RunLiveScrape(t, s, url, 2)
 }
+
+func TestLiveBaeb(t *testing.T) {
+	s := fycutil.New(sites[len(sites)-1])
+	testutil.RunLiveScrape(t, s, "https://baeb.com/", 3)
+}

@@ -26,6 +26,7 @@ var sites = []fycutil.SiteConfig{
 	{SiteID: "strippers4k", Domain: "strippers4k.com", StudioName: "Strippers4K"},
 	{SiteID: "mom4k", Domain: "mom4k.com", StudioName: "Mom 4K"},
 	{SiteID: "pornpros", Domain: "pornpros.com", StudioName: "Porn Pros"},
+	{SiteID: "baeb", Domain: "baeb.com", StudioName: "Baeb"},
 }
 
 func init() {
