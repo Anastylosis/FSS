@@ -33,3 +33,7 @@ func TestLiveMommysBoy(t *testing.T) {
 func TestLiveMommysBoyTagPage(t *testing.T) {
 	testutil.RunLiveScrape(t, newTestScraper(sites[5]), "https://mommysboy.net/tag/cory-chase/", 2)
 }
+
+func TestLiveAbuseMe(t *testing.T) {
+	testutil.RunLiveScrape(t, newTestScraper(sites[13]), "https://abuseme.net/", 3)
+}
