@@ -255,7 +255,7 @@ type parsedScene struct {
 
 var (
 	sceneStartRe = regexp.MustCompile(`<div\s+class="latestUpdateB"\s+data-setid="(\d+)">`)
-	titleRe      = regexp.MustCompile(`(?s)<h4\s+class="link_bright">\s*<a\s+[^>]*href="([^"]*)"[^>]*>([^<]+)</a>`)
+	titleRe      = regexp.MustCompile(`(?s)<h4\s+class="link_bright[^"]*">\s*<a\s+[^>]*href="([^"]*)"[^>]*>([^<]+)</a>`)
 	thumbRe      = regexp.MustCompile(`(?:src0|poster)_4x="([^"]+)"`)
 	thumbFallRe  = regexp.MustCompile(`(?:src0|poster)_1x="([^"]+)"`)
 	performerRe  = regexp.MustCompile(`<a\s+class="[^"]*infolink[^"]*"\s+href="[^"]*">([^<]+)</a>`)
