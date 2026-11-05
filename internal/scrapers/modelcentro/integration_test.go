@@ -258,3 +258,15 @@ func TestLiveMollyPills(t *testing.T) {
 	}
 	testutil.RunLiveScrape(t, s, url, 2)
 }
+
+func TestLiveChrisCardioXXX(t *testing.T) {
+	url := "https://chriscardioxxx.com/videos"
+	s, err := scraper.ForURL(url)
+	if err != nil {
+		t.Fatalf("no scraper matched %s: %v", url, err)
+	}
+	if s.ID() != "chriscardioxxx" {
+		t.Fatalf("expected chriscardioxxx, got %s", s.ID())
+	}
+	testutil.RunLiveScrape(t, s, url, 2)
+}
