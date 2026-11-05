@@ -119,6 +119,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/deeps"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/defloration"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/dezyred"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/diapergirls"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/dickdrainers"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/digitaljmedia"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/dirtycinema"

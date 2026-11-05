@@ -1,6 +1,6 @@
 # Covered Sites — All Domains
 
-1985 scrapers covering 2091 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
+1986 scrapers covering 2093 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
 
 Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scraper ID(s)** column lists every scraper that claims URLs on that domain — most domains have one entry, but table-driven networks (`adultprime`, `tmw`, `nextdoorstudios`, etc.) host many sub-studios on a single root domain. See [`scrapers.md`](scrapers.md) for what each ID covers.
 
@@ -520,6 +520,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | devilstgirls.com | `devilstgirls` |
 | dezyred.com | `dezyred` |
 | diabolic.com | `diabolic` |
+| diapergirls.com | `diapergirls` |
 | dickdorm.com | `realitydudes` |
 | dickdrainers.com | `dickdrainers` |
 | dickhddaily.com | `dickhddaily` |
@@ -1901,6 +1902,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | twinktop.com | `twinktop` |
 | twistys.com | `twistys` |
 | uk-tgirls.com | `uktgirls` |
+| ukdiapergirls.com | `diapergirls` |
 | ukhotjocks.com | `uknakedmen` |
 | uknakedmen.com | `uknakedmen` |
 | ukpornparty.xxx | `ukpornparty` |
