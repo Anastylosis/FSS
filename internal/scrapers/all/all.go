@@ -307,6 +307,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/missfetilicious"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/mistresscms"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/mistresst"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/mmm100"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/mmpnetwork"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/modelcentro"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/momcomesfirst"
