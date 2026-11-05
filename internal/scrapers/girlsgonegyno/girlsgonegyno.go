@@ -45,6 +45,11 @@ type SiteConfig struct {
 	SiteBase string // e.g. "https://www.girlsgonegyno.com" — no trailing slash
 	Studio   string
 	MatchRe  *regexp.Regexp
+	// PageSize is the listing's cards per page (default 27).
+	PageSize int
+	// Performer credits every scene to one person on a site whose cards
+	// carry no Model line (a performer's own store).
+	Performer string
 }
 
 var sites = []SiteConfig{
@@ -60,6 +65,14 @@ var sites = []SiteConfig{
 		Studio:   "CaptiveClinic",
 		MatchRe:  regexp.MustCompile(`^https?://(?:www\.)?captiveclinic\.com(?:/|$)`),
 	},
+	{
+		ID:        "lelulove",
+		SiteBase:  "https://www.lelulove.com",
+		Studio:    "Lelu Love",
+		MatchRe:   regexp.MustCompile(`^https?://(?:www\.)?lelulove\.com(?:/|$)`),
+		PageSize:  9,
+		Performer: "Lelu Love",
+	},
 }
 
 type Scraper struct {
@@ -68,6 +81,9 @@ type Scraper struct {
 }
 
 func New(cfg SiteConfig) *Scraper {
+	if cfg.PageSize == 0 {
+		cfg.PageSize = pageSize
+	}
 	return &Scraper{cfg: cfg, client: httpx.NewClient(30 * time.Second)}
 }
 
@@ -98,7 +114,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 
 	now := time.Now().UTC()
 	scraper.Paginate(ctx, opts, s.cfg.ID, out, func(ctx context.Context, page int) (scraper.PageResult, error) {
-		offset := (page - 1) * pageSize
+		offset := (page - 1) * s.cfg.PageSize
 		cards, err := s.fetchPage(ctx, offset)
 		if err != nil {
 			return scraper.PageResult{}, err
@@ -109,7 +125,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 				scenes = append(scenes, sc)
 			}
 		}
-		return scraper.PageResult{Scenes: scenes, Done: len(cards) < pageSize}, nil
+		return scraper.PageResult{Scenes: scenes, Done: len(cards) < s.cfg.PageSize}, nil
 	})
 }
 
@@ -163,21 +179,21 @@ func (s *Scraper) fetchBody(ctx context.Context, u string) (string, error) {
 
 var (
 	ridRe        = regexp.MustCompile(`data-rid="([a-z0-9]+)"`)
+	trailerRe    = regexp.MustCompile(`\?mb=([A-Za-z0-9+/=]+)`)
 	titleRe      = regexp.MustCompile(`(?s)<h4[^>]*>\s*<a[^>]+>([^<]+)</a>`)
 	thumbRe      = regexp.MustCompile(`<img class='img-responsive thumbvideo'[^>]+src='([^']+)'`)
 	modelBlockRe = regexp.MustCompile(`(?s)<strong>Model:\s*</strong>(.*?)<br>`)
 	performerRe  = regexp.MustCompile(`<a[^>]*>([^<]+)</a>`)
-	postedRe     = regexp.MustCompile(`<strong>Posted:\s*</strong>([^<]+)<br>`)
+	postedRe     = regexp.MustCompile(`<strong>Posted:\s*</strong>\s*([^<]+)`)
 	lengthRe     = regexp.MustCompile(`<strong>Length:\s*</strong>([0-9:]+)`)
 	viewsRe      = regexp.MustCompile(`<strong>Views:\s*</strong>([0-9,]+)`)
 )
 
 func (s *Scraper) toScene(studioURL, card string, now time.Time) (models.Scene, bool) {
-	m := ridRe.FindStringSubmatch(card)
-	if m == nil {
+	id := cardID(card)
+	if id == "" {
 		return models.Scene{}, false
 	}
-	id := m[1]
 	scene := models.Scene{
 		ID:        id,
 		SiteID:    s.cfg.ID,
@@ -191,6 +207,9 @@ func (s *Scraper) toScene(studioURL, card string, now time.Time) (models.Scene, 
 	}
 	if th := thumbRe.FindStringSubmatch(card); th != nil {
 		scene.Thumbnail = th[1]
+	}
+	if s.cfg.Performer != "" {
+		scene.Performers = []string{s.cfg.Performer}
 	}
 	if mb := modelBlockRe.FindStringSubmatch(card); mb != nil {
 		for _, p := range performerRe.FindAllStringSubmatch(mb[1], -1) {
@@ -214,4 +233,20 @@ func (s *Scraper) toScene(studioURL, card string, now time.Time) (models.Scene, 
 		}
 	}
 	return scene, true
+}
+
+// cardID is the card's data-rid, or on sites without one the id inside the
+// base64 "Trailer||<id>" link.
+func cardID(card string) string {
+	if m := ridRe.FindStringSubmatch(card); m != nil {
+		return m[1]
+	}
+	for _, m := range trailerRe.FindAllStringSubmatch(card, -1) {
+		if b, err := base64.StdEncoding.DecodeString(m[1]); err == nil {
+			if id, ok := strings.CutPrefix(string(b), "Trailer||"); ok && id != "" {
+				return id
+			}
+		}
+	}
+	return ""
 }
