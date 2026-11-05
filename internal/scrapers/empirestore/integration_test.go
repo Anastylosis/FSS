@@ -84,3 +84,8 @@ func TestLiveStudioFilter(t *testing.T) {
 	cfg := siteConfig{"bobsvideos", "bobsvideos.empirestores.co", "Bob's Videos", "/shop-streaming-video-by-scene.html"}
 	testutil.RunLiveScrape(t, newSiteScraper(cfg), u, 1)
 }
+
+func TestLiveOnly3x(t *testing.T) {
+	cfg := siteConfig{"only3x", "only3x.com", "Only 3x", "/watch-newest-only-3x-clips-and-scenes.html"}
+	testutil.RunLiveScrape(t, newSiteScraper(cfg), "https://only3x.com/", 3)
+}
