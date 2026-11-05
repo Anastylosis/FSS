@@ -121,6 +121,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/dezyred"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/dickdrainers"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/digitaljmedia"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/dirtycinema"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/dirtyflix"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/divinebreasts"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/dogma"
