@@ -3,45 +3,44 @@ package cmd
 import (
 	"testing"
 
+	"github.com/spf13/cobra"
+
 	"github.com/Anastylosis/FSS/internal/config"
 )
 
-// list-studios used to read only its own --db flag, so an operator who set
-// `db:` in config.yaml and scraped with it would be told no database was
-// configured.
-func TestListStudiosFallsBackToConfigDB(t *testing.T) {
-	origFlag, origCfg := listStudiosDB, cfg
-	t.Cleanup(func() { listStudiosDB, cfg = origFlag, origCfg })
+func listStudiosPath(t *testing.T, args []string, conf *string) string {
+	t.Helper()
+	origCfg := cfg
+	t.Cleanup(func() { cfg = origCfg })
+	cfg = &config.Config{DB: conf}
 
+	c := &cobra.Command{Use: "list-studios"}
+	c.Flags().String("db", "", "")
+	c.Flags().Lookup("db").NoOptDefVal = "default"
+	if err := c.ParseFlags(args); err != nil {
+		t.Fatal(err)
+	}
+	return resolveDBPath(c)
+}
+
+func TestListStudiosResolvesDB(t *testing.T) {
 	cases := []struct {
 		name string
-		flag string
+		args []string
 		conf *string
 		want string
 	}{
-		{"flag wins over config", "/from/flag.db", config.DBRef("/from/config.db"), "/from/flag.db"},
-		{"config used when flag unset", "", config.DBRef("/from/config.db"), "/from/config.db"},
-		{"neither set", "", nil, ""},
-		{"config explicitly empty", "", config.DBRef(""), ""},
+		{"flag wins over config", []string{"--db=/from/flag.db"}, config.DBRef("/from/config.db"), "/from/flag.db"},
+		{"config used when flag unset", nil, config.DBRef("/from/config.db"), "/from/config.db"},
+		{"neither set", nil, nil, ""},
+		{"config explicitly empty", nil, config.DBRef(""), ""},
+		{"explicit empty flag opts out of config", []string{"--db="}, config.DBRef("/from/config.db"), ""},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			listStudiosDB = c.flag
-			cfg = &config.Config{DB: c.conf}
-			if got := config.ResolveDBPath(resolveListStudiosDB()); got != c.want {
+			if got := listStudiosPath(t, c.args, c.conf); got != c.want {
 				t.Errorf("resolved db = %q, want %q", got, c.want)
 			}
 		})
-	}
-}
-
-// A nil config (no config file loaded) must not panic.
-func TestListStudiosNilConfig(t *testing.T) {
-	origFlag, origCfg := listStudiosDB, cfg
-	t.Cleanup(func() { listStudiosDB, cfg = origFlag, origCfg })
-
-	listStudiosDB, cfg = "", nil
-	if got := resolveListStudiosDB(); got != "" {
-		t.Errorf("resolved db = %q, want empty", got)
 	}
 }

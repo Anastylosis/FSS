@@ -23,8 +23,7 @@ var rootCmd = &cobra.Command{
 		verbose, _ := cmd.Flags().GetCount("debug")
 		scraper.SetVerbose(verbose)
 
-		switch cmd.Name() {
-		case "version", "list-scrapers", "completion", "init", "path":
+		if skipsConfig(cmd) {
 			return nil
 		}
 		var err error
@@ -35,6 +34,16 @@ var rootCmd = &cobra.Command{
 		httpx.SetDefaultUA(cfg.UserAgent)
 		return nil
 	},
+}
+
+// skipsConfig matches on the command's full path, not its bare name, so a future
+// subcommand called "init" or "path" elsewhere still gets a config.
+func skipsConfig(cmd *cobra.Command) bool {
+	switch cmd.CommandPath() {
+	case "fss version", "fss list-scrapers", "fss config init", "fss config path":
+		return true
+	}
+	return strings.HasPrefix(cmd.CommandPath(), "fss completion")
 }
 
 func init() {

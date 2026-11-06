@@ -151,8 +151,8 @@ func TestLoadDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	if cfg.Workers != 3 {
-		t.Errorf("Workers = %d, want 3", cfg.Workers)
+	if cfg.Workers != 0 {
+		t.Errorf("Workers = %d, want 0", cfg.Workers)
 	}
 	if cfg.Output != "json" {
 		t.Errorf("Output = %q, want json", cfg.Output)

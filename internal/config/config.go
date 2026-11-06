@@ -73,7 +73,7 @@ type StashConfig struct {
 
 func defaults() *Config {
 	return &Config{
-		Workers: 3,
+		Workers: 0,
 		Output:  "json",
 		OutDir:  ".",
 		Delay:   500,
@@ -90,6 +90,16 @@ func defaults() *Config {
 // The file may not exist yet — this is where it should be created.
 func DefaultPath() string {
 	return filepath.Join(xdg.ConfigHome, "fss", "config.yaml")
+}
+
+// SearchPaths lists every location Load looks for the config file, in order:
+// the user's config home first, then each XDG_CONFIG_DIRS entry.
+func SearchPaths() []string {
+	out := []string{DefaultPath()}
+	for _, d := range xdg.ConfigDirs {
+		out = append(out, filepath.Join(d, "fss", "config.yaml"))
+	}
+	return out
 }
 
 // DefaultDBPath returns the canonical SQLite database path for the current

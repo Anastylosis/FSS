@@ -9,8 +9,8 @@
 #
 # Windows paths with backslashes work fine — FSS handles them automatically.
 
-# Number of parallel metadata-fetching workers (per scrape run).
-workers: 3
+# Parallel metadata-fetching workers (per scrape run). 0 = each scraper uses its own default.
+workers: 0
 
 # Output format(s). Comma-separate for multiple: "json", "csv", or "json,csv".
 output: json

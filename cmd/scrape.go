@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"syscall"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/Anastylosis/FSS/internal/config"
 	"github.com/Anastylosis/FSS/internal/creators"
 	"github.com/Anastylosis/FSS/internal/store"
 	"github.com/Anastylosis/FSS/models"
@@ -114,6 +116,9 @@ func runScrape(cmd *cobra.Command, args []string) error {
 	delayMS := cfg.Delay
 	if cmd.Flags().Changed("delay") {
 		delayMS, _ = cmd.Flags().GetInt("delay")
+		if delayMS < 0 {
+			return fmt.Errorf("--delay must not be negative, got %d", delayMS)
+		}
 	}
 	defaultDelay := time.Duration(delayMS) * time.Millisecond
 
@@ -121,6 +126,10 @@ func runScrape(cmd *cobra.Command, args []string) error {
 	siteDelayPairs, _ := cmd.Flags().GetStringSlice("site-delay")
 	siteDelays, err := mergeSiteDelays(cfg.SiteDelays, siteDelayPairs)
 	if err != nil {
+		return err
+	}
+
+	if err := checkSiteIDs(cfg, cmd); err != nil {
 		return err
 	}
 
@@ -272,7 +281,7 @@ func scrapeOne(ctx context.Context, st store.Store, tgt scrapeTarget, name, dbPa
 	defer func() { _ = unlock.Close() }()
 
 	delay := resolveTargetDelay(tgt, sc.ID(), sites)
-	scraper.Debugf(1, "scraper: %s, delay: %v, workers: %d", sc.ID(), delay, workers)
+	scraper.Debugf(1, "scraper: %s, delay: %v, workers: %d (0 = scraper default)", sc.ID(), delay, workers)
 	noticePacingIsRunWide(delay, workers)
 
 	lang, err := scraper.ResolveLanguage(sc, resolveTargetLanguage(tgt, sc.ID(), sites))
@@ -913,6 +922,45 @@ func mergeSiteLanguages(fromConfig map[string]string, cliPairs []string) (map[st
 		out[name] = tag
 	}
 	return out, nil
+}
+
+// checkSiteIDs rejects an unknown scraper ID on a --site-* flag and warns about
+// one in the config file: a typo there leaves the override silently inactive.
+func checkSiteIDs(c *config.Config, cmd *cobra.Command) error {
+	for _, flag := range []string{"site-delay", "site-cookie", "site-language"} {
+		pairs, _ := cmd.Flags().GetStringSlice(flag)
+		for _, p := range pairs {
+			name, _, _ := strings.Cut(strings.TrimSpace(p), "=")
+			name = strings.TrimSpace(name)
+			if name == "" {
+				continue
+			}
+			if _, err := scraper.ForID(name); err != nil {
+				return fmt.Errorf("--%s: unknown scraper ID %q (see `fss list-scrapers`)", flag, name)
+			}
+		}
+	}
+	for key, ids := range map[string][]string{
+		"site_delays":    mapKeys(c.SiteDelays),
+		"site_cookies":   mapKeys(c.SiteCookies),
+		"site_languages": mapKeys(c.SiteLanguages),
+	} {
+		for _, id := range ids {
+			if _, err := scraper.ForID(id); err != nil {
+				fmt.Fprintf(os.Stderr, "warning: config %s: unknown scraper ID %q; the override will never apply\n", key, id)
+			}
+		}
+	}
+	return nil
+}
+
+func mapKeys[V any](m map[string]V) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // resolveSiteDelay returns the per-site delay for siteID, falling back to

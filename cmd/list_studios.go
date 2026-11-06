@@ -5,7 +5,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/Anastylosis/FSS/internal/config"
 	"github.com/Anastylosis/FSS/internal/store"
 )
 
@@ -15,31 +14,14 @@ var listStudiosCmd = &cobra.Command{
 	RunE:  runListStudios,
 }
 
-var listStudiosDB string
-
 func init() {
 	rootCmd.AddCommand(listStudiosCmd)
-	listStudiosCmd.Flags().StringVar(&listStudiosDB, "db", "", "path to SQLite database (no value = default location)")
+	listStudiosCmd.Flags().String("db", "", "path to SQLite database (no value = default location)")
 	listStudiosCmd.Flags().Lookup("db").NoOptDefVal = "default"
 }
 
-// resolveListStudiosDB mirrors scrape.go: the flag wins, and an unset flag
-// falls back to the config file's `db:` value. Without the fallback, an
-// operator who set `db:` in config.yaml and scraped with it would be told no
-// database is configured.
-func resolveListStudiosDB() string {
-	if listStudiosDB != "" {
-		return listStudiosDB
-	}
-	if cfg != nil {
-		v, _ := cfg.DBSetting()
-		return v
-	}
-	return ""
-}
-
-func runListStudios(_ *cobra.Command, _ []string) error {
-	path := config.ResolveDBPath(resolveListStudiosDB())
+func runListStudios(cmd *cobra.Command, _ []string) error {
+	path := resolveDBPath(cmd)
 	if path == "" {
 		return fmt.Errorf("--db is required (pass --db for the default location, or --db /path/to/file.db)")
 	}

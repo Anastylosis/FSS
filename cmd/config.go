@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/adrg/xdg"
 	"github.com/spf13/cobra"
 
 	"github.com/Anastylosis/FSS/internal/config"
@@ -26,7 +27,13 @@ var configPathCmd = &cobra.Command{
 	Use:   "path",
 	Short: "Print the config file path",
 	Run: func(cmd *cobra.Command, _ []string) {
-		_, _ = fmt.Fprintln(cmd.OutOrStdout(), config.DefaultPath())
+		active, _ := xdg.SearchConfigFile("fss/config.yaml")
+		for _, p := range config.SearchPaths() {
+			if p == active {
+				p += "  (in use)"
+			}
+			_, _ = fmt.Fprintln(cmd.OutOrStdout(), p)
+		}
 	},
 }
 

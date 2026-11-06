@@ -87,8 +87,8 @@ func TestConfigInitProducesALoadableConfig(t *testing.T) {
 		t.Errorf("shipped config has keys FSS no longer understands: %s", logs.String())
 	}
 
-	if cfg.Workers != 3 {
-		t.Errorf("Workers = %d, want 3", cfg.Workers)
+	if cfg.Workers != 0 {
+		t.Errorf("Workers = %d, want 0", cfg.Workers)
 	}
 	if cfg.Output != "json" {
 		t.Errorf("Output = %q, want json", cfg.Output)
@@ -111,5 +111,47 @@ func TestConfigInitProducesALoadableConfig(t *testing.T) {
 	value, set := cfg.DBSetting()
 	if !set || value != "" {
 		t.Errorf("DBSetting() = (%q, %v), want (\"\", true)", value, set)
+	}
+}
+
+func TestSkipsConfigByPath(t *testing.T) {
+	for path, want := range map[string]bool{
+		"fss version": true, "fss list-scrapers": true, "fss config init": true,
+		"fss config path": true, "fss completion bash": true,
+		"fss creators init": false, "fss scrape": false, "fss stash path": false,
+	} {
+		root := &cobra.Command{Use: "fss"}
+		cur := root
+		for _, name := range strings.Fields(path)[1:] {
+			next := &cobra.Command{Use: name}
+			cur.AddCommand(next)
+			cur = next
+		}
+		if got := skipsConfig(cur); got != want {
+			t.Errorf("skipsConfig(%q) = %v, want %v", path, got, want)
+		}
+	}
+}
+
+func TestCheckSiteIDs(t *testing.T) {
+	mk := func(args ...string) *cobra.Command {
+		c := &cobra.Command{Use: "scrape"}
+		c.Flags().StringSlice("site-delay", nil, "")
+		c.Flags().StringSlice("site-cookie", nil, "")
+		c.Flags().StringSlice("site-language", nil, "")
+		if err := c.ParseFlags(args); err != nil {
+			t.Fatal(err)
+		}
+		return c
+	}
+	empty := &config.Config{}
+	if err := checkSiteIDs(empty, mk("--site-delay=pornhub=100")); err != nil {
+		t.Errorf("known id rejected: %v", err)
+	}
+	if err := checkSiteIDs(empty, mk("--site-delay=nopesuchsite=100")); err == nil {
+		t.Error("unknown --site-delay id accepted")
+	}
+	if err := checkSiteIDs(empty, mk("--site-language=nope=en")); err == nil {
+		t.Error("unknown --site-language id accepted")
 	}
 }

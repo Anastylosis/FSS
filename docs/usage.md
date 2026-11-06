@@ -31,7 +31,7 @@ For choosing a store, inspecting a database, and moving between the two, see [st
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
-| `--workers`, `-w` | int | 3 | Max parallel metadata fetchers. Every scraper with a detail pool honours it; a scraper that caps its concurrency for the origin's sake (a listing walk that degrades under fan-out) says so in `docs/scrapers.md` |
+| `--workers`, `-w` | int | 0 | Max parallel metadata fetchers; `0` (the default, also `workers: 0` in config) lets each scraper use its own default pool size. **Changed:** the config default used to be 3, which silently overrode every scraper's own default (4, 6, 8 …); only an explicit value now does. Every scraper with a detail pool honours it; a scraper that caps its concurrency for the origin's sake (a listing walk that degrades under fan-out) says so in `docs/scrapers.md` |
 | `--full` | bool | false | Full traversal (no early-stop); preserves price history; drops scenes no longer on the site |
 | `--refresh` | bool | false | Re-fetch metadata for all known scenes; soft-delete missing ones |
 | `--force` | bool | false | Allow a destructive `--full`/`--refresh` against a populated studio without being asked — covers both the 0-scene case and a coverage collapse (see [Broken-scraper detection](#broken-scraper-detection)) |
@@ -284,7 +284,7 @@ Creates a default config file at the XDG config path (e.g. `~/.config/fss/config
 
 ### `fss config path`
 
-Prints the config file path for the current platform.
+Prints every location fss searches for the config file: the user config directory first, then each `XDG_CONFIG_DIRS` entry. The file actually in use is marked `(in use)`. `config init` creates the file at the first one.
 
 ### `fss version`
 
@@ -406,7 +406,7 @@ curl -fsSL https://raw.githubusercontent.com/Anastylosis/FSS/master/config.examp
 ```
 
 ```yaml
-workers: 3        # int   — parallel metadata fetchers
+workers: 0        # int   — parallel metadata fetchers; 0 = each scraper's own default
 output: json      # str   — json | csv | json,csv
 out_dir: .        # str   — output directory path
 db: ""            # str   — "" or absent = flat store (the default, and staying so);
