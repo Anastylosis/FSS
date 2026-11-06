@@ -79,6 +79,7 @@ var sites = []siteConfig{
 	{"mollypills", "puremolly.com", "Molly Pills", nil, nil},
 	{"chriscardioxxx", "chriscardioxxx.com", "ChrisCardioXXX", nil, nil},
 	{"vinaskyxxx", "vinaskyxxx.com", "VinaSkyXXX", nil, nil},
+	{"arinnacum", "arinna-cum.com", "Arinna Cum", []string{"Arinna Cum"}, nil},
 }
 
 // matchReFor accepts the site's own domain plus any alias that redirects to it.

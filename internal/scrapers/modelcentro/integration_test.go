@@ -282,3 +282,15 @@ func TestLiveVinaSkyXXX(t *testing.T) {
 	}
 	testutil.RunLiveScrape(t, s, url, 2)
 }
+
+func TestLiveArinnaCum(t *testing.T) {
+	url := "https://arinna-cum.com/videos"
+	s, err := scraper.ForURL(url)
+	if err != nil {
+		t.Fatalf("no scraper matched %s: %v", url, err)
+	}
+	if s.ID() != "arinnacum" {
+		t.Fatalf("expected arinnacum, got %s", s.ID())
+	}
+	testutil.RunLiveScrape(t, s, url, 2)
+}
