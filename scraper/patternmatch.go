@@ -111,12 +111,16 @@ func segmentMatches(pat, got string) bool {
 	got = strings.ToLower(got)
 	rest := got
 	first := true
-	for _, lit := range placeholderLiterals(pat) {
+	lits := placeholderLiterals(pat)
+	for i, lit := range lits {
 		if lit == "" {
 			first = false
 			continue
 		}
 		lit = strings.ToLower(lit)
+		if i == len(lits)-1 {
+			return strings.HasSuffix(rest, lit)
+		}
 		idx := strings.Index(rest, lit)
 		if idx < 0 || (first && idx != 0) {
 			return false

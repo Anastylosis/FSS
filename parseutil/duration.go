@@ -1,6 +1,7 @@
 package parseutil
 
 import (
+	"math"
 	"strconv"
 	"strings"
 )
@@ -8,18 +9,19 @@ import (
 const maxDurationSeconds = 24 * 3600 // 24 hours; anything beyond is garbage input
 
 // ParseDurationColon parses colon-separated durations like "MM:SS" or
-// "HH:MM:SS" and returns the total seconds. Handles any number of
-// colon-separated parts. Returns 0 for empty or unparseable input.
+// "HH:MM:SS" and returns the total seconds. At most three parts;
+// a part that is not a number, or a minute/second part of 60 or more, makes the
+// whole input unparseable. Returns 0 for empty, unparseable or over-24h input.
 func ParseDurationColon(s string) int {
 	parts := strings.Split(strings.TrimSpace(s), ":")
 	if len(parts) > 3 {
 		return 0
 	}
 	total := 0
-	for _, p := range parts {
+	for i, p := range parts {
 		n, err := strconv.Atoi(strings.TrimSpace(p))
-		if err != nil || n < 0 {
-			n = 0
+		if err != nil || n < 0 || n > maxDurationSeconds || (i > 0 && n >= 60) {
+			return 0
 		}
 		total = total*60 + n
 		if total > maxDurationSeconds {
@@ -30,7 +32,7 @@ func ParseDurationColon(s string) int {
 }
 
 // ParseDurationISO parses ISO 8601 durations like "PT1H2M3S" and returns the
-// total seconds. Input case is ignored. Returns 0 for empty or unparseable input.
+// total seconds. Input case is ignored. Fractional seconds are rounded. Returns 0 for empty or unparseable input.
 //
 // Only the time components (H/M/S) are understood. A duration carrying a date
 // part ("P1DT2H") is not supported and yields a partial result — no FSS scraper
@@ -62,13 +64,25 @@ func ParseDurationISO(s string) int {
 		}
 		s = s[i+1:]
 	}
-	if i := strings.Index(s, "S"); i >= 0 {
-		if n, err := strconv.Atoi(s[:i]); err == nil && n > 0 && n <= maxDurationSeconds {
-			total += n
+	if i := strings.Index(s, "S"); i >= 0 && isDecimal(s[:i]) {
+		if f, err := strconv.ParseFloat(s[:i], 64); err == nil && f > 0 && f <= maxDurationSeconds {
+			total += int(math.Round(f))
 		}
 	}
 	if total > maxDurationSeconds {
 		return 0
 	}
 	return total
+}
+
+func isDecimal(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, r := range s {
+		if (r < '0' || r > '9') && r != '.' {
+			return false
+		}
+	}
+	return true
 }

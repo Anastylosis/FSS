@@ -1,7 +1,9 @@
 package parseutil
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
 	"regexp"
 	"strings"
 )
@@ -28,15 +30,14 @@ type VideoObject struct {
 }
 
 type rawVideoObject struct {
-	Type          string          `json:"@type"`
-	URL           string          `json:"url"`
-	Name          string          `json:"name"`
-	Description   string          `json:"description"`
+	URL           flexString      `json:"url"`
+	Name          flexString      `json:"name"`
+	Description   flexString      `json:"description"`
 	ThumbnailURL  flexString      `json:"thumbnailUrl"`
-	ContentURL    string          `json:"contentUrl"`
-	Duration      string          `json:"duration"`
-	UploadDate    string          `json:"uploadDate"`
-	DatePublished string          `json:"datePublished"`
+	ContentURL    flexString      `json:"contentUrl"`
+	Duration      flexString      `json:"duration"`
+	UploadDate    flexString      `json:"uploadDate"`
+	DatePublished flexString      `json:"datePublished"`
 	Actor         json.RawMessage `json:"actor"`
 	Director      json.RawMessage `json:"director"`
 	Keywords      flexStrings     `json:"keywords"`
@@ -46,7 +47,7 @@ type rawVideoObject struct {
 	} `json:"partOfSeries"`
 }
 
-// flexString accepts a JSON string or an array of them, keeping the first.
+// flexString accepts a JSON string, a number or an array of them, keeping the first.
 // schema.org declares thumbnailUrl as an ImageObject *or* a URL, and publishers
 // split on it: most emit a bare string, some (bananafever) an array. Declaring
 // it as a plain string made json.Unmarshal fail on the whole block, so the
@@ -125,24 +126,30 @@ func (f *flexString) UnmarshalJSON(b []byte) error {
 		}
 		return nil
 	}
+	var num json.Number
+	if err := json.Unmarshal(b, &num); err == nil {
+		*f = flexString(num.String())
+		return nil
+	}
+	var nums []json.Number
+	if err := json.Unmarshal(b, &nums); err == nil {
+		if len(nums) > 0 {
+			*f = flexString(nums[0].String())
+		}
+		return nil
+	}
 	// Anything else — an ImageObject, say — leaves the field empty rather than
 	// failing the block it belongs to.
 	*f = ""
 	return nil
 }
 
-type rawItemList struct {
-	Type     string `json:"@type"`
-	Elements []struct {
-		Item rawVideoObject `json:"item"`
-	} `json:"itemListElement"`
-}
-
-var jsonLDBlockRe = regexp.MustCompile(`(?s)<script[^>]+type="application/ld\+json"[^>]*>(.*?)</script>`)
+var jsonLDBlockRe = regexp.MustCompile(`(?is)<script[^>]+type\s*=\s*["']?application/ld\+json["']?[^>]*>(.*?)</script>`)
 
 // ExtractVideoObject finds the first VideoObject in the page's JSON-LD
-// blocks. Returns nil if none is found. It handles both bare VideoObject
-// blocks and ItemList wrappers (returning the first item). Actor fields
+// blocks. Returns nil if none is found. It handles bare VideoObject blocks,
+// top-level arrays, `@graph` wrappers and ItemList wrappers (returning the
+// first item), and an `@type` given as a string or a list. Actor fields
 // are parsed flexibly: arrays of strings, arrays of {"name":"…"} objects,
 // or a single string all work.
 func ExtractVideoObject(body []byte) *VideoObject {
@@ -154,7 +161,8 @@ func ExtractVideoObject(body []byte) *VideoObject {
 }
 
 // ExtractVideoObjects returns all VideoObject entries found in the
-// page's JSON-LD blocks, including those wrapped in an ItemList.
+// page's JSON-LD blocks, including those wrapped in `@graph`, an array or an
+// ItemList.
 func ExtractVideoObjects(body []byte) []VideoObject {
 	return extractVideoObjects(body, false)
 }
@@ -162,54 +170,104 @@ func ExtractVideoObjects(body []byte) []VideoObject {
 func extractVideoObjects(body []byte, firstOnly bool) []VideoObject {
 	var result []VideoObject
 	for _, m := range jsonLDBlockRe.FindAllSubmatch(body, -1) {
-		raw := m[1]
-
-		var probe struct {
-			Type string `json:"@type"`
-		}
-		if json.Unmarshal(raw, &probe) != nil {
-			continue
-		}
-
-		switch probe.Type {
-		case "VideoObject":
-			var rvo rawVideoObject
-			if json.Unmarshal(raw, &rvo) != nil {
+		raw := bytes.TrimSpace(m[1])
+		var doc any
+		if json.Unmarshal(raw, &doc) != nil {
+			if json.Unmarshal(escapeControlChars(raw), &doc) != nil {
 				continue
+			}
+		}
+		walkJSONLD(doc, 0, func(node map[string]any) bool {
+			b, err := json.Marshal(node)
+			if err != nil {
+				return false
+			}
+			var rvo rawVideoObject
+			if json.Unmarshal(b, &rvo) != nil {
+				return false
 			}
 			result = append(result, convertRaw(rvo))
-			if firstOnly {
-				return result
-			}
-
-		case "ItemList":
-			var il rawItemList
-			if json.Unmarshal(raw, &il) != nil {
-				continue
-			}
-			for _, elem := range il.Elements {
-				if elem.Item.Type == "VideoObject" {
-					result = append(result, convertRaw(elem.Item))
-					if firstOnly {
-						return result
-					}
-				}
-			}
+			return firstOnly
+		})
+		if firstOnly && len(result) > 0 {
+			return result
 		}
 	}
 	return result
 }
 
+// walkJSONLD visits every VideoObject reachable through arrays, `@graph` and
+// ItemList elements, in document order, stopping when visit returns true.
+func walkJSONLD(v any, depth int, visit func(map[string]any) bool) bool {
+	if depth > 8 {
+		return false
+	}
+	switch n := v.(type) {
+	case []any:
+		for _, e := range n {
+			if walkJSONLD(e, depth+1, visit) {
+				return true
+			}
+		}
+	case map[string]any:
+		if hasType(n["@type"], "VideoObject") {
+			return visit(n)
+		}
+		for _, key := range []string{"@graph", "itemListElement", "item"} {
+			if child, ok := n[key]; ok && walkJSONLD(child, depth+1, visit) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func hasType(t any, want string) bool {
+	switch v := t.(type) {
+	case string:
+		return v == want
+	case []any:
+		for _, e := range v {
+			if s, ok := e.(string); ok && s == want {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// escapeControlChars escapes raw control characters inside JSON strings,
+// which sloppy CMS output emits and strict decoding rejects.
+func escapeControlChars(b []byte) []byte {
+	out := make([]byte, 0, len(b)+16)
+	inStr, esc := false, false
+	for _, c := range b {
+		switch {
+		case inStr && esc:
+			esc = false
+		case inStr && c == '\\':
+			esc = true
+		case c == '"':
+			inStr = !inStr
+		case inStr && c < 0x20:
+			out = append(out, fmt.Sprintf("\\u%04x", c)...)
+			continue
+		}
+		out = append(out, c)
+	}
+	return out
+}
+
 func convertRaw(rvo rawVideoObject) VideoObject {
 	vo := VideoObject{
-		URL:           rvo.URL,
-		Name:          rvo.Name,
-		Description:   rvo.Description,
+		URL:           string(rvo.URL),
+		Name:          string(rvo.Name),
+		Description:   string(rvo.Description),
 		ThumbnailURL:  string(rvo.ThumbnailURL),
-		ContentURL:    rvo.ContentURL,
-		Duration:      rvo.Duration,
-		UploadDate:    rvo.UploadDate,
-		DatePublished: rvo.DatePublished,
+		ContentURL:    string(rvo.ContentURL),
+		Duration:      string(rvo.Duration),
+		UploadDate:    string(rvo.UploadDate),
+		DatePublished: string(rvo.DatePublished),
 		Keywords:      strings.Join(rvo.Keywords, ", "),
 		Genres:        rvo.Genre,
 	}

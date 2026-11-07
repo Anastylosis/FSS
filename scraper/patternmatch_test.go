@@ -23,6 +23,11 @@ func TestPatternMatchesURL(t *testing.T) {
 		{"cumlouder.com", "https://cumlouder.com/", true},
 		{"cumlouder.com", "https://cumlouder.com/girl/x", false},
 
+		// The trailing literal is anchored.
+		{"site.com/{slug}.html", "https://site.com/foo.html.bak", false},
+		{"site.com/{slug}.html", "https://site.com/foo.html", true},
+		{"site.com/videos/{id}_d.html", "https://site.com/videos/1_d.htmlx", false},
+
 		// Placeholders inside a segment keep their literal runs.
 		{"adultdoorway.com/tour/categories/{slug}_{page}_d.html",
 			"https://adultdoorway.com/tour/categories/movies_1_d.html", true},

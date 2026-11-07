@@ -1,35 +1,24 @@
 package parseutil
 
-import "regexp"
-
-// ogPropFirstRe matches `<meta property="og:X" content="Y">`.
-// ogContentFirstRe matches the same tag with attributes reversed —
-// `<meta content="Y" property="og:X">`. Real sites use both orderings;
-// running both and merging covers each.
-// RE2 has no backreferences, so each quoting style is its own alternative and
-// the value arrives in whichever group matched. `[^>]*?` lets unrelated
-// attributes sit between the two without escaping the tag.
-var (
-	ogPropFirstRe    = regexp.MustCompile(`(?i)<meta\s+property=(?:"(og:[^"]+)"|'(og:[^']+)')\s+[^>]*?content=(?:"([^"]*)"|'([^']*)')`)
-	ogContentFirstRe = regexp.MustCompile(`(?i)<meta\s+content=(?:"([^"]*)"|'([^']*)')\s+[^>]*?property=(?:"(og:[^"]+)"|'(og:[^']+)')`)
+import (
+	"regexp"
+	"strings"
 )
 
-// firstNonEmpty returns the first non-empty submatch, for the quote-style
-// alternatives above.
-func firstNonEmpty(groups ...[]byte) string {
-	for _, g := range groups {
-		if len(g) > 0 {
-			return string(g)
-		}
-	}
-	return ""
-}
+var (
+	ogMetaTagRe = regexp.MustCompile(`(?is)<meta\b[^>]*>`)
+	// Attribute names are preceded by whitespace (or a quote) so `content=`
+	// cannot match inside `data-content=`; the value is double-quoted,
+	// single-quoted or bare.
+	ogAttrRe = regexp.MustCompile(`(?is)(?:^|[\s"'/])([a-z][a-z0-9:_-]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))`)
+)
 
 // OpenGraph extracts every `<meta property="og:*" content="…">` pair
 // from `body` into a map keyed by the full property name (e.g.
-// `"og:title"`, `"og:image"`, `"og:video:duration"`). Both attribute
-// orderings (`property` then `content`, and the reverse) are
-// recognised; this matches what real sites emit in practice.
+// `"og:title"`, `"og:image"`, `"og:video:duration"`). Attributes may appear in
+// any order, values may be double-quoted, single-quoted or unquoted, the
+// property may be spelled `property` or `name`, and `data-content` is not
+// mistaken for `content`.
 //
 // The returned map values are the raw `content` attribute strings as
 // they appear in the source — HTML entities are NOT decoded, and
@@ -46,11 +35,33 @@ func firstNonEmpty(groups ...[]byte) string {
 // Returns an empty (non-nil) map if no OpenGraph tags are present.
 func OpenGraph(body []byte) map[string]string {
 	out := make(map[string]string)
-	for _, m := range ogPropFirstRe.FindAllSubmatch(body, -1) {
-		out[firstNonEmpty(m[1], m[2])] = firstNonEmpty(m[3], m[4])
-	}
-	for _, m := range ogContentFirstRe.FindAllSubmatch(body, -1) {
-		out[firstNonEmpty(m[3], m[4])] = firstNonEmpty(m[1], m[2])
+	for _, tag := range ogMetaTagRe.FindAll(body, -1) {
+		var prop, content string
+		var hasContent bool
+		for _, m := range ogAttrRe.FindAllSubmatch(tag, -1) {
+			val := firstNonEmpty(m[2], m[3], m[4])
+			switch strings.ToLower(string(m[1])) {
+			case "property", "name":
+				if len(val) >= 3 && strings.EqualFold(val[:3], "og:") {
+					prop = val
+				}
+			case "content":
+				content, hasContent = val, true
+			}
+		}
+		if prop != "" && hasContent {
+			out[prop] = content
+		}
 	}
 	return out
+}
+
+// firstNonEmpty returns the first non-empty submatch.
+func firstNonEmpty(groups ...[]byte) string {
+	for _, g := range groups {
+		if len(g) > 0 {
+			return string(g)
+		}
+	}
+	return ""
 }

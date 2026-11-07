@@ -12,6 +12,9 @@ func FuzzParseDurationColon(f *testing.F) {
 	f.Add("")
 	f.Add("abc:def")
 	f.Add("99:99:99")
+	f.Add("1:9223372036854775807")
+	f.Add("1:xx:30")
+	f.Add("-5:-10")
 
 	f.Fuzz(func(t *testing.T, s string) {
 		n := ParseDurationColon(s)
@@ -33,6 +36,11 @@ func FuzzParseDurationISO(f *testing.F) {
 	// TestParseDurationISOIsCaseInsensitive).
 	f.Add("pt1h2m3s")
 	f.Add("pt45s")
+	f.Add("PT25M30.5S")
+	f.Add("PT-5S")
+	f.Add("PTinfS")
+	f.Add("PTNaNS")
+	f.Add("PT9223372036854775807S")
 
 	f.Fuzz(func(t *testing.T, s string) {
 		n := ParseDurationISO(s)
