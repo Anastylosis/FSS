@@ -12,8 +12,8 @@ import (
 
 // TestI18nTemplateInSync is the extractor: it regenerates
 // internal/i18n/locales/en.json and _pseudo.json from the live command tree
-// and fails (after writing) if they're out of date. Run it via
-// `make i18n-extract` and commit the result.
+// and fails if they're out of date. A plain test run only compares; set
+// FSS_I18N_WRITE=1 (`make i18n-extract` does) to rewrite them, then commit.
 func TestI18nTemplateInSync(t *testing.T) {
 	i18n.SetLanguage(i18n.SourceLanguage)
 	t.Cleanup(func() { i18n.SetLanguage(i18n.SourceLanguage) })
@@ -51,6 +51,10 @@ func writeIfChanged(t *testing.T, path string, want []byte) {
 	t.Helper()
 	got, err := os.ReadFile(path)
 	if err == nil && normalizeCRLF(got) == normalizeCRLF(want) {
+		return
+	}
+	if os.Getenv("FSS_I18N_WRITE") == "" {
+		t.Errorf("%s is out of date; run `make i18n-extract` and commit the result", path)
 		return
 	}
 	if err := os.WriteFile(path, want, 0o644); err != nil {

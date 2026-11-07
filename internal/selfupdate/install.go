@@ -21,7 +21,6 @@ const (
 	MethodAUR      Method = "aur"
 	MethodDocker   Method = "docker"
 	MethodHomebrew Method = "homebrew"
-	MethodSource   Method = "source"
 	MethodUnknown  Method = "unknown"
 )
 
@@ -90,10 +89,6 @@ func Detect(env Env) Install {
 		return Install{Method: MethodAUR, Path: path,
 			Advice: "yay -Syu fss   (or your AUR helper of choice)"}
 
-	case env.Version == "dev" && inGoBin(path):
-		return Install{Method: MethodSource, Path: path,
-			Advice: "go install github.com/Anastylosis/FSS@latest"}
-
 	case channel == string(MethodRelease):
 		return Install{Method: MethodRelease, Path: path}
 
@@ -124,22 +119,6 @@ func systemOwned(path string) bool {
 	}
 	dir := filepath.Dir(filepath.ToSlash(path))
 	return dir == "/usr/bin" || dir == "/bin"
-}
-
-// inGoBin reports whether the path looks like `go install` output.
-func inGoBin(path string) bool {
-	slash := filepath.ToSlash(path)
-	if gobin := os.Getenv("GOBIN"); gobin != "" {
-		if strings.HasPrefix(slash, filepath.ToSlash(gobin)+"/") {
-			return true
-		}
-	}
-	if gopath := os.Getenv("GOPATH"); gopath != "" {
-		if strings.HasPrefix(slash, filepath.ToSlash(gopath)+"/bin/") {
-			return true
-		}
-	}
-	return strings.Contains(slash, "/go/bin/")
 }
 
 // Describe renders the install for a human.

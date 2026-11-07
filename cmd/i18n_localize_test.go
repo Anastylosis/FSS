@@ -180,8 +180,22 @@ func TestUnknownExplicitLanguageWarns(t *testing.T) {
 		t.Fatalf("resolveLanguage() = %q, %v; want \"xx\", true", tag, explicit)
 	}
 	resolved := i18n.SetLanguage(tag)
-	warns := explicit && resolved == i18n.SourceLanguage && i18n.Normalize(tag) != i18n.SourceLanguage
+	warns := warnsUnknownLanguage(tag, explicit, resolved)
 	if !warns {
 		t.Errorf("warning condition did not hold for %q (resolved %q)", tag, resolved)
+	}
+}
+
+func TestEnglishRegionsDoNotWarn(t *testing.T) {
+	for _, tag := range []string{"en", "en_US", "en-GB", "en_US.UTF-8", "EN"} {
+		if warnsUnknownLanguage(tag, true, i18n.SetLanguage(tag)) {
+			t.Errorf("%q warned, want no warning", tag)
+		}
+	}
+	if !warnsUnknownLanguage("xx", true, i18n.SourceLanguage) {
+		t.Error("xx did not warn")
+	}
+	if warnsUnknownLanguage("xx", false, i18n.SourceLanguage) {
+		t.Error("ambient xx warned")
 	}
 }

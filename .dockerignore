@@ -6,7 +6,7 @@
 .dockerignore
 
 # Docs (not needed in build)
-*.md
+**/*.md
 docs/
 
 # Build artifacts
@@ -17,6 +17,7 @@ coverage.out
 test-output.txt
 
 # User data — never want these baked into an image
-*.db
-*.json
-*.csv
+**/*.db
+**/*.json
+!internal/i18n/locales/*.json
+**/*.csv

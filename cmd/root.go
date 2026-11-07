@@ -65,11 +65,22 @@ func SetVersion(version, commit, date, channel string) {
 	rootCmd.Version = versionLine(version, commit, date, channel)
 }
 
+// warnsUnknownLanguage reports whether an explicitly requested tag should
+// produce the "unknown language" warning: it named something other than English
+// (in any region) and no catalog matched.
+func warnsUnknownLanguage(tag string, explicit bool, resolved string) bool {
+	if !explicit || resolved != i18n.SourceLanguage {
+		return false
+	}
+	base, _, _ := strings.Cut(i18n.Normalize(tag), "_")
+	return base != i18n.SourceLanguage
+}
+
 // Execute runs the root command and exits non-zero on failure.
 func Execute() {
 	tag, explicit := resolveLanguage()
 	resolved := i18n.SetLanguage(tag)
-	if explicit && resolved == i18n.SourceLanguage && i18n.Normalize(tag) != i18n.SourceLanguage {
+	if warnsUnknownLanguage(tag, explicit, resolved) {
 		fmt.Fprintf(os.Stderr, "unknown language %q; using English (available: %s)\n",
 			tag, strings.Join(i18n.Available(), ", "))
 	}

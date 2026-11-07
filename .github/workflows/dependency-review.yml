@@ -4,10 +4,7 @@ name: Dependency review
 # one whose licence does not fit, before it is merged rather than after
 # Dependabot notices it on master.
 #
-# This does nothing today: the maintainer pushes straight to master, and the
-# action only runs on pull_request. That is deliberate — it is here so the
-# first outside contribution is reviewed properly on arrival, not so a workflow
-# can be written in a hurry once one shows up.
+# It runs on every pull request, Dependabot bumps included.
 
 on:
   pull_request:

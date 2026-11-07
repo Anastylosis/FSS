@@ -27,7 +27,8 @@ meaningless.
 
 Tags are matched loosely: the codeset and modifier are dropped
 (`ko_KR.UTF-8` → `ko_KR`), `-` becomes `_`, and a region falls back to the
-base language (`ko_KR` → `ko`).
+base language (`ko_KR` → `ko`). English in any region (`en_US`, `en-GB`) is
+simply English and never warns.
 
 An **explicit** source naming a language with no catalog prints a one-line
 warning to stderr and renders English. The ambient locale never warns — a
@@ -236,7 +237,7 @@ translation. `TestCatalogKeysAreSubsetOfTemplate` catches that — the exact
 failure mode where a translation silently stops applying. The fix:
 
 ```sh
-make i18n-extract     # regenerates en.json and _pseudo.json
+make i18n-extract     # regenerates en.json and _pseudo.json (plain `go test` only compares)
 ```
 
 then move each affected value onto the new key and commit both.

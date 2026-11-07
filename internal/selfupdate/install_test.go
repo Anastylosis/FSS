@@ -18,7 +18,6 @@ func TestDetect(t *testing.T) {
 		{"linuxbrew cellar", Env{Path: "/home/linuxbrew/.linuxbrew/Cellar/fss/1.31.0/bin/fss", Channel: "", Version: "v1.31.0"}, MethodHomebrew, true},
 		{"release tarball", Env{Path: "/usr/local/bin/fss", Channel: "release", Version: "v1.31.0"}, MethodRelease, false},
 		{"unstamped build", Env{Path: "/home/u/bin/fss", Channel: "", Version: "v1.30.0"}, MethodUnknown, false},
-		{"go install", Env{Path: "/home/u/go/bin/fss", Channel: "", Version: "dev"}, MethodSource, true},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

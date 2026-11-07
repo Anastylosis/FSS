@@ -43,7 +43,7 @@ test: ## Run unit tests with race detector (no integration tag).
 
 .PHONY: i18n-extract
 i18n-extract: ## Regenerate the i18n locale template and pseudo catalogs from the command tree.
-	$(GO) test -count=1 -run TestI18nTemplateInSync ./cmd/
+	FSS_I18N_WRITE=1 $(GO) test -count=1 -run TestI18nTemplateInSync ./cmd/
 
 .PHONY: smoke
 smoke: ## Run integration smoke tests against live sites + Stash. Manual only — never in CI.

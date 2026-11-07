@@ -1,15 +1,15 @@
 # syntax=docker/dockerfile:1.7
 
-# GO_VERSION mirrors the `go` directive in go.mod. CI workflows override this
-# from go.mod via scripts/go-version.sh; the default below is the fallback for
-# `docker build .` invocations that don't pass --build-arg, and a lint guard
-# in CI enforces that this default stays in sync with go.mod.
+# GO_VERSION mirrors the `go` directive in go.mod; CI passes it from go.mod and
+# a lint guard keeps this default in sync. It no longer selects the base image:
+# the FROM lines below are literal tags with digests so Dependabot can bump
+# them, and the builder stage fails if the toolchain it got differs from this.
 ARG GO_VERSION=1.26.5
-ARG ALPINE_VERSION=3.21
 
 # ---- build ----
-FROM --platform=$BUILDPLATFORM golang:${GO_VERSION}-alpine AS builder
+FROM --platform=$BUILDPLATFORM golang:1.26.5-alpine3.24@sha256:0178a641fbb4858c5f1b48e34bdaabe0350a330a1b1149aabd498d0699ff5fb2 AS builder
 
+ARG GO_VERSION
 ARG TARGETOS
 ARG TARGETARCH
 ARG VERSION=dev
@@ -17,6 +17,8 @@ ARG COMMIT=none
 ARG DATE=unknown
 
 WORKDIR /src
+
+RUN [ "$(go env GOVERSION)" = "go${GO_VERSION}" ] || { echo "base image has $(go env GOVERSION), go.mod wants go${GO_VERSION}: update the golang FROM line"; exit 1; }
 
 COPY go.mod go.sum ./
 RUN go mod download
@@ -31,7 +33,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
       -o /out/fss .
 
 # ---- runtime ----
-FROM alpine:${ALPINE_VERSION}
+FROM alpine:3.24@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf
 
 RUN apk add --no-cache ca-certificates tzdata && \
     addgroup -S fss && adduser -S -G fss -h /home/fss fss && \
