@@ -25,6 +25,13 @@ type scrapeTarget struct {
 	language string
 }
 
+// studioKey is the spelling a studio URL is stored, looked up and de-duplicated
+// under: the scraper's preferred form, canonicalised. Everything outside the
+// store that compares studio URLs goes through it.
+func studioKey(u string) string {
+	return output.CanonicalStudioURL(scraper.PreferredStudioURL(u))
+}
+
 // label describes the target for the run header: creator-driven targets say
 // whose they are, since --all-creators makes the URL alone hard to place.
 func (t scrapeTarget) label() string {
@@ -39,7 +46,7 @@ func (t scrapeTarget) label() string {
 //
 // Bare arguments come first and in the order given, then creators in the order
 // named (--all-creators in name order). A URL reachable more than one way is
-// scraped once, keeping the first occurrence — so naming a URL explicitly
+// scraped once, keeping the first occurrence and filling any delay or language it lacks from the later ones — so naming a URL explicitly
 // alongside --all-creators does not scrape it twice.
 func resolveScrapeTargets(cmd *cobra.Command, args []string) ([]scrapeTarget, error) {
 	named, _ := cmd.Flags().GetStringArray("creator")
@@ -50,14 +57,21 @@ func resolveScrapeTargets(cmd *cobra.Command, args []string) ([]scrapeTarget, er
 	}
 
 	var targets []scrapeTarget
-	seen := map[string]bool{}
+	seen := map[string]int{}
 	add := func(t scrapeTarget) {
 		t.url = scraper.PreferredStudioURL(t.url)
 		key := output.CanonicalStudioURL(t.url)
-		if seen[key] {
+		if i, dup := seen[key]; dup {
+			prev := &targets[i]
+			if prev.delay == nil {
+				prev.delay = t.delay
+			}
+			if prev.language == "" {
+				prev.language = t.language
+			}
 			return
 		}
-		seen[key] = true
+		seen[key] = len(targets)
 		targets = append(targets, t)
 	}
 

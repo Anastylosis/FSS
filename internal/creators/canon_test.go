@@ -26,7 +26,7 @@ const (
 // The rule that needs nothing configured: a storefront crediting itself as the
 // performer says so in the studio field too.
 func TestCanonRewritesACreditMatchingTheScenesOwnStudio(t *testing.T) {
-	c := NewCanon([]Creator{emmaWoodhouse()})
+	c := NewCanon([]Creator{emmaWoodhouse()}, nil)
 	sc := c.For(fanStore)
 	if !sc.Active() {
 		t.Fatal("a listed store got no rewrite")
@@ -40,7 +40,7 @@ func TestCanonRewritesACreditMatchingTheScenesOwnStudio(t *testing.T) {
 // No aliases anywhere in this creator file. The studio rule has to carry it,
 // or every operator is back to hand-writing what FSS already knows.
 func TestCanonNeedsNoAliases(t *testing.T) {
-	c := NewCanon([]Creator{emmaWoodhouse()})
+	c := NewCanon([]Creator{emmaWoodhouse()}, nil)
 	if len(emmaWoodhouse().Aliases) != 0 {
 		t.Fatal("fixture is supposed to declare no aliases")
 	}
@@ -58,7 +58,7 @@ func TestCanonAliasCoversAStudioMismatch(t *testing.T) {
 		Name:    "Jane Eyre",
 		Aliases: []string{"JaneEyre"},
 		Stores:  []Store{{URL: "https://clipmarket.example/studio/77/jane-eyre-1"}},
-	}})
+	}}, nil)
 	sc := c.For("https://clipmarket.example/studio/77/jane-eyre-1")
 	// The studio field says "Jane Eyre 1"; the credit says "JaneEyre".
 	// Neither matches the other, so only the alias resolves it.
@@ -71,7 +71,7 @@ func TestCanonAliasCoversAStudioMismatch(t *testing.T) {
 // The limit that makes this safe to leave on: a name that is neither the shop
 // nor a declared spelling of it is somebody else, and stays as published.
 func TestCanonLeavesCoStarsAlone(t *testing.T) {
-	c := NewCanon([]Creator{emmaWoodhouse()})
+	c := NewCanon([]Creator{emmaWoodhouse()}, nil)
 	in := []string{"Emma Woodhouse Films", "Hester Prynne", "Emma", "Woodhouse Bishop"}
 	got := c.For(fanStore).Apply("Emma Woodhouse Films", in)
 	want := "Emma Woodhouse,Hester Prynne,Emma,Woodhouse Bishop"
@@ -86,7 +86,7 @@ func TestCanonLeavesCoStarsAlone(t *testing.T) {
 // A name that means the creator on their own store means nothing on anyone
 // else's, where it may well be a different person.
 func TestCanonIgnoresStoresTheCreatorDoesNotList(t *testing.T) {
-	c := NewCanon([]Creator{emmaWoodhouse()})
+	c := NewCanon([]Creator{emmaWoodhouse()}, nil)
 	other := "https://fanhub.example/somebody-else"
 	if c.For(other).Active() {
 		t.Fatal("an unlisted store got a rewrite")
@@ -99,7 +99,7 @@ func TestCanonIgnoresStoresTheCreatorDoesNotList(t *testing.T) {
 
 // A scene crediting the shop and the person separately names one performer.
 func TestCanonCollapsesTheShopAndThePerson(t *testing.T) {
-	c := NewCanon([]Creator{emmaWoodhouse()})
+	c := NewCanon([]Creator{emmaWoodhouse()}, nil)
 	got := c.For(fanStore).Apply("Emma Woodhouse Films", []string{"Emma Woodhouse", "Emma Woodhouse Films", "Hester Prynne"})
 	if strings.Join(got, ",") != "Emma Woodhouse,Hester Prynne" {
 		t.Errorf("Apply = %v, want [Emma Woodhouse Hester Prynne]", got)
@@ -113,7 +113,7 @@ func TestCanonWithNoStudioRewritesOnlyDeclaredNames(t *testing.T) {
 		Name:    "Emma Woodhouse",
 		Aliases: []string{"EmmaWoodhouse"},
 		Stores:  []Store{{URL: fanStore}},
-	}})
+	}}, nil)
 	got := c.For(fanStore).Apply("", []string{"???", "EmmaWoodhouse", "Hester Prynne"})
 	if strings.Join(got, "|") != "???|Emma Woodhouse|Hester Prynne" {
 		t.Errorf("Apply = %v, want the unkeyable credit kept and only the alias rewritten", got)
@@ -121,7 +121,7 @@ func TestCanonWithNoStudioRewritesOnlyDeclaredNames(t *testing.T) {
 }
 
 func TestCanonMatchesStoreURLsCanonically(t *testing.T) {
-	c := NewCanon([]Creator{emmaWoodhouse()})
+	c := NewCanon([]Creator{emmaWoodhouse()}, nil)
 	// The store layer keys on the canonical form, so this has to agree with it
 	// or a store is recognised in one place and not the other.
 	for _, u := range []string{
@@ -142,7 +142,7 @@ func TestCanonDeclinesAStoreClaimedByTwoCreators(t *testing.T) {
 	c := NewCanon([]Creator{
 		{Name: "Hester Prynne", Stores: []Store{{URL: shared}}},
 		{Name: "Jane Eyre", Stores: []Store{{URL: shared}}},
-	})
+	}, nil)
 	if c.For(shared).Active() {
 		t.Error("a doubly-claimed store got a rewrite; that is a guess, not a fact")
 	}
@@ -160,7 +160,7 @@ func TestZeroCanonRewritesNothing(t *testing.T) {
 	if len(got) != 2 || got[0] != "Hester Prynne" || got[1] != "" {
 		t.Errorf("Apply = %v, want the input unchanged", got)
 	}
-	if NewCanon(nil).For("https://fanhub.example/anything").Active() {
+	if NewCanon(nil, nil).For("https://fanhub.example/anything").Active() {
 		t.Error("NewCanon(nil) produced an active rewrite")
 	}
 }

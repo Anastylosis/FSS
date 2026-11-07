@@ -12,6 +12,7 @@ import (
 	"github.com/Anastylosis/FSS/internal/store"
 	"github.com/Anastylosis/FSS/match"
 	"github.com/Anastylosis/FSS/models"
+	"github.com/Anastylosis/FSS/output"
 )
 
 // sceneSource describes where scenes were loaded from, so commands can say so.
@@ -254,7 +255,7 @@ func resolveStudioFilters(scenes []models.Scene, values []string, studioNames ma
 			continue
 		}
 		if strings.Contains(v, "://") {
-			urls[v] = true
+			urls[studioKey(v)] = true
 			continue
 		}
 		key := match.NormalizeName(v)
@@ -267,7 +268,7 @@ func resolveStudioFilters(scenes []models.Scene, values []string, studioNames ma
 		}
 		for studioURL, name := range studioNames {
 			if match.NormalizeName(name) == key {
-				urls[studioURL] = true
+				urls[output.CanonicalStudioURL(studioURL)] = true
 			}
 		}
 	}
@@ -275,7 +276,7 @@ func resolveStudioFilters(scenes []models.Scene, values []string, studioNames ma
 }
 
 func sceneMatchesStudio(sc models.Scene, urls, subBrands map[string]bool) bool {
-	return urls[sc.StudioURL] || subBrands[match.NormalizeName(sc.Studio)]
+	return urls[output.CanonicalStudioURL(sc.StudioURL)] || subBrands[match.NormalizeName(sc.Studio)]
 }
 
 func sceneMatchesPerformer(sc models.Scene, keys map[string]bool) bool {

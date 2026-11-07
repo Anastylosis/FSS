@@ -14,6 +14,7 @@ import (
 	"github.com/Anastylosis/FSS/internal/creators"
 	"github.com/Anastylosis/FSS/internal/store"
 	"github.com/Anastylosis/FSS/models"
+	"github.com/Anastylosis/FSS/output"
 )
 
 var creatorsCmd = &cobra.Command{
@@ -120,7 +121,7 @@ func runCreators(cmd *cobra.Command, _ []string) error {
 			if s.Delay != nil {
 				marks = append(marks, fmt.Sprintf("delay %dms", *s.Delay))
 			}
-			if when, ok := lastScraped[s.URL]; ok {
+			if when, ok := lastScraped[output.CanonicalStudioURL(s.URL)]; ok {
 				marks = append(marks, "scraped "+when.Format("2006-01-02"))
 			}
 			suffix := ""

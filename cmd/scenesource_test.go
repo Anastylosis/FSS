@@ -338,3 +338,17 @@ func TestResolveDBPathExplicitEmptyOverridesConfig(t *testing.T) {
 		}
 	})
 }
+
+func TestFilterScenesByStudioURLSpellings(t *testing.T) {
+	scenes := []models.Scene{filterScene("1", "https://www.site.com/models/x", "X")}
+	for _, f := range []string{
+		"https://www.site.com/models/x/",
+		"http://www.site.com/models/x",
+		"https://WWW.site.com/models/x",
+	} {
+		got, err := filterScenes(scenes, []string{f}, nil, nil)
+		if err != nil || ids(got) != "1" {
+			t.Errorf("%s: got %q, err %v", f, ids(got), err)
+		}
+	}
+}

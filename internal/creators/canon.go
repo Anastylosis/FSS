@@ -36,7 +36,8 @@ import (
 // `fss creators suggest`, which has the whole library to reason over and writes
 // its conclusion to the file for review.
 type Canon struct {
-	byStore map[string]StoreCanon
+	byStore   map[string]StoreCanon
+	normalize func(string) string
 }
 
 // StoreCanon is the rewrite for one storefront. The zero value is valid and
@@ -46,7 +47,10 @@ type StoreCanon struct {
 	keys map[string]struct{}
 }
 
-// NewCanon builds the rewrite table from loaded creator files.
+// NewCanon builds the rewrite table from loaded creator files. normalize maps a
+// store URL to the key it is looked up under (nil means CanonicalStudioURL); the
+// caller passes the same function the scrape targets are resolved with, so a
+// vanity-alias store is found under the spelling that is actually scraped.
 //
 // Every store of every creator gets an entry, including creators that declare
 // no aliases at all: the studio-match rule needs only the name and the links a
@@ -57,11 +61,14 @@ type StoreCanon struct {
 // to whichever file loaded first: Load already warns about the duplicate, and
 // silently relabelling a shared storefront's performers to one of the two names
 // would be a guess dressed as a fact.
-func NewCanon(list []Creator) Canon {
+func NewCanon(list []Creator, normalize func(string) string) Canon {
+	if normalize == nil {
+		normalize = output.CanonicalStudioURL
+	}
 	claims := map[string]int{}
 	for _, c := range list {
 		for _, u := range c.URLs() {
-			claims[output.CanonicalStudioURL(u)]++
+			claims[normalize(u)]++
 		}
 	}
 
@@ -72,7 +79,7 @@ func NewCanon(list []Creator) Canon {
 			keys[k] = struct{}{}
 		}
 		for _, u := range c.URLs() {
-			key := output.CanonicalStudioURL(u)
+			key := normalize(u)
 			if claims[key] > 1 {
 				continue
 			}
@@ -82,7 +89,7 @@ func NewCanon(list []Creator) Canon {
 	if len(byStore) == 0 {
 		return Canon{}
 	}
-	return Canon{byStore: byStore}
+	return Canon{byStore: byStore, normalize: normalize}
 }
 
 // For returns the rewrite that applies to one storefront. The result is safe to
@@ -91,7 +98,7 @@ func (c Canon) For(studioURL string) StoreCanon {
 	if c.byStore == nil {
 		return StoreCanon{}
 	}
-	return c.byStore[output.CanonicalStudioURL(studioURL)]
+	return c.byStore[c.normalize(studioURL)]
 }
 
 // Active reports whether this storefront has any rewrite to apply.

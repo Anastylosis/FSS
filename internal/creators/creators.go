@@ -21,6 +21,8 @@ import (
 
 	"github.com/adrg/xdg"
 	"gopkg.in/yaml.v3"
+
+	"github.com/Anastylosis/FSS/output"
 )
 
 // maxFileBytes caps a single creator file. These are hand-written lists of a
@@ -186,11 +188,12 @@ func Load(dir string) ([]Creator, error) {
 		// storefront is possible — but it means --all-creators would scrape
 		// it twice, so say so once at load.
 		for _, u := range c.URLs() {
-			if prev, dup := byURL[u]; dup {
+			cu := output.CanonicalStudioURL(u)
+			if prev, dup := byURL[cu]; dup {
 				log.Printf("warning: %s is listed under both %q and %q", u, prev, c.Name)
 				continue
 			}
-			byURL[u] = c.Name
+			byURL[cu] = c.Name
 		}
 		out = append(out, c)
 	}
@@ -270,10 +273,11 @@ func (c *Creator) validate() error {
 		if !strings.Contains(s.URL, "://") {
 			return fmt.Errorf("stores[%d]: %q must be a full URL including the scheme", i, s.URL)
 		}
-		if seen[s.URL] {
+		cu := output.CanonicalStudioURL(s.URL)
+		if seen[cu] {
 			return fmt.Errorf("stores[%d]: %s is listed twice", i, s.URL)
 		}
-		seen[s.URL] = true
+		seen[cu] = true
 		if s.Delay != nil && *s.Delay < 0 {
 			return fmt.Errorf("stores[%d]: delay must not be negative, got %d", i, *s.Delay)
 		}

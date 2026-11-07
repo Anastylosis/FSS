@@ -138,7 +138,7 @@ has the whole library to reason over and writes its conclusion to the file for
 you to review.
 
 A store listed under two creators is skipped rather than assigned to whichever
-file loaded first. `fss creators` warns about the duplicate separately.
+file loaded first. `fss creators` warns about the duplicate separately; spellings that differ only in scheme, host case, trailing slash or a scraper's vanity alias count as the same store.
 
 **This applies to every scrape**, not only `--creator` runs — naming a store's
 URL directly has to store the same names as reaching it through its creator, or

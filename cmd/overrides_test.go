@@ -165,7 +165,7 @@ func emmaWoodhouseCanon() creators.Canon {
 	return creators.NewCanon([]creators.Creator{{
 		Name:   "Emma Woodhouse",
 		Stores: []creators.Store{{URL: canonStore}},
-	}})
+	}}, studioKey)
 }
 
 // The creator rewrite has to land in the same funnel as the flags, or a store

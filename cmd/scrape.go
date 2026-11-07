@@ -174,7 +174,7 @@ func runScrape(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	overrides.canon = creators.NewCanon(creatorList)
+	overrides.canon = creators.NewCanon(creatorList, studioKey)
 
 	// --- pick store (opened once, shared across all URLs) ---
 	var st store.Store

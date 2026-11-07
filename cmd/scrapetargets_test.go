@@ -268,3 +268,20 @@ func TestResolveTargetLanguage(t *testing.T) {
 		t.Errorf("unset language = %q, want empty", got)
 	}
 }
+
+func TestResolveScrapeTargetsBareURLKeepsCreatorSettings(t *testing.T) {
+	dir := t.TempDir()
+	writeCreator(t, dir, "c.yaml", "name: Ann\nstores:\n  - url: https://a.example.com/x/\n    delay: 2000\n    language: de\n")
+	cmd := targetCmd(t, dir, "--all-creators")
+	targets, err := resolveScrapeTargets(cmd, []string{"https://A.example.com/x"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(targets) != 1 {
+		t.Fatalf("targets = %v", targetURLs(targets))
+	}
+	got := targets[0]
+	if got.delay == nil || *got.delay != 2*time.Second || got.language != "de" {
+		t.Errorf("settings lost: %+v", got)
+	}
+}

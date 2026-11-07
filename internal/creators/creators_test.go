@@ -129,12 +129,13 @@ func TestLoadSkipsNonYAMLAndDotfiles(t *testing.T) {
 
 func TestLoadRejectsInvalidFiles(t *testing.T) {
 	cases := map[string]string{
-		"no name":        "stores:\n  - url: https://example.com\n",
-		"no stores":      "name: Someone\n",
-		"empty stores":   "name: Someone\nstores: []\n",
-		"schemeless":     "name: Someone\nstores:\n  - url: example.com\n",
-		"duplicate url":  "name: Someone\nstores:\n  - url: https://example.com\n  - url: https://example.com\n",
-		"negative delay": "name: Someone\nstores:\n  - url: https://example.com\n    delay: -1\n",
+		"no name":             "stores:\n  - url: https://example.com\n",
+		"no stores":           "name: Someone\n",
+		"empty stores":        "name: Someone\nstores: []\n",
+		"schemeless":          "name: Someone\nstores:\n  - url: example.com\n",
+		"duplicate url":       "name: Someone\nstores:\n  - url: https://example.com\n  - url: https://example.com\n",
+		"canonical duplicate": "name: Someone\nstores:\n  - url: https://Example.com/x/\n  - url: https://example.com/x\n",
+		"negative delay":      "name: Someone\nstores:\n  - url: https://example.com\n    delay: -1\n",
 	}
 	for name, body := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -297,5 +298,19 @@ func TestMarshalRoundTrips(t *testing.T) {
 		if strings.Contains(string(plain), key+":") {
 			t.Errorf("marshalled a bare creator with a %q key:\n%s", key, plain)
 		}
+	}
+}
+
+func TestNewCanonUsesCallerKey(t *testing.T) {
+	c := Creator{Name: "Ann", Stores: []Store{{URL: "https://site.example/ann"}}}
+	alias := func(u string) string {
+		if strings.HasSuffix(u, "/ann") {
+			return "https://site.example/creators/ann"
+		}
+		return u
+	}
+	canon := NewCanon([]Creator{c}, alias)
+	if !canon.For("https://site.example/creators/ann").Active() {
+		t.Error("store not found under the preferred spelling")
 	}
 }
