@@ -691,7 +691,7 @@ The data directory is created automatically if it doesn't exist. When `--db` is 
 ### Schema
 
 Eleven tables (three core + six junction/lookup + one metadata + `schema_version`),
-at schema version 10. Inspect with any SQLite client (`sqlite3`, DB Browser for
+at schema version 11. Inspect with any SQLite client (`sqlite3`, DB Browser for
 SQLite, DBeaver, Datasette, …). Migrations run automatically on open.
 
 **`scenes`** — one row per scene. Primary key is **`(id, site_id, studio_url)`**:
@@ -745,6 +745,7 @@ studio URL is part of the identity.
 | `is_free` | INTEGER | 0/1 |
 | `is_on_sale` | INTEGER | 0/1 |
 | `discount_percent` | INTEGER | |
+| `currency` | TEXT | ISO 4217 code, or the site's own token name; empty when the scraper did not say |
 
 **`studios`** — one row per studio URL:
 

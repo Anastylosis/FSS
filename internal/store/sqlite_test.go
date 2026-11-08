@@ -1059,6 +1059,9 @@ func TestSQLiteMigration1(t *testing.T) {
 	if err := s.applyMigration8(); err != nil {
 		t.Fatalf("applyMigration8: %v", err)
 	}
+	if err := s.applyMigration11(); err != nil {
+		t.Fatalf("applyMigration11: %v", err)
+	}
 
 	// Verify junction table data via Load.
 	scenes, err := s.Load(testStudioURL)
@@ -1161,6 +1164,9 @@ func TestSQLiteMigration1NullJSON(t *testing.T) {
 	}
 	if err := s.applyMigration8(); err != nil {
 		t.Fatalf("applyMigration8: %v", err)
+	}
+	if err := s.applyMigration11(); err != nil {
+		t.Fatalf("applyMigration11: %v", err)
 	}
 
 	scenes, err := s.Load(testStudioURL)
@@ -2066,6 +2072,9 @@ func TestSQLiteMigration9MergesURLVariants(t *testing.T) {
 
 	if err := s.applyMigration9(); err != nil {
 		t.Fatalf("applyMigration9: %v", err)
+	}
+	if err := s.applyMigration11(); err != nil {
+		t.Fatalf("applyMigration11: %v", err)
 	}
 
 	canonical := "https://www.example.com"

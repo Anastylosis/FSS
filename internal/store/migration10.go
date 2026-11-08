@@ -7,7 +7,7 @@ import (
 
 // latestSchemaVersion is the newest migration this binary knows. NewSQLite
 // refuses a database stamped higher.
-const latestSchemaVersion = 10
+const latestSchemaVersion = 11
 
 // applyMigration10 repairs what migration 9 left behind. See docs/storage.md.
 func (s *SQLite) applyMigration10() error {

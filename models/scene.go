@@ -11,6 +11,9 @@ type PriceSnapshot struct {
 	IsFree          bool      `json:"isFree"`
 	IsOnSale        bool      `json:"isOnSale"`
 	DiscountPercent int       `json:"discountPercent,omitempty"`
+	// Currency is the ISO 4217 code (or the site's own token name) the amounts
+	// are in. Empty means the scraper did not say.
+	Currency string `json:"currency,omitempty"`
 }
 
 // Effective returns what you would pay at this snapshot.
@@ -115,7 +118,8 @@ func (p PriceSnapshot) sameTerms(o PriceSnapshot) bool {
 		p.Discounted == o.Discounted &&
 		p.IsFree == o.IsFree &&
 		p.IsOnSale == o.IsOnSale &&
-		p.DiscountPercent == o.DiscountPercent
+		p.DiscountPercent == o.DiscountPercent &&
+		p.Currency == o.Currency
 }
 
 // AddPrice records a PriceSnapshot and updates LowestPrice/LowestPriceDate if the

@@ -86,6 +86,18 @@ cheapest — the exact opposite of useful.
 A tie has no winner. Two stores at the same price give the buyer no reason to
 prefer either, so neither is credited as the cheapest source.
 
+**Currencies are never mixed.** A price snapshot may carry a `currency` (a
+scraper records it only when the site says so; today that is VisitX, whose
+prices are in its own `VXC` token). A title whose priced offers are not all in
+one currency — including a labelled one against an unlabelled one — is not
+ranked: it counts as shared but has no cheapest source and no gap, and the
+report notes how many titles were skipped. Amounts print with their code
+(`EUR 9.99`); an unlabelled or `USD` amount keeps the historical `$` form.
+Unlabelled amounts are all treated as one currency, which is the pre-existing
+behaviour, so a store that does not report its currency is assumed to match
+other unlabelled stores. A store's `avg price` counts each title once, at the
+listing that won the comparison within that store.
+
 > Prices are only as fresh as your last scrape of each store, and a scrape only
 > re-reads a scene's price when it re-fetches the scene. Incremental runs stop
 > early at known IDs, so **price data is refreshed by `--refresh`/`--full`, not
@@ -132,11 +144,12 @@ Plus the shared scene-source flags — `--db`, `--json`, `--dir`,
 store:
 
 ```
-creator,title,stores,cheapest_store,cheapest_price,dearest_store,dearest_price,spread,cheapest_url
-Jane Eyre,The Long Way Home,2,janeeyre.example,9.99,vidvault.example,49.99,40.00,https://...
+creator,title,stores,cheapest_store,cheapest_price,dearest_store,dearest_price,spread,cheapest_url,currency
+Jane Eyre,The Long Way Home,2,janeeyre.example,9.99,vidvault.example,49.99,40.00,https://...,
 ```
 
 `cheapest_url` is the scene URL at the cheapest store, so the file is directly
-actionable. Empty price columns mean that store exposed no amount. As with every
-CSV FSS writes, cells are guarded against spreadsheet formula injection —
-scraped titles are attacker-controlled text.
+actionable. Empty price columns mean that store exposed no amount. `currency`
+(appended last) is empty for unlabelled amounts. Every cell is guarded against
+spreadsheet formula injection — scraped titles are attacker-controlled text —
+and CI fuzzes the writer (`FuzzWriteCompareCSVNeverEmitsAFormula`).

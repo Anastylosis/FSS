@@ -33,8 +33,8 @@ func TestEscapeCSVFormula(t *testing.T) {
 		{"a=b", "a=b"},
 	}
 	for _, tt := range tests {
-		if got := escapeCSVFormula(tt.in); got != tt.want {
-			t.Errorf("escapeCSVFormula(%q) = %q, want %q", tt.in, got, tt.want)
+		if got := EscapeCSVFormula(tt.in); got != tt.want {
+			t.Errorf("EscapeCSVFormula(%q) = %q, want %q", tt.in, got, tt.want)
 		}
 	}
 }

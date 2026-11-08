@@ -70,9 +70,14 @@ func sceneContentHash(sc models.Scene) string {
 func writePriceHistory(h io.Writer, sc models.Scene) {
 	_, _ = fmt.Fprintf(h, "%d|", len(sc.PriceHistory))
 	for _, p := range sc.PriceHistory {
-		_, _ = fmt.Fprintf(h, "%s;%.4f;%.4f;%d;%d;%d|",
+		_, _ = fmt.Fprintf(h, "%s;%.4f;%.4f;%d;%d;%d",
 			timeStr(p.Date), p.Regular, p.Discounted,
 			boolInt(p.IsFree), boolInt(p.IsOnSale), p.DiscountPercent)
+		if p.Currency != "" {
+			// Only when set, so hashes of scenes without a currency are unchanged.
+			_, _ = fmt.Fprintf(h, ";%d:%s", len(p.Currency), p.Currency)
+		}
+		_, _ = fmt.Fprint(h, "|")
 	}
 }
 

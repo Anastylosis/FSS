@@ -203,7 +203,7 @@ func fillScene(t *testing.T) models.Scene {
 		case map[string]string:
 			f.Set(reflect.ValueOf(map[string]string{"stashdb": "id-" + name}))
 		case []models.PriceSnapshot:
-			f.Set(reflect.ValueOf([]models.PriceSnapshot{{Date: ts, Regular: 9.5, Discounted: 4.5, IsFree: true, IsOnSale: true, DiscountPercent: 10}}))
+			f.Set(reflect.ValueOf([]models.PriceSnapshot{{Date: ts, Regular: 9.5, Discounted: 4.5, IsFree: true, IsOnSale: true, DiscountPercent: 10, Currency: "EUR"}}))
 		default:
 			t.Fatalf("fillScene: unhandled type %T for field %s; extend the helper", f.Interface(), name)
 		}
@@ -336,6 +336,8 @@ func TestEveryPriceSnapshotFieldFeedsContentHash(t *testing.T) {
 			f.SetInt(f.Int() + 1)
 		case reflect.Float64:
 			f.SetFloat(f.Float() + 1)
+		case reflect.String:
+			f.SetString(f.String() + "-changed")
 		default:
 			f.Set(reflect.ValueOf(time.Date(2031, 1, 1, 0, 0, 0, 0, time.UTC)))
 		}

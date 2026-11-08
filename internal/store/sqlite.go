@@ -359,6 +359,11 @@ func (s *SQLite) migrate() error {
 			return fmt.Errorf("migration 10: %w", err)
 		}
 	}
+	if version < 11 {
+		if err := s.applyMigration11(); err != nil {
+			return fmt.Errorf("migration 11: %w", err)
+		}
+	}
 	return nil
 }
 
@@ -1274,6 +1279,7 @@ func syncPriceHistory(sess *saveSession, sc models.Scene) error {
 		isFree          int
 		isOnSale        int
 		discountPercent int
+		currency        string
 	}
 	keyOf := func(p models.PriceSnapshot) key {
 		return key{
@@ -1283,6 +1289,7 @@ func syncPriceHistory(sess *saveSession, sc models.Scene) error {
 			isFree:          boolInt(p.IsFree),
 			isOnSale:        boolInt(p.IsOnSale),
 			discountPercent: p.DiscountPercent,
+			currency:        p.Currency,
 		}
 	}
 
@@ -1292,7 +1299,7 @@ func syncPriceHistory(sess *saveSession, sc models.Scene) error {
 	}
 
 	rows, err := sess.query(`
-		SELECT id, date, regular, discounted, is_free, is_on_sale, discount_percent
+		SELECT id, date, regular, discounted, is_free, is_on_sale, discount_percent, currency
 		FROM price_history WHERE scene_id = ? AND site_id = ? AND studio_url = ?`,
 		sc.ID, sc.SiteID, sc.StudioURL,
 	)
@@ -1308,7 +1315,7 @@ func syncPriceHistory(sess *saveSession, sc models.Scene) error {
 		var r existingRow
 		if err := rows.Scan(
 			&r.id, &r.key.date, &r.key.regular, &r.key.discounted,
-			&r.key.isFree, &r.key.isOnSale, &r.key.discountPercent,
+			&r.key.isFree, &r.key.isOnSale, &r.key.discountPercent, &r.key.currency,
 		); err != nil {
 			_ = rows.Close()
 			return err
@@ -1342,10 +1349,10 @@ func syncPriceHistory(sess *saveSession, sc models.Scene) error {
 		}
 		desired[k]--
 		if _, err := sess.exec(`
-			INSERT INTO price_history (scene_id, site_id, studio_url, date, regular, discounted, is_free, is_on_sale, discount_percent)
-			VALUES (?,?,?,?,?,?,?,?,?)`,
+			INSERT INTO price_history (scene_id, site_id, studio_url, date, regular, discounted, is_free, is_on_sale, discount_percent, currency)
+			VALUES (?,?,?,?,?,?,?,?,?,?)`,
 			sc.ID, sc.SiteID, sc.StudioURL, k.date,
-			k.regular, k.discounted, k.isFree, k.isOnSale, k.discountPercent,
+			k.regular, k.discounted, k.isFree, k.isOnSale, k.discountPercent, k.currency,
 		); err != nil {
 			return fmt.Errorf("inserting price history for %s: %w", sc.ID, err)
 		}
@@ -1498,7 +1505,7 @@ func (s *SQLite) loadPriceHistory(studioURL string, scenes []models.Scene) error
 
 	rows, err := s.db.Query(`
 		SELECT ph.scene_id, ph.site_id, ph.date, ph.regular, ph.discounted,
-		       ph.is_free, ph.is_on_sale, ph.discount_percent
+		       ph.is_free, ph.is_on_sale, ph.discount_percent, ph.currency
 		FROM price_history ph
 		JOIN scenes sc ON ph.scene_id = sc.id AND ph.site_id = sc.site_id AND ph.studio_url = sc.studio_url
 		WHERE sc.studio_url = ?
@@ -1513,7 +1520,7 @@ func (s *SQLite) loadPriceHistory(studioURL string, scenes []models.Scene) error
 		var p models.PriceSnapshot
 		var isFree, isOnSale int
 		if err := rows.Scan(&sceneID, &siteID, &dateStr,
-			&p.Regular, &p.Discounted, &isFree, &isOnSale, &p.DiscountPercent); err != nil {
+			&p.Regular, &p.Discounted, &isFree, &isOnSale, &p.DiscountPercent, &p.Currency); err != nil {
 			return err
 		}
 		var parseErr error

@@ -177,6 +177,17 @@ ingest spent a third of its CPU re-parsing SQL and resolved every
 performer/tag/category name with its own round trip. Its statements are bound to
 the transaction, so the session is closed before `Commit`.
 
+### Migration 11 adds `price_history.currency`
+
+Adds a `currency TEXT NOT NULL DEFAULT ''` column; no rows are rewritten.
+`content_hash` includes the currency only when it is set, so existing hashes
+stay valid and no scene is re-saved. See [compare.md](compare.md).
+
+`fss import` merges a file's price history with the stored one as a set (a
+snapshot already stored, to the second, is not added again) and replays the
+result in date order, so re-importing a file or round-tripping through
+`export`/`import` no longer duplicates snapshots.
+
 ### Migration 10 repairs migration 9
 
 > **Release note.** Migration 10 runs once on every existing database the first

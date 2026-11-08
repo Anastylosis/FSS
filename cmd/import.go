@@ -225,7 +225,7 @@ func importFile(db *store.SQLite, path string, replace, dryRun bool) (int, strin
 		}
 		seen[k] = true
 		if prev, ok := existingByKey[k]; ok {
-			s = carryOver(s, prev, true)
+			s = importCarryOver(s, prev)
 		}
 		incoming = append(incoming, s)
 	}
@@ -279,4 +279,44 @@ func studioFromFile(sf models.StudioFile, scenes []models.Scene) models.Studio {
 		st.LastScrapedAt = &last
 	}
 	return st
+}
+
+// importCarryOver is carryOver for a file's scene against its stored twin. The
+// file holds a whole history that usually overlaps the stored one, so the two
+// are merged as sets rather than replayed one after the other, which would
+// duplicate every snapshot on each re-import.
+func importCarryOver(fresh, existing models.Scene) models.Scene {
+	fresh = preserveEnrichment(fresh, existing)
+	return mergePriceHistories(fresh, existing)
+}
+
+func mergePriceHistories(fresh, existing models.Scene) models.Scene {
+	type key struct {
+		date time.Time
+		snap models.PriceSnapshot
+	}
+	keyOf := func(p models.PriceSnapshot) key {
+		d := p.Date.UTC().Truncate(time.Second)
+		p.Date = time.Time{}
+		return key{d, p}
+	}
+	seen := map[key]bool{}
+	var all []models.PriceSnapshot
+	for _, list := range [][]models.PriceSnapshot{existing.PriceHistory, fresh.PriceHistory} {
+		for _, p := range list {
+			if k := keyOf(p); !seen[k] {
+				seen[k] = true
+				all = append(all, p)
+			}
+		}
+	}
+	sort.SliceStable(all, func(i, j int) bool { return all[i].Date.Before(all[j].Date) })
+
+	fresh.PriceHistory = nil
+	fresh.LowestPrice = 0
+	fresh.LowestPriceDate = nil
+	for _, p := range all {
+		fresh.AddPrice(p)
+	}
+	return fresh
 }

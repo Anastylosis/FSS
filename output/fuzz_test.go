@@ -64,10 +64,10 @@ func FuzzSlugify(f *testing.F) {
 }
 
 // FuzzWriteCSVNeverEmitsAFormula exercises the whole WriteCSV path rather than
-// escapeCSVFormula alone.
+// EscapeCSVFormula alone.
 //
 // The guard deliberately lives in WriteCSV "so no future column can bypass it"
-// (see escapeCSVFormula), and that is a claim about the writer, not about the
+// (see EscapeCSVFormula), and that is a claim about the writer, not about the
 // helper — a new column, or a change to sceneToRow's ordering, could route a
 // scraped string around it while the helper's own unit tests still pass. This
 // asserts the property end to end: the CSV is written, parsed back with

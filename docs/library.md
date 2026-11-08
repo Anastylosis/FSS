@@ -503,7 +503,8 @@ slug := output.Slugify("https://www.manyvids.com/Profile/1000001/jane-eyre/Store
 // → "www-manyvids-com-profile-1000001-jane-eyre-store-videos-0e51b52b"
 ```
 
-**Key functions:** `WriteJSON`, `WriteCSV`, `Slugify`. **Key var:** `CSVHeaders` (column order).
+**Key functions:** `WriteJSON`, `WriteCSV`, `Slugify`, `EscapeCSVFormula` (the
+spreadsheet formula guard `WriteCSV` applies, for callers writing their own CSV). **Key var:** `CSVHeaders` (column order).
 
 `Slugify` appends a short hash of the full URL, so two URLs that sanitize to the same
 stem never collide, and the result is **capped at 250 bytes** — `<slug>.json` must fit

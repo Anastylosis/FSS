@@ -369,6 +369,12 @@ func toScene(v gqlVideo, studioURL string, now time.Time) models.Scene {
 		Regular: regular,
 		IsFree:  v.Free,
 	}
+	switch {
+	case v.Price != nil && v.Price.Currency != "":
+		ps.Currency = v.Price.Currency
+	case v.BasePrice != nil:
+		ps.Currency = v.BasePrice.Currency
+	}
 	if !v.Free && effective < regular && regular > 0 {
 		ps.IsOnSale = true
 		ps.Discounted = effective

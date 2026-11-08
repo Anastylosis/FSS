@@ -44,6 +44,7 @@ type offer struct {
 	storeURL string
 	sceneURL string
 	price    float64
+	currency string
 	priced   bool
 }
 
@@ -82,12 +83,30 @@ func (g titleGroup) pricedOffers() []offer {
 	return out
 }
 
+// mixedCurrency reports whether the priced offers are in more than one
+// currency, in which case they cannot be ranked against each other.
+func (g titleGroup) mixedCurrency() bool {
+	cur := ""
+	seen := false
+	for _, o := range g.offers {
+		if !o.priced {
+			continue
+		}
+		if seen && o.currency != cur {
+			return true
+		}
+		cur, seen = o.currency, true
+	}
+	return false
+}
+
 // spread reports the price gap across stores, and whether one store is strictly
 // the cheapest. A tie has no winner — two stores at the same price give the
-// buyer no reason to prefer either.
+// buyer no reason to prefer either. Offers in different currencies are never
+// ranked.
 func (g titleGroup) spread() (low, high offer, gap float64, uniqueLow bool) {
 	p := g.pricedOffers()
-	if len(p) < 2 {
+	if len(p) < 2 || g.mixedCurrency() {
 		return offer{}, offer{}, 0, false
 	}
 	low, high = p[0], p[len(p)-1]
@@ -101,12 +120,14 @@ type storeStat struct {
 	exclusive  int
 	priced     int
 	priceTotal float64
+	currency   string
+	mixed      bool
 	cheapest   int
 	savings    float64
 }
 
 func (s storeStat) avgPrice() (float64, bool) {
-	if s.priced == 0 {
+	if s.priced == 0 || s.mixed {
 		return 0, false
 	}
 	return s.priceTotal / float64(s.priced), true
@@ -114,6 +135,7 @@ func (s storeStat) avgPrice() (float64, bool) {
 
 type creatorReport struct {
 	name   string
+	mixed  int
 	stores []storeStat
 	groups []titleGroup
 	labels map[string]string
@@ -261,7 +283,7 @@ func buildReport(name string, storeURLs []string, byStudio map[string][]models.S
 				groups[key] = g
 			}
 			price, priced := currentPrice(sc)
-			o := offer{storeURL: url, sceneURL: sc.URL, price: price, priced: priced}
+			o := offer{storeURL: url, sceneURL: sc.URL, price: price, priced: priced, currency: currentCurrency(sc)}
 			// Keep the cheapest listing when a store carries the title more
 			// than once; an unpriced listing never displaces a priced one.
 			if prev, ok := g.offers[url]; ok {
@@ -270,10 +292,6 @@ func buildReport(name string, storeURLs []string, byStudio map[string][]models.S
 				}
 			}
 			g.offers[url] = o
-			if priced {
-				st.priced++
-				st.priceTotal += price
-			}
 		}
 	}
 	if present < 2 {
@@ -281,6 +299,11 @@ func buildReport(name string, storeURLs []string, byStudio map[string][]models.S
 	}
 
 	for _, g := range groups {
+		for _, o := range g.offers {
+			if o.priced {
+				stats[o.storeURL].addPrice(o)
+			}
+		}
 		urls := g.stores()
 		if len(urls) == 1 {
 			stats[urls[0]].exclusive++
@@ -289,9 +312,14 @@ func buildReport(name string, storeURLs []string, byStudio map[string][]models.S
 		for _, u := range urls {
 			stats[u].shared++
 		}
+		if g.mixedCurrency() {
+			r.mixed++
+		}
 		if low, _, gap, unique := g.spread(); unique {
 			stats[low.storeURL].cheapest++
-			stats[low.storeURL].savings += gap
+			if low.currency == stats[low.storeURL].currency {
+				stats[low.storeURL].savings += gap
+			}
 		}
 		r.groups = append(r.groups, *g)
 	}
@@ -325,13 +353,11 @@ func buildReport(name string, storeURLs []string, byStudio map[string][]models.S
 func currentPrice(sc models.Scene) (float64, bool) {
 	if n := len(sc.PriceHistory); n > 0 {
 		p := sc.PriceHistory[n-1]
-		switch {
-		case p.IsFree, p.IsOnSale && p.DiscountPercent == 100:
+		if p.IsFree || (p.IsOnSale && p.DiscountPercent == 100) {
 			return 0, true
-		case p.IsOnSale && p.Discounted > 0:
-			return p.Discounted, true
-		case p.Regular > 0:
-			return p.Regular, true
+		}
+		if eff := p.Effective(); eff > 0 {
+			return eff, true
 		}
 		return 0, false
 	}
@@ -339,6 +365,35 @@ func currentPrice(sc models.Scene) (float64, bool) {
 		return sc.LowestPrice, true
 	}
 	return 0, false
+}
+
+// currentCurrency is the currency of the snapshot currentPrice reads.
+func currentCurrency(sc models.Scene) string {
+	if n := len(sc.PriceHistory); n > 0 {
+		return sc.PriceHistory[n-1].Currency
+	}
+	return ""
+}
+
+// addPrice folds one offer into the store's average. A store whose listings
+// disagree on currency has no meaningful average.
+func (s *storeStat) addPrice(o offer) {
+	if s.priced > 0 && o.currency != s.currency {
+		s.mixed = true
+		return
+	}
+	s.currency = o.currency
+	s.priced++
+	s.priceTotal += o.price
+}
+
+// money renders an amount. An unlabelled amount keeps the historical "$"; a
+// labelled one prints its code, since "$" would be wrong for it.
+func money(amount float64, currency string) string {
+	if currency == "" || currency == "USD" {
+		return fmt.Sprintf("$%.2f", amount)
+	}
+	return fmt.Sprintf("%s %.2f", currency, amount)
 }
 
 func printReport(r creatorReport, top int, exclusives bool) {
@@ -353,7 +408,9 @@ func printReport(r creatorReport, top int, exclusives bool) {
 	for _, s := range r.stores {
 		avg := "—"
 		if v, ok := s.avgPrice(); ok {
-			avg = fmt.Sprintf("$%.2f", v)
+			avg = money(v, s.currency)
+		} else if s.mixed {
+			avg = "mixed"
 		}
 		fmt.Printf("  %-*s %8d %8d %10d %10s\n", lw, r.label(s.url), s.scenes, s.shared, s.exclusive, avg)
 	}
@@ -368,8 +425,8 @@ func printReport(r creatorReport, top int, exclusives bool) {
 	if len(cheapest) > 0 {
 		fmt.Printf("\n  Cheapest source for the %s carried by more than one store:\n", plural(len(r.groups), "title"))
 		for _, s := range cheapest {
-			fmt.Printf("    %-*s  %5d %s, $%.2f below the dearest in total\n",
-				lw, r.label(s.url), s.cheapest, nounFor(s.cheapest, "title"), s.savings)
+			fmt.Printf("    %-*s  %5d %s, %s below the dearest in total\n",
+				lw, r.label(s.url), s.cheapest, nounFor(s.cheapest, "title"), money(s.savings, s.currency))
 		}
 	}
 
@@ -385,9 +442,14 @@ func printReport(r creatorReport, top int, exclusives bool) {
 		if shown == 0 {
 			fmt.Printf("\n  Widest price gaps:\n")
 		}
-		fmt.Printf("    %-44s  $%6.2f %-*s  vs $%6.2f %s  (-$%.2f)\n",
-			truncate(g.title, 44), low.price, lw, r.label(low.storeURL), high.price, r.label(high.storeURL), gap)
+		fmt.Printf("    %-44s  %9s %-*s  vs %9s %s  (-%s)\n",
+			truncate(g.title, 44), money(low.price, low.currency), lw, r.label(low.storeURL),
+			money(high.price, high.currency), r.label(high.storeURL), money(gap, low.currency))
 		shown++
+	}
+
+	if r.mixed > 0 {
+		fmt.Printf("\n  %s priced in more than one currency — not ranked.\n", plural(r.mixed, "title"))
 	}
 
 	if exclusives {
@@ -420,7 +482,7 @@ func writeCompareCSV(path string, reports []creatorReport) error {
 
 	w := csv.NewWriter(f)
 	defer w.Flush()
-	if err := w.Write([]string{"creator", "title", "stores", "cheapest_store", "cheapest_price", "dearest_store", "dearest_price", "spread", "cheapest_url"}); err != nil {
+	if err := w.Write([]string{"creator", "title", "stores", "cheapest_store", "cheapest_price", "dearest_store", "dearest_price", "spread", "cheapest_url", "currency"}); err != nil {
 		return err
 	}
 	for _, r := range reports {
@@ -436,6 +498,10 @@ func writeCompareCSV(path string, reports []creatorReport) error {
 				formatPrice(high),
 				strconv.FormatFloat(gap, 'f', 2, 64),
 				low.sceneURL,
+				low.currency,
+			}
+			for i := range row {
+				row[i] = output.EscapeCSVFormula(row[i])
 			}
 			if err := w.Write(row); err != nil {
 				return err

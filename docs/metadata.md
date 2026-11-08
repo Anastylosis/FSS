@@ -223,6 +223,11 @@ Changes to the metadata layout are additive. Concretely:
   fields, and because `Save` is authoritative, an old build that rewrites a new
   studio file drops them. The `schemaVersion` guard prevents this from v2
   onward; it cannot retroactively teach older builds to refuse.
+- **`currency` on price snapshots** — an optional field (`"currency"`, omitted
+  when empty), so no `schemaVersion` bump. SQLite gains `price_history.currency`
+  in migration 11. Existing snapshots stay unlabelled; a snapshot's currency is
+  part of its identity, so a scraper that starts reporting one appends a new
+  snapshot on its next scrape rather than rewriting history.
 - **CSV** — new columns are appended, never inserted, so positional readers keep
   working. `firstSeenAt` and `externalIds` are the last two columns.
 
