@@ -49,6 +49,7 @@ Matches FSS JSON scenes against Stash scenes by filename and pushes metadata. **
 | `--json` | []string | _(none)_ | Load only these specific JSON files (overrides `--dir`) |
 | `--db` | string | _(from config)_ | Load scenes from the SQLite store instead of JSON. Cannot be combined with `--json`/`--dir` |
 | `--from-studio` | []string | _(none)_ | Only use scenes from these studios — URL, studio name, or sub-brand. Repeatable |
+| `--include-deleted` | bool | false | Also use scenes a `--refresh` marked as removed from the site (skipped by default) |
 | `--from-performer` | []string | _(none)_ | Only use scenes featuring these performers. Repeatable |
 | `--tag` | string | `fss_import` | Import marker tag applied to every matched scene |
 | `--resolution-tags` | bool | from config | Add resolution tags (`4K Available`, `Full HD Available`, `HD Available`) |

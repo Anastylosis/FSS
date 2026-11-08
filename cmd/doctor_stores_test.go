@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,6 +19,9 @@ func writeInventoryFile(t *testing.T, dir, name, studioURL string, count int) {
 		SchemaVersion: models.StoreSchemaVersion,
 		StudioURL:     studioURL,
 		SceneCount:    count,
+	}
+	for i := 0; i < count; i++ {
+		f.Scenes = append(f.Scenes, models.Scene{ID: fmt.Sprint(i), SiteID: "x"})
 	}
 	b, err := json.Marshal(f)
 	if err != nil {
@@ -287,5 +291,31 @@ func TestDescribeCounts(t *testing.T) {
 				t.Errorf("describeCounts(%v) = %q, want %q", c.counts, got, c.want)
 			}
 		})
+	}
+}
+
+func TestFlatInventoryCountsLiveScenesOnly(t *testing.T) {
+	dir := t.TempDir()
+	gone := time.Now().UTC()
+	f := models.StudioFile{
+		SchemaVersion: models.StoreSchemaVersion,
+		StudioURL:     "https://a.example/studio/1",
+		SceneCount:    3,
+		Scenes: []models.Scene{
+			{ID: "1", SiteID: "x"},
+			{ID: "2", SiteID: "x", DeletedAt: &gone},
+			{ID: "3", SiteID: "x", DeletedAt: &gone},
+		},
+	}
+	b, _ := json.Marshal(f)
+	if err := os.WriteFile(filepath.Join(dir, "a.json"), b, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	inv, _, err := flatInventory(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := inv["https://a.example/studio/1"]; got != 1 {
+		t.Errorf("live count = %d, want 1 (soft-deleted excluded)", got)
 	}
 }

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 
@@ -37,6 +38,20 @@ func addSceneSourceFlags(cmd *cobra.Command) {
 		"only use scenes from this creator's storefronts, as defined in creators.d (repeatable: any match)")
 	cmd.Flags().String("creators-dir", "",
 		"directory of creator YAML files (default: config creators_dir, else ~/.config/fss/creators.d)")
+	cmd.Flags().Bool("include-deleted", false,
+		"also use scenes a --refresh marked as removed from the site (skipped by default)")
+}
+
+// dropDeleted removes soft-deleted scenes: the site no longer lists them, so
+// their URLs and prices are not current.
+func dropDeleted(scenes []models.Scene) []models.Scene {
+	out := scenes[:0:0]
+	for _, s := range scenes {
+		if s.DeletedAt == nil {
+			out = append(out, s)
+		}
+	}
+	return out
 }
 
 // creatorStudioURLs expands --from-creator into studio URLs, which the studio
@@ -141,6 +156,16 @@ func loadFSSScenes(cmd *cobra.Command) ([]models.Scene, sceneSource, error) {
 	}
 	if len(scenes) == 0 {
 		return nil, src, fmt.Errorf("no FSS scenes found in %s", src.desc)
+	}
+	if includeDeleted, _ := cmd.Flags().GetBool("include-deleted"); !includeDeleted {
+		kept := dropDeleted(scenes)
+		if n := len(scenes) - len(kept); n > 0 {
+			fmt.Fprintf(os.Stderr, "[notice] skipped %d soft-deleted scene(s) (--include-deleted to use them)\n", n)
+		}
+		scenes = kept
+		if len(scenes) == 0 {
+			return nil, src, fmt.Errorf("every scene in %s is marked deleted (pass --include-deleted to use them)", src.desc)
+		}
 	}
 
 	studios, _ := cmd.Flags().GetStringSlice("from-studio")

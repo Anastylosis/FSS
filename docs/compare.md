@@ -123,7 +123,7 @@ skipped; there is nothing to compare.
 | `--csv` | _(none)_ | Write every shared title to this CSV file |
 
 Plus the shared scene-source flags — `--db`, `--json`, `--dir`,
-`--from-creator`, `--from-studio`, `--from-performer` — documented in
+`--from-creator`, `--from-studio`, `--from-performer`, `--include-deleted` — documented in
 [usage.md](usage.md#scene-sources-fss-stash-import-fss-identify-fss-compare-fss-creators-suggest).
 
 ### CSV output

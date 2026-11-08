@@ -204,6 +204,7 @@ These commands read previously-scraped scenes. They share one set of flags for c
 | `--from-performer` | []string | _(none)_ | Only use scenes featuring these performers. Repeatable — any match |
 | `--from-creator` | []string | _(none)_ | Only use scenes from this creator's storefronts, as defined in `creators.d`. Repeatable — any match |
 | `--creators-dir` | string | _(from config)_ | Directory of creator YAML files |
+| `--include-deleted` | bool | false | Also use scenes a `--refresh` marked as removed from the site. Skipped by default (a notice says how many), since their URLs and prices are no longer current |
 
 **Precedence:** `--json` → `--db` → `--dir` → the config's `out_dir`. Passing `--db` together with `--json` or `--dir` is an error rather than a silent winner. Each run prints the source it resolved to.
 
@@ -659,7 +660,11 @@ small result on its own:
 
 A 0-scene `--full`/`--refresh` is handled separately and more strictly — it is
 refused outright rather than prompted, since nothing distinguishes it from a
-totally broken parser.
+totally broken parser. This applies to `--refresh` at any studio size (including
+fewer than 10 stored scenes), counts only live stored scenes, and refuses if the
+studio cannot be re-read to check. Scenes already soft-deleted are excluded from
+the coverage figures, and from the incremental run's `KnownIDs`, so a scene the
+site brings back is revived by the next incremental run.
 
 ---
 

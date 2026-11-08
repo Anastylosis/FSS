@@ -43,6 +43,7 @@ fss identify /path/to/videos --json studio.json --apply --no-report
 | `--db` | string | _(from config)_ | Load scenes from the SQLite store instead of JSON. Cannot be combined with `--json`/`--dir` |
 | `--from-studio` | []string | _(none)_ | Only match against scenes from these studios — URL, studio name, or sub-brand. Repeatable |
 | `--from-performer` | []string | _(none)_ | Only match against scenes featuring these performers. Repeatable |
+| `--include-deleted` | bool | `false` | Also match scenes a `--refresh` marked as removed from the site (skipped by default) |
 | `--apply` | bool | `false` | Actually write `.nfo` files (default is dry-run) |
 | `--force` | bool | `false` | Overwrite existing `.nfo` files |
 | `--no-report` | bool | `false` | Do not write `fss-report.txt` |

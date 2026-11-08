@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/Anastylosis/FSS/internal/store"
 	"github.com/Anastylosis/FSS/output"
@@ -26,9 +27,9 @@ import (
 // studioInventory is a studio URL -> live scene count for one store.
 type studioInventory map[string]int
 
-// flatInventory reads every studio file in dir. It decodes the header rather
-// than the scenes: the count is what the file recorded at save time, which is
-// all this needs and avoids parsing ~100 MB of scene bodies per studio.
+// flatInventory reads every studio file in dir and counts the live scenes in
+// it. The database side counts live scenes only, so the header's SceneCount
+// (which includes soft-deleted ones) would never match after a --refresh.
 //
 // A file that cannot be read or parsed is reported rather than skipped — a
 // corrupt studio file is exactly the kind of thing doctor should surface, and
@@ -54,8 +55,10 @@ func flatInventory(dir string) (studioInventory, []string, error) {
 			continue
 		}
 		var probe struct {
-			StudioURL  string `json:"studioUrl"`
-			SceneCount int    `json:"sceneCount"`
+			StudioURL string `json:"studioUrl"`
+			Scenes    []struct {
+				DeletedAt *time.Time `json:"deletedAt"`
+			} `json:"scenes"`
 		}
 		if err := json.Unmarshal(data, &probe); err != nil {
 			broken = append(broken, e.Name())
@@ -66,7 +69,13 @@ func flatInventory(dir string) (studioInventory, []string, error) {
 		}
 		// Canonicalise both sides or a studio saved under an http:// or www.
 		// spelling reads as missing from a database that stores it canonically.
-		inv[output.CanonicalStudioURL(probe.StudioURL)] += probe.SceneCount
+		live := 0
+		for _, sc := range probe.Scenes {
+			if sc.DeletedAt == nil {
+				live++
+			}
+		}
+		inv[output.CanonicalStudioURL(probe.StudioURL)] += live
 	}
 	sort.Strings(broken)
 	return inv, broken, nil
@@ -97,6 +106,8 @@ func diffStores(flat, db studioInventory) storeDiff {
 	d := storeDiff{flat: flat, db: db}
 	for url, n := range flat {
 		switch dn, ok := db[url]; {
+		case !ok && n == 0:
+			// Every scene soft-deleted: the database holds no live rows to match.
 		case !ok:
 			d.OnlyInFlat = append(d.OnlyInFlat, url)
 		case dn != n:

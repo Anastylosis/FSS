@@ -278,7 +278,7 @@ do not care which store you use.
 
 `fss doctor` compares the two stores whenever a database is configured. It
 reports which store is *active* — distinct from whether a database merely
-exists — and names any studio that lives only as JSON:
+exists — and names any studio that lives only as JSON. Scene counts compare live (not soft-deleted) scenes on both sides:
 
 ```
   active store           ok    (SQLite)

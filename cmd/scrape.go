@@ -327,12 +327,26 @@ func scrapeOne(ctx context.Context, st store.Store, tgt scrapeTarget, name, dbPa
 	// every stored scene — almost always an HTML/JSON drift, not a real empty
 	// studio. Refuse the destructive Save when the studio already has data,
 	// unless --force is given. (Incremental merges, so it is never destructive.)
-	if len(scenes) == 0 && (full || refresh) && !force {
+	if cov.fresh == 0 && !cov.incomplete && (full || refresh) && !force {
 		existing, lerr := st.Load(studioURL)
-		if lerr == nil && len(existing) > 0 {
+		if lerr != nil {
+			return fmt.Errorf("checking stored scenes before a destructive save: %w", lerr)
+		}
+		// --full hard-deletes every stored scene, deleted ones included;
+		// --refresh only soft-deletes, so only live scenes are at stake.
+		at := len(existing)
+		if !full {
+			at = 0
+			for _, s := range existing {
+				if s.DeletedAt == nil {
+					at++
+				}
+			}
+		}
+		if at > 0 {
 			fmt.Fprintf(os.Stderr,
 				"warning: scrape returned 0 scenes but %d are already stored for %s — refusing destructive save (use --force to override)\n",
-				len(existing), studioURL)
+				at, studioURL)
 			return nil
 		}
 	}
@@ -341,7 +355,7 @@ func scrapeOne(ctx context.Context, st store.Store, tgt scrapeTarget, name, dbPa
 	// redesign leaves one card template matching. The 0-scene guard above only
 	// catches the total loss. Everything short of that reaches here looking
 	// like a clean run, so check it against what is already stored.
-	if len(scenes) > 0 && cov.collapsed() && !proceedAfterCollapse(cov, studioURL, sc.ID(), full || refresh, force) {
+	if (cov.fresh > 0 || (!full && !refresh)) && cov.collapsed() && !proceedAfterCollapse(cov, studioURL, sc.ID(), full || refresh, force) {
 		return nil
 	}
 
@@ -409,8 +423,10 @@ type traversal struct {
 // drops its pagination, or a parser that only matches one of two card
 // templates — looks like a clean success to every other check here.
 type coverage struct {
-	stored int // distinct scenes already in the store
-	seen   int // stored scenes this scrape re-collected
+	stored  int // live (not soft-deleted) scenes already in the store
+	seen    int // live stored scenes this scrape re-collected
+	dropped int // stored scenes, live or deleted, this scrape did not re-collect
+	fresh   int // distinct scenes this scrape collected, before any carry-forward
 	traversal
 }
 
@@ -425,8 +441,15 @@ const (
 )
 
 func coverageOf(existing map[sceneKey]models.Scene, seen map[sceneKey]bool, tr traversal) coverage {
-	cov := coverage{stored: len(existing), traversal: tr}
-	for k := range existing {
+	cov := coverage{fresh: len(seen), traversal: tr}
+	for k, s := range existing {
+		if !seen[k] {
+			cov.dropped++
+		}
+		if s.DeletedAt != nil {
+			continue
+		}
+		cov.stored++
 		if seen[k] {
 			cov.seen++
 		}
@@ -511,7 +534,9 @@ func scrapeIncremental(ctx context.Context, sc scraper.StudioScraper, st store.S
 	knownIDs := make(map[string]bool, len(existing))
 	existingByKey := make(map[sceneKey]models.Scene, len(existing))
 	for _, s := range existing {
-		knownIDs[s.ID] = true
+		if s.DeletedAt == nil {
+			knownIDs[s.ID] = true
+		}
 		existingByKey[keyOf(s)] = s
 	}
 
@@ -996,7 +1021,7 @@ func proceedAfterCollapse(cov coverage, studioURL, siteID string, destructive, f
 		return true
 	}
 
-	fmt.Fprintf(os.Stderr, "       this is an authoritative save: %d stored scene(s) would be dropped\n", cov.stored-cov.seen)
+	fmt.Fprintf(os.Stderr, "       this is an authoritative save: --full would drop %d stored scene(s), --refresh would mark %d deleted\n", cov.dropped, cov.stored-cov.seen)
 	if force {
 		fmt.Fprintln(os.Stderr, "       --force given, proceeding")
 		return true

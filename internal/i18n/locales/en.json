@@ -54,6 +54,7 @@
   "allow poster URLs that resolve to private/loopback IPs (for local media servers); disabled by default to prevent SSRF": "allow poster URLs that resolve to private/loopback IPs (for local media servers); disabled by default to prevent SSRF",
   "also process scenes that have StashDB data": "also process scenes that have StashDB data",
   "also propose creators whose catalogue is on a single storefront": "also propose creators whose catalogue is on a single storefront",
+  "also use scenes a --refresh marked as removed from the site (skipped by default)": "also use scenes a --refresh marked as removed from the site (skipped by default)",
   "also write every shared title to this CSV file": "also write every shared title to this CSV file",
   "content language to request where a site publishes in several, e.g. --content-language de (sites with one language ignore it)": "content language to request where a site publishes in several, e.g. --content-language de (sites with one language ignore it)",
   "delete performer/tag/category rows no scene references any more": "delete performer/tag/category rows no scene references any more",
