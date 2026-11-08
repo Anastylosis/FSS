@@ -69,6 +69,26 @@ var sites = []SiteConfig{
 		Host:    "www.edpowersvod.com",
 		Studios: []StudioFilter{{ID: "93332", Name: "Ed Powers"}},
 	},
+	{
+		SiteID: "transationalfantasies", StudioName: "Transational Fantasies",
+		Host:    "www.transationalfantasies.com",
+		Studios: []StudioFilter{{ID: "94028", Name: "Transational Fantasies"}},
+	},
+	{
+		SiteID: "blacktranswhackers", StudioName: "Black Trans Whackers",
+		Host:    "www.blacktranswhackers.com",
+		Studios: []StudioFilter{{ID: "95018", Name: "Black Trans Whackers"}},
+	},
+	{
+		SiteID: "braziliantransgirls", StudioName: "Brazilian Trans Girls",
+		Host:    "www.braziliantransgirls.com",
+		Studios: []StudioFilter{{ID: "95131", Name: "Brazilian Trans Girls"}},
+	},
+	{
+		SiteID: "bangmytransass", StudioName: "Bang My Trans Ass",
+		Host:    "bangmytransass.com",
+		Studios: []StudioFilter{{ID: "95019", Name: "Bang My Trans Ass"}},
+	},
 }
 
 type Scraper struct {

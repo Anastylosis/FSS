@@ -21,6 +21,7 @@ linters:
       ignore-rules:
         - sketchysex
         - roomate
+        - transational
 
     gocyclo:
       # The worst remaining function is gasm's run() at 45. Everything above it
