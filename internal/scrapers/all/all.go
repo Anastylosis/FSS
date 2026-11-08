@@ -488,6 +488,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/titanmen"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/tma"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/tmw"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/tnvgirls"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/tokyohot"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/trans500"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/transexhot"

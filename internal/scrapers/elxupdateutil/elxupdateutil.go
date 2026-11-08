@@ -333,6 +333,7 @@ var (
 	cardURLRe    = regexp.MustCompile(`<a\s+href="([^"]*/updates/[^"]+\.html)"`)
 	cardAnyURLRe = regexp.MustCompile(`<a\s+href="([^"]+)"`)
 	cardTitleRe  = regexp.MustCompile(`(?s)<h4>\s*<a[^>]*>(.*?)</a>`)
+	plainTitleRe = regexp.MustCompile(`(?s)<h4>\s*([^<]+?)\s*</h4>`)
 	modelsRe     = regexp.MustCompile(`(?s)<span class="tour_update_models">(.*?)</span>`)
 	dateRe       = regexp.MustCompile(`<span(?: class="availdate")?>\s*(\d{2}/\d{2}/\d{4})\s*</span>`)
 	// The card offers the same still at four widths; 4x first, then down.
@@ -342,6 +343,8 @@ var (
 		regexp.MustCompile(`src0_2x="([^"]+)"`),
 		regexp.MustCompile(`src0_1x="([^"]+)"`),
 		regexp.MustCompile(`<img[^>]+src="([^"]+)"`),
+		regexp.MustCompile(`poster_4x="([^"]+)"`),
+		regexp.MustCompile(`poster_1x="([^"]+)"`),
 	}
 	// setDirRe pulls the content directory out of a thumbnail path. It is the
 	// site's own set identifier and the only stable id on the card — the
@@ -381,11 +384,15 @@ func parseListing(body []byte, anyLink bool) []listItem {
 		if m == nil && anyLink {
 			m = cardAnyURLRe.FindSubmatch(block)
 		}
-		if m == nil {
+		if m == nil && !anyLink {
 			continue
 		}
-		item.url = html.UnescapeString(string(m[1]))
+		if m != nil {
+			item.url = html.UnescapeString(string(m[1]))
+		}
 		if t := cardTitleRe.FindSubmatch(block); t != nil {
+			item.title = cleanText(string(t[1]))
+		} else if t := plainTitleRe.FindSubmatch(block); t != nil && anyLink {
 			item.title = cleanText(string(t[1]))
 		}
 		for _, re := range thumbRes {
@@ -400,6 +407,9 @@ func parseListing(body []byte, anyLink bool) []listItem {
 		}
 		if mm := modelsRe.FindSubmatch(block); mm != nil {
 			item.performers = anchorNames(mm[1])
+			if len(item.performers) == 0 && anyLink {
+				item.performers = splitNames(string(mm[1]))
+			}
 		}
 		if dm := dateRe.FindSubmatch(block); dm != nil {
 			item.date = string(dm[1])
@@ -457,6 +467,16 @@ func anchorNames(block []byte) []string {
 		}
 		seen[strings.ToLower(n)] = true
 		names = append(names, n)
+	}
+	return names
+}
+
+func splitNames(s string) []string {
+	var names []string
+	for _, n := range strings.Split(tagStripRe.ReplaceAllString(s, ""), ",") {
+		if n = cleanText(n); n != "" {
+			names = append(names, n)
+		}
 	}
 	return names
 }
