@@ -294,3 +294,15 @@ func TestLiveArinnaCum(t *testing.T) {
 	}
 	testutil.RunLiveScrape(t, s, url, 2)
 }
+
+func TestLiveRealAgent(t *testing.T) {
+	url := "https://realagent.xxx/videos"
+	s, err := scraper.ForURL(url)
+	if err != nil {
+		t.Fatalf("no scraper matched %s: %v", url, err)
+	}
+	if s.ID() != "realagent" {
+		t.Fatalf("expected realagent, got %s", s.ID())
+	}
+	testutil.RunLiveScrape(t, s, url, 3)
+}
