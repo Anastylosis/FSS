@@ -33,6 +33,7 @@ var sites = []groobyutil.SiteConfig{
 	{SiteID: "ladyboyladyboy", Domain: "ladyboy-ladyboy.com", StudioName: "Ladyboy Ladyboy", TourPrefix: "/tour"},
 	{SiteID: "ladyboy", Domain: "ladyboy.xxx", StudioName: "Ladyboy.xxx", TourPrefix: "/tour"},
 	{SiteID: "realtgirls", Domain: "realtgirls.com", StudioName: "Real TGirls", TourPrefix: "/tour"},
+	{SiteID: "naughtynatural", Domain: "naughtynatural.com", StudioName: "Naughty Natural", TourPrefix: "/tour"},
 	{SiteID: "russiantgirls", Domain: "russian-tgirls.com", StudioName: "Russian TGirls", TourPrefix: "/tour"},
 	{SiteID: "tgirl40", Domain: "tgirl40.com", StudioName: "TGirl 40", TourPrefix: "/tour"},
 	{SiteID: "tgirlbbw", Domain: "tgirlbbw.com", StudioName: "TGirl BBW", TourPrefix: "/tour"},

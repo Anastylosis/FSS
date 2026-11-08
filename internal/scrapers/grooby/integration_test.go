@@ -44,3 +44,7 @@ func TestLiveTransErotica(t *testing.T) {
 func TestLiveCherryMavrik(t *testing.T) {
 	testutil.RunLiveScrape(t, groobyutil.New(siteByID(t, "cherrymavrik")), "https://cherrymavrik.com/", 2)
 }
+
+func TestLiveNaughtyNatural(t *testing.T) {
+	testutil.RunLiveScrape(t, groobyutil.New(siteByID(t, "naughtynatural")), "https://www.naughtynatural.com/tour/", 3)
+}
