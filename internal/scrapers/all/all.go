@@ -339,6 +339,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/nextdooramateur"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/nhlpcentral"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/nookies"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/nothingbutcurves"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/nubiles"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/nucosplay"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/nudolls"
