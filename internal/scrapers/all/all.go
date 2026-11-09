@@ -463,6 +463,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/stasyqvr"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/staxus"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/stmackenzies"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/stockydudes"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/strapondreamer"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/stripzvr"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/strokies"
