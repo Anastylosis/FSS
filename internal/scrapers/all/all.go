@@ -214,6 +214,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/helenascockquest"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/helixstudios"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/heyzo"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/hibino"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/himeros"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/hitzefrei"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/hobybuchanon"
