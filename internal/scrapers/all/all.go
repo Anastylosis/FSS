@@ -198,6 +198,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/globetwatters"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/gloryquest"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/glosstightsglamour"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/gme"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/goddessfootdomination"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/goldwinpass"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/grandparentsx"
