@@ -16,6 +16,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/adultempirestore"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/adultprime"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/africanbucks"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/aircontrol"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/alettaoceanlive"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/alexandrasnow"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/alexsisfaye"
