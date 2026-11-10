@@ -193,6 +193,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/giga"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/girlsgonegyno"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/girlsgonehypnotized"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/girlsgonewild"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/girlsoutwest"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/girlsrimming"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/glamose"
