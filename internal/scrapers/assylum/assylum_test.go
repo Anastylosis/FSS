@@ -301,3 +301,27 @@ func TestContextCancellationStopsTheSweep(t *testing.T) {
 	for range ch { //nolint:revive // drain so the goroutines can finish their sends
 	}
 }
+
+func TestSlavemouthSite(t *testing.T) {
+	st := newSite(t, []int{4, 9}, []int{9})
+	defer st.Close()
+
+	s := newFor(sites[1])
+	s.Client = st.Client()
+	s.baseOverride = st.URL
+	if s.ID() != "slavemouth" {
+		t.Fatalf("ID = %q", s.ID())
+	}
+	if !s.MatchesURL("https://www.slavemouth.com/?sessions") || s.MatchesURL("https://www.assylum.com/") {
+		t.Error("slavemouth MatchesURL wrong")
+	}
+	scenes, errs, _ := collect(t, s, "https://www.slavemouth.com/", scraper.ListOpts{Workers: 2})
+	if len(errs) != 0 || len(scenes) != 2 {
+		t.Fatalf("scenes=%d errs=%v", len(scenes), errs)
+	}
+	for _, sc := range scenes {
+		if sc.SiteID != "slavemouth" || sc.Studio != "Slavemouth" {
+			t.Errorf("scene attributed to %q / %q", sc.SiteID, sc.Studio)
+		}
+	}
+}

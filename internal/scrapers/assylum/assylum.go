@@ -1,4 +1,5 @@
-// Package assylum scrapes assylum.com.
+// Package assylum scrapes assylum.com and its sister site slavemouth.com, which
+// run the same Derange Dollars CMS and serve `/session//{id}` identically.
 //
 // The site publishes no complete listing and no sitemap. `?sessions` shows
 // twenty at a time and its `so=` parameter re-sorts rather than paginating —
@@ -31,11 +32,19 @@ import (
 	"github.com/Anastylosis/FSS/scraper"
 )
 
-const (
-	siteID     = "assylum"
-	domain     = "assylum.com"
-	studioName = "Assylum"
+type site struct {
+	id     string
+	domain string
+	name   string
+	match  *regexp.Regexp
+}
 
+var sites = []site{
+	{"assylum", "assylum.com", "Assylum", regexp.MustCompile(`^https?://(?:www\.)?assylum\.com(?:/|$)`)},
+	{"slavemouth", "slavemouth.com", "Slavemouth", regexp.MustCompile(`^https?://(?:www\.)?slavemouth\.com(?:/|$)`)},
+}
+
+const (
 	// probeMargin is how far past the highest id in reach the sweep continues,
 	// so a scene published between the index being written and the sweep
 	// running is still found.
@@ -49,37 +58,43 @@ const (
 )
 
 type Scraper struct {
+	site         site
 	Client       *http.Client
 	baseOverride string
 }
 
-func New() *Scraper {
-	return &Scraper{Client: httpx.NewClient(30 * time.Second)}
+func New() *Scraper { return newFor(sites[0]) }
+
+func newFor(st site) *Scraper {
+	return &Scraper{site: st, Client: httpx.NewClient(30 * time.Second)}
 }
 
 var _ scraper.StudioScraper = (*Scraper)(nil)
 
-func init() { scraper.Register(New()) }
+func init() {
+	for _, st := range sites {
+		scraper.Register(newFor(st))
+	}
+}
 
 var (
-	matchRe = regexp.MustCompile(`^https?://(?:www\.)?assylum\.com(?:/|$)`)
 	// Session links carry a free-text path before the id, which the site does
 	// not require: `/session//{id}` serves the same page.
 	sessionLinkRe = regexp.MustCompile(`\./session/[^"]*?(\d+)"`)
 	sessionURLRe  = regexp.MustCompile(`/session/[^?#]*?(\d+)/?$`)
 )
 
-func (s *Scraper) ID() string { return siteID }
+func (s *Scraper) ID() string { return s.site.id }
 
 func (s *Scraper) Patterns() []string {
 	return []string{
-		domain,
-		domain + "/?sessions",
-		domain + "/session//{id}",
+		s.site.domain,
+		s.site.domain + "/?sessions",
+		s.site.domain + "/session//{id}",
 	}
 }
 
-func (s *Scraper) MatchesURL(u string) bool { return matchRe.MatchString(u) }
+func (s *Scraper) MatchesURL(u string) bool { return s.site.match.MatchString(u) }
 
 func (s *Scraper) ListScenes(ctx context.Context, studioURL string, opts scraper.ListOpts) (<-chan scraper.SceneResult, error) {
 	if opts.Workers <= 0 {
@@ -99,7 +114,7 @@ func (s *Scraper) base(studioURL string) string {
 	if u, err := url.Parse(studioURL); err == nil && u.Host != "" {
 		return u.Scheme + "://" + u.Host
 	}
-	return "https://www." + domain
+	return "https://www." + s.site.domain
 }
 
 func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
@@ -109,7 +124,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 
 	// A single session URL is a legitimate thing to point at.
 	if m := sessionURLRe.FindStringSubmatch(studioURL); m != nil {
-		scraper.Debugf(1, "%s: scraping one session %s", siteID, m[1])
+		scraper.Debugf(1, "%s: scraping one session %s", s.site.id, m[1])
 		if !send(ctx, out, scraper.Progress(1)) {
 			return
 		}
@@ -127,7 +142,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 	if limit > maxProbeID {
 		limit = maxProbeID
 	}
-	scraper.Debugf(1, "%s: sweeping ids 1..%d with %d workers", siteID, limit, opts.Workers)
+	scraper.Debugf(1, "%s: sweeping ids 1..%d with %d workers", s.site.id, limit, opts.Workers)
 
 	// The count is not knowable before the sweep, so no Progress total is sent
 	// up front — the cmd layer shows a running count instead.
@@ -207,7 +222,7 @@ func (s *Scraper) highestID(ctx context.Context, base string, opts scraper.ListO
 			fmt.Errorf("no session links on the index pages — cannot bound the id sweep"))))
 		return 0, false
 	}
-	scraper.Debugf(1, "%s: %d session links across the index views, highest id %d", siteID, reachable, highest)
+	scraper.Debugf(1, "%s: %d session links across the index views, highest id %d", s.site.id, reachable, highest)
 	return highest, true
 }
 
@@ -234,11 +249,11 @@ func (s *Scraper) fetchSession(ctx context.Context, studioURL, base, id string, 
 
 	scene := models.Scene{
 		ID:          d.id,
-		SiteID:      siteID,
+		SiteID:      s.site.id,
 		StudioURL:   studioURL,
 		Title:       d.title,
 		URL:         sceneURL,
-		Studio:      studioName,
+		Studio:      s.site.name,
 		Description: d.description,
 		Performers:  d.performers,
 		Date:        d.date,

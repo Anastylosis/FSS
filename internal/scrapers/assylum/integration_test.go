@@ -17,3 +17,7 @@ func TestLiveAssylumSession(t *testing.T) {
 func TestLiveAssylum(t *testing.T) {
 	testutil.RunLiveScrape(t, New(), "https://www.assylum.com/", 2)
 }
+
+func TestLiveSlavemouth(t *testing.T) {
+	testutil.RunLiveScrape(t, newFor(sites[1]), "https://www.slavemouth.com/", 2)
+}
