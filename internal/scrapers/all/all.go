@@ -228,6 +228,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/hushpass"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/hussiepass"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/hustler"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/ibicella"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/ifeelmyself"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/indianaram"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/indiebucks"
