@@ -299,6 +299,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/manipulativemedia"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/manyvids"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/marsmedia"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/maryjane"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/maturefetish"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/maturenl"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/maverickmen"
