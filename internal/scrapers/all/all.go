@@ -9,6 +9,7 @@ import (
 	// All imports below are blank by design: each package's init() calls
 	// scraper.Register() to add itself to the catalog. Nothing is referenced
 	// directly, so the side effect *is* the point.
+	_ "github.com/Anastylosis/FSS/internal/scrapers/a1c"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/abbywinters"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/ad4x"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/adultdoorway"
