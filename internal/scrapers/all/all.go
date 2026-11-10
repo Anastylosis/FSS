@@ -226,6 +226,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/humiliationpov"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/humiliatrix"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/hungyoungbrit"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/hunkch"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/hushpass"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/hussiepass"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/hustler"
