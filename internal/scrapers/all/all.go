@@ -521,6 +521,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/uptimely"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/velvetveronica"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/venusav"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/venuslux"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/videoelements"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/vintageflash"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/vip4k"
