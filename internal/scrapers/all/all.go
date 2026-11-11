@@ -93,6 +93,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/cherrypimps"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/chickpass"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/chloemorgane"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/chrismarxxx"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/classmedia"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/claudiamarie"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/clips4sale"
