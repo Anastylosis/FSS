@@ -1077,6 +1077,7 @@
 | [Mature Gyno Spy](https://maturegynospy.com) | `maturegynospy.com`, `maturegynospy.com/scenes` | Custom PHP CMS (DollsHub network) | No | Row in `dollshub`. |
 | [Nasty Public Sex](https://nastypublicsex.com) | `nastypublicsex.com`, `nastypublicsex.com/scenes` | Custom PHP CMS (DollsHub network) | No | Row in `dollshub`. |
 | [Olds Fuck Dolls](https://oldsfuckdolls.com) | `oldsfuckdolls.com`, `oldsfuckdolls.com/scenes` | Custom PHP CMS (DollsHub network) | No | Row in `dollshub`. The DollsHub portal (dollshub.com) is a link page with no catalogue of its own. |
+| [Tied Virgins](https://tiedvirgins.com/updates.html) | `tiedvirgins.com`, `tiedvirgins.com/updates.html` | Static HTML (2010-era) | No | Standalone `tiedvirgins`. ~300 entries from `updates.html`, `updates2.html`, … (6-8 a page): date, title, description and a preview image; there is no per-scene page, so `URL` is the listing page the entry was first seen on. **The site is irregular**: the pager is broken, page files have holes (58-59 and 71-85 are 404 while 60-70 and 86-103 exist and carry entries found nowhere else), entries repeat across pages, and dates do not sort. The scraper therefore skips 404 pages, stops after 30 consecutive ones, de-duplicates on `date + title` (the scene id; the `awizicon` image ids are not unique), and has no known-ID early stop — every run walks ~130 small static pages. |
 
 ## Studios investigated and skipped
 

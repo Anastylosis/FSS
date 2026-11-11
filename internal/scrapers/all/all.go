@@ -504,6 +504,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/thejerkoffgames"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/thelisaannvod"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/tiedgirls"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/tiedvirgins"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/timtales"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/titanmedia"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/titanmen"
