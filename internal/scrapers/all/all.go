@@ -358,6 +358,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/nvg"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/oldnanny"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/onepassforallsites"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/only3xnetwork"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/onnow"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/oopsfamily"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/pantheon"
