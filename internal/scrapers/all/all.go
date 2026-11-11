@@ -134,6 +134,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/dirtyflix"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/divinebreasts"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/dogma"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/dollshub"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/dorcelclub"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/doubleviewcasting"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/dreamboyplus"

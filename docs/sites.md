@@ -1,6 +1,6 @@
 # Covered Sites — All Domains
 
-2029 scrapers covering 2139 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
+2037 scrapers covering 2147 distinct domains. Auto-generated from the scraper registry by `TestSitesMdInSync` — do not hand-edit; instead update the scraper's `Patterns()` and re-run `go test ./internal/scrapers/all/...`. The `stashbox` scraper is omitted here because its covered hosts are config-driven; see [`scrapers.md`](scrapers.md).
 
 Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scraper ID(s)** column lists every scraper that claims URLs on that domain — most domains have one entry, but table-driven networks (`adultprime`, `tmw`, `nextdoorstudios`, etc.) host many sub-studios on a single root domain. See [`scrapers.md`](scrapers.md) for what each ID covers.
 
@@ -671,6 +671,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | fetishpros.com | `fetishpros` |
 | fighting-dolls.com | `fightingdolls` |
 | filthyandfisting.com | `gasm` |
+| filthygapers.com | `filthygapers` |
 | filthykings.com | `filthykings` |
 | finishesthejob.com | `finishesthejob` |
 | firstanaldate.com | `firstanaldate` |
@@ -820,6 +821,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | guybone.com | `guybone` |
 | guyselector.com | `guyselector` |
 | guysinsweatpants.com | `guysinsweatpants` |
+| gynoexclusive.com | `gynoexclusive` |
 | hairycoochies.com | `hairycoochies` |
 | hairyundies.com | `hairyundies` |
 | hammerboys.tv | `hammerboys` |
@@ -906,6 +908,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | ideapocket.com | `ideapocket` |
 | ifeelmyself.com | `ifeelmyself` |
 | ifuckedtheboss.com | `ifuckedtheboss` |
+| ihuntmycunt.com | `ihuntmycunt` |
 | ikissgirls.com | `girlskissxxx` |
 | immorallive.com | `immorallive` |
 | imnotyourmommy.com | `nubiles` |
@@ -1115,6 +1118,9 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | mature.nl | `maturenl` |
 | maturefetish.com | `maturefetish` |
 | maturefucksteen.com | `porngutter` |
+| maturegapers.com | `maturegapers` |
+| maturegynoexam.com | `maturegynoexam` |
+| maturegynospy.com | `maturegynospy` |
 | maverickmen.com | `maverickmen` |
 | maverickmendirects.com | `maverickmendirects` |
 | maxinex.com | `maxinex` |
@@ -1257,6 +1263,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | nastydaddy.com | `nastydaddy` |
 | nastylittlefacials.com | `nastylittlefacials` |
 | nastynyamateurs.com | `nastynyamateurs` |
+| nastypublicsex.com | `nastypublicsex` |
 | nastystepfamily.com | `nastystepfamily` |
 | nataliastarr.com | `nataliastarr` |
 | nataliefiore.com | `nataliefiore` |
@@ -1328,6 +1335,7 @@ Use your editor's find-in-file (Ctrl+F / Cmd+F) to look up a domain. The **Scrap
 | oldje-3some.com | `oldje3some` |
 | oldje.com | `oldje` |
 | oldnanny.com | `oldnanny` |
+| oldsfuckdolls.com | `oldsfuckdolls` |
 | only3x.com | `only3x` |
 | only3xlost.com | `only3xlost` |
 | only3xvr.com | `only3xvr` |
