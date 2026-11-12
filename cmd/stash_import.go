@@ -89,6 +89,11 @@ type changelogFieldDiff struct {
 	From  any      `json:"from,omitempty"`
 	To    any      `json:"to,omitempty"`
 	Added []string `json:"added,omitempty"`
+	// AddedIDs are the Stash entity IDs the import actually added (tags,
+	// performers); revert prefers them over the names in Added.
+	AddedIDs []string `json:"added_ids,omitempty"`
+	// FromID is the ID of the studio the scene had before (studio only).
+	FromID string `json:"from_id,omitempty"`
 }
 
 type importOpts struct {
@@ -208,15 +213,16 @@ func queryStashScenes(ctx context.Context, client *stash.Client, o importOpts) (
 }
 
 func diffScene(ss stash.Scene, merged match.MergedScene, o importOpts) (map[string]changelogFieldDiff, []string, []string) {
-	allTags := merged.Tags
+	allTags := append([]string(nil), merged.Tags...)
 	allTags = append(allTags, merged.Categories...)
 	allTags = append(allTags, o.tagName)
-	if len(ss.StashIDs) > 0 {
+	if ss.HasStashID() {
 		allTags = append(allTags, o.stashboxTag)
 	}
 	if o.resolutionTags {
 		allTags = append(allTags, match.ResolutionTags(merged.Width)...)
 	}
+	allTags = dedupNames(allTags)
 
 	mergedURLs := match.MergeStrings(ss.URLs, merged.URLs)
 
@@ -231,13 +237,23 @@ func diffScene(ss stash.Scene, merged match.MergedScene, o importOpts) (map[stri
 	return changes, allTags, mergedURLs
 }
 
-func applyScene(ctx context.Context, client *stash.Client, ss stash.Scene, merged match.MergedScene,
+// sceneResult is what applyScene wrote beyond the failures: the entity IDs it
+// added to the scene, for the changelog.
+type sceneResult struct {
+	failures     []importFailure
+	addedTagIDs  []string
+	addedPerfIDs []string
+}
+
+func applyScene(ctx context.Context, l *entityLookup, ss stash.Scene, merged match.MergedScene,
 	allTags []string, mergedURLs []string, importTagID string, o importOpts,
-) ([]importFailure, error) {
-	filename := filepath.Base(ss.Files[0].Path)
+) (sceneResult, error) {
+	client := l.client
+	filename := stashFilename(ss)
+	var res sceneResult
 	input := stash.SceneUpdate{ID: ss.ID}
 	var sceneFailures []importFailure
-	hasStashbox := len(ss.StashIDs) > 0
+	hasStashbox := ss.HasStashID()
 
 	if fieldAllowed(o.allowedFields, "title") {
 		input.Title = strPtr(merged.Title)
@@ -256,7 +272,7 @@ func applyScene(ctx context.Context, client *stash.Client, ss stash.Scene, merge
 		tagIDs := extractTagIDs(ss.Tags)
 		tagIDs = append(tagIDs, importTagID)
 		if hasStashbox {
-			sbTagID, tagErr := client.EnsureTag(ctx, o.stashboxTag)
+			sbTagID, tagErr := l.ensureTag(o.stashboxTag)
 			if tagErr != nil {
 				sceneFailures = append(sceneFailures, importFailure{
 					SceneID: ss.ID, Filename: filename, Op: "tag (stashbox)", Name: o.stashboxTag, Err: tagErr,
@@ -266,7 +282,7 @@ func applyScene(ctx context.Context, client *stash.Client, ss stash.Scene, merge
 			}
 		}
 		for _, t := range allTags {
-			tid, tagErr := client.EnsureTag(ctx, t)
+			tid, tagErr := l.ensureTag(t)
 			if tagErr != nil {
 				sceneFailures = append(sceneFailures, importFailure{
 					SceneID: ss.ID, Filename: filename, Op: "tag", Name: t, Err: tagErr,
@@ -276,11 +292,12 @@ func applyScene(ctx context.Context, client *stash.Client, ss stash.Scene, merge
 			tagIDs = append(tagIDs, tid)
 		}
 		input.TagIDs = dedup(tagIDs)
+		res.addedTagIDs = subtractIDs(input.TagIDs, extractTagIDs(ss.Tags))
 	}
 	if fieldAllowed(o.allowedFields, "performers") {
 		perfIDs := extractPerfIDs(ss.Performers)
 		for _, p := range merged.Performers {
-			pid, perfErr := client.EnsurePerformer(ctx, p)
+			pid, perfErr := l.ensurePerformer(p)
 			if perfErr != nil {
 				sceneFailures = append(sceneFailures, importFailure{
 					SceneID: ss.ID, Filename: filename, Op: "performer", Name: p, Err: perfErr,
@@ -290,9 +307,10 @@ func applyScene(ctx context.Context, client *stash.Client, ss stash.Scene, merge
 			perfIDs = append(perfIDs, pid)
 		}
 		input.PerformerIDs = dedup(perfIDs)
+		res.addedPerfIDs = subtractIDs(input.PerformerIDs, extractPerfIDs(ss.Performers))
 	}
 	if fieldAllowed(o.allowedFields, "studio") && merged.Studio != "" {
-		sid, studioErr := client.EnsureStudio(ctx, merged.Studio)
+		sid, studioErr := l.ensureStudio(merged.Studio)
 		if studioErr != nil {
 			sceneFailures = append(sceneFailures, importFailure{
 				SceneID: ss.ID, Filename: filename, Op: "studio", Name: merged.Studio, Err: studioErr,
@@ -316,9 +334,10 @@ func applyScene(ctx context.Context, client *stash.Client, ss stash.Scene, merge
 	}
 
 	if err := client.UpdateScene(ctx, input); err != nil {
-		return nil, err
+		return sceneResult{}, err
 	}
-	return sceneFailures, nil
+	res.failures = sceneFailures
+	return res, nil
 }
 
 func runStashImport(cmd *cobra.Command, _ []string) error {
@@ -354,17 +373,18 @@ func runStashImport(cmd *cobra.Command, _ []string) error {
 		fmt.Println()
 	}
 
+	lookup := newEntityLookup(ctx, client)
 	var importTagID string
 	if o.apply && fieldAllowed(o.allowedFields, "tags") {
-		importTagID, err = client.EnsureTag(ctx, o.tagName)
+		importTagID, err = lookup.ensureTag(o.tagName)
 		if err != nil {
 			return fmt.Errorf("ensuring import tag %q: %w", o.tagName, err)
 		}
 	}
 
-	var changelog []changelogEntry
+	clw := &changelogWriter{dir: changelogDir(cmd)}
+	defer func() { _ = clw.flush() }()
 	var failures []importFailure
-	lookup := newEntityLookup(ctx, client)
 	stats := importStats{total: len(stashScenes)}
 	stashBase := stashURL(cmd)
 
@@ -373,18 +393,15 @@ func runStashImport(cmd *cobra.Command, _ []string) error {
 			break
 		}
 
-		filename := ""
-		if len(ss.Files) > 0 {
-			filename = filepath.Base(ss.Files[0].Path)
-		}
+		filename := stashFilename(ss)
 		if filename == "" {
 			stats.skipped++
 			continue
 		}
 
 		var fileDuration float64
-		if len(ss.Files) > 0 {
-			fileDuration = ss.Files[0].Duration
+		if pf := ss.PrimaryFile(); pf != nil {
+			fileDuration = pf.Duration
 		}
 		result := idx.Match(filename, fileDuration)
 
@@ -409,6 +426,7 @@ func runStashImport(cmd *cobra.Command, _ []string) error {
 		fmt.Printf("           %s/scenes/%s\n", stashBase, ss.ID)
 
 		changes, allTags, mergedURLs := diffScene(ss, merged, o)
+		changes = dropAlreadyPresent(changes, ss, lookup)
 		if len(changes) == 0 {
 			stats.upToDate++
 			continue
@@ -442,7 +460,8 @@ func runStashImport(cmd *cobra.Command, _ []string) error {
 			continue
 		}
 
-		sceneFailures, updateErr := applyScene(ctx, client, ss, merged, allTags, mergedURLs, importTagID, o)
+		applied, updateErr := applyScene(ctx, lookup, ss, merged, allTags, mergedURLs, importTagID, o)
+		sceneFailures := applied.failures
 		if updateErr != nil {
 			stats.failed++
 			failures = append(failures, importFailure{
@@ -456,13 +475,13 @@ func runStashImport(cmd *cobra.Command, _ []string) error {
 			failures = append(failures, sceneFailures...)
 		}
 
-		if len(ss.StashIDs) > 0 {
+		if ss.HasStashID() {
 			// Record what actually landed, not the planned diff: prune tag /
 			// performer names whose Ensure* failed so a later revert doesn't
 			// strip entities that were never imported.
-			recorded := reconcileChanges(changes, sceneFailures)
+			recorded := recordAddedIDs(reconcileChanges(changes, sceneFailures), applied)
 			if len(recorded) > 0 {
-				changelog = append(changelog, changelogEntry{
+				clw.add(changelogEntry{
 					StashSceneID: ss.ID,
 					Timestamp:    time.Now().UTC(),
 					Filename:     filename,
@@ -475,10 +494,8 @@ func runStashImport(cmd *cobra.Command, _ []string) error {
 		stats.updated++
 	}
 
-	if len(changelog) > 0 {
-		if err := appendChangelog(changelogDir(cmd), changelog); err != nil {
-			fmt.Fprintf(os.Stderr, "warning: could not write stashbox changelog: %v\n", err)
-		}
+	if err := clw.flush(); err != nil {
+		return fmt.Errorf("stashbox changelog not written: %w (changes already applied to Stash are NOT recorded, so revert cannot undo them)", err)
 	}
 
 	if o.apply {
@@ -514,8 +531,12 @@ func printMergeConflicts(merged match.MergedScene) {
 		if !ok || !src.Conflicted() {
 			continue
 		}
+		kept := src.Site
+		if kept == "" {
+			kept = "the existing Stash value"
+		}
 		fmt.Printf("    ~ %s: kept %s, dropped %s\n",
-			field, src.Site, strings.Join(truncateEach(src.Discarded, 40), "; "))
+			field, kept, strings.Join(truncateEach(src.Discarded, 40), "; "))
 	}
 }
 
@@ -527,8 +548,9 @@ func truncateEach(values []string, limit int) []string {
 	return out
 }
 
-// performer / studio name isn't queried multiple times during a dry run. Used
-// to populate the "would create on apply" summary.
+// performer / studio name isn't queried multiple times during a dry run, and
+// that import and revert resolve names the same way (name, then alias for
+// tags). Used to populate the "would create on apply" summary.
 //
 // Map values: true = exists in Stash, false = does not exist (would be created).
 // A name is absent from the map until checkX is called for it.
@@ -539,6 +561,10 @@ type entityLookup struct {
 	tags       map[string]bool
 	performers map[string]bool
 	studios    map[string]bool
+
+	tagIDs    map[string]string
+	perfIDs   map[string]string
+	studioIDs map[string]string
 }
 
 func newEntityLookup(ctx context.Context, c *stash.Client) *entityLookup {
@@ -548,49 +574,264 @@ func newEntityLookup(ctx context.Context, c *stash.Client) *entityLookup {
 		tags:       map[string]bool{},
 		performers: map[string]bool{},
 		studios:    map[string]bool{},
+		tagIDs:     map[string]string{},
+		perfIDs:    map[string]string{},
+		studioIDs:  map[string]string{},
 	}
+}
+
+// hasLikeWildcard reports whether a name carries a character Stash's name
+// lookup may treat as a pattern; for those the returned entity is re-checked,
+// since the server can answer with a different entity that merely matches.
+func hasLikeWildcard(name string) bool { return strings.ContainsAny(name, "%_") }
+
+func (l *entityLookup) findTag(name string) (string, bool, error) {
+	if found, seen := l.tags[name]; seen {
+		return l.tagIDs[name], found, nil
+	}
+	id, found, err := l.client.FindTag(l.ctx, name)
+	if err == nil && found && hasLikeWildcard(name) {
+		found, err = l.tagNamed(id, name, false)
+	}
+	if err == nil && !found {
+		id, found, err = l.client.FindTagByAlias(l.ctx, name)
+		if err == nil && found && hasLikeWildcard(name) {
+			found, err = l.tagNamed(id, name, true)
+		}
+	}
+	if err != nil {
+		return "", false, err
+	}
+	l.tags[name], l.tagIDs[name] = found, id
+	return id, found, nil
+}
+
+func (l *entityLookup) tagNamed(id, name string, alias bool) (bool, error) {
+	t, ok, err := l.client.FindTagByID(l.ctx, id)
+	if err != nil || !ok {
+		return false, err
+	}
+	if !alias {
+		return strings.EqualFold(t.Name, name), nil
+	}
+	for _, a := range t.Aliases {
+		if strings.EqualFold(a, name) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (l *entityLookup) findPerformer(name string) (string, bool, error) {
+	if found, seen := l.performers[name]; seen {
+		return l.perfIDs[name], found, nil
+	}
+	id, found, err := l.client.FindPerformer(l.ctx, name)
+	if err == nil && found && hasLikeWildcard(name) {
+		var p *stash.Performer
+		if p, found, err = l.client.FindPerformerByID(l.ctx, id); err == nil && found {
+			found = strings.EqualFold(p.Name, name)
+		}
+	}
+	if err != nil {
+		return "", false, err
+	}
+	l.performers[name], l.perfIDs[name] = found, id
+	return id, found, nil
+}
+
+func (l *entityLookup) findStudio(name string) (string, bool, error) {
+	if found, seen := l.studios[name]; seen {
+		return l.studioIDs[name], found, nil
+	}
+	id, found, err := l.client.FindStudio(l.ctx, name)
+	if err == nil && found && hasLikeWildcard(name) {
+		var st *stash.Studio
+		if st, found, err = l.client.FindStudioByID(l.ctx, id); err == nil && found {
+			found = strings.EqualFold(st.Name, name)
+		}
+	}
+	if err != nil {
+		return "", false, err
+	}
+	l.studios[name], l.studioIDs[name] = found, id
+	return id, found, nil
+}
+
+func (l *entityLookup) ensureTag(name string) (string, error) {
+	if id, found, err := l.findTag(name); err != nil || found {
+		return id, err
+	}
+	id, err := l.client.CreateTag(l.ctx, name)
+	if err == nil {
+		l.tags[name], l.tagIDs[name] = true, id
+	}
+	return id, err
+}
+
+func (l *entityLookup) ensurePerformer(name string) (string, error) {
+	if id, found, err := l.findPerformer(name); err != nil || found {
+		return id, err
+	}
+	id, err := l.client.CreatePerformer(l.ctx, name)
+	if err == nil {
+		l.performers[name], l.perfIDs[name] = true, id
+	}
+	return id, err
+}
+
+func (l *entityLookup) ensureStudio(name string) (string, error) {
+	if id, found, err := l.findStudio(name); err != nil || found {
+		return id, err
+	}
+	id, err := l.client.CreateStudio(l.ctx, name)
+	if err == nil {
+		l.studios[name], l.studioIDs[name] = true, id
+	}
+	return id, err
 }
 
 func (l *entityLookup) checkTag(name string) {
 	if _, seen := l.tags[name]; seen {
 		return
 	}
-	_, found, err := l.client.FindTag(l.ctx, name)
-	if err == nil && !found {
-		_, found, err = l.client.FindTagByAlias(l.ctx, name)
-	}
-	if err != nil {
+	if _, _, err := l.findTag(name); err != nil {
 		fmt.Fprintf(os.Stderr, "warning: looking up tag %q: %v\n", name, err)
 		l.tags[name] = true // treat as existing so it doesn't appear in the would-create list
-		return
 	}
-	l.tags[name] = found
 }
 
 func (l *entityLookup) checkPerformer(name string) {
 	if _, seen := l.performers[name]; seen {
 		return
 	}
-	_, found, err := l.client.FindPerformer(l.ctx, name)
-	if err != nil {
+	if _, _, err := l.findPerformer(name); err != nil {
 		fmt.Fprintf(os.Stderr, "warning: looking up performer %q: %v\n", name, err)
 		l.performers[name] = true
-		return
 	}
-	l.performers[name] = found
 }
 
 func (l *entityLookup) checkStudio(name string) {
 	if _, seen := l.studios[name]; seen {
 		return
 	}
-	_, found, err := l.client.FindStudio(l.ctx, name)
-	if err != nil {
+	if _, _, err := l.findStudio(name); err != nil {
 		fmt.Fprintf(os.Stderr, "warning: looking up studio %q: %v\n", name, err)
 		l.studios[name] = true
-		return
 	}
-	l.studios[name] = found
+}
+
+// dropAlreadyPresent removes from a diff the tags, performers and studio that
+// the scene already has under a different spelling (a tag alias, or a name
+// differing only in case Stash resolves to the same entity).
+func dropAlreadyPresent(changes map[string]changelogFieldDiff, ss stash.Scene, l *entityLookup) map[string]changelogFieldDiff {
+	if len(changes) == 0 {
+		return changes
+	}
+	haveTags := idSet(extractTagIDs(ss.Tags))
+	havePerfs := idSet(extractPerfIDs(ss.Performers))
+	for field, diff := range changes {
+		switch field {
+		case "tags":
+			diff.Added = filterNames(diff.Added, func(n string) bool {
+				id, found, err := l.findTag(n)
+				return err == nil && found && haveTags[id]
+			})
+		case "performers":
+			diff.Added = filterNames(diff.Added, func(n string) bool {
+				id, found, err := l.findPerformer(n)
+				return err == nil && found && havePerfs[id]
+			})
+		case "studio":
+			if ss.Studio != nil {
+				if id, found, err := l.findStudio(stringValue(diff.To)); err == nil && found && id == ss.Studio.ID {
+					delete(changes, field)
+				}
+			}
+			continue
+		default:
+			continue
+		}
+		if len(diff.Added) == 0 {
+			delete(changes, field)
+		} else {
+			changes[field] = diff
+		}
+	}
+	return changes
+}
+
+// filterNames returns names with every element for which drop returns true removed.
+func filterNames(names []string, drop func(string) bool) []string {
+	var out []string
+	for _, n := range names {
+		if !drop(n) {
+			out = append(out, n)
+		}
+	}
+	return out
+}
+
+func idSet(ids []string) map[string]bool {
+	m := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		m[id] = true
+	}
+	return m
+}
+
+// recordAddedIDs stores the entity IDs a scene actually gained, so revert
+// removes exactly those. A tags/performers entry that gained nothing is dropped.
+func recordAddedIDs(changes map[string]changelogFieldDiff, applied sceneResult) map[string]changelogFieldDiff {
+	out := make(map[string]changelogFieldDiff, len(changes))
+	for field, diff := range changes {
+		switch field {
+		case "tags":
+			if len(applied.addedTagIDs) == 0 {
+				continue
+			}
+			diff.AddedIDs = applied.addedTagIDs
+		case "performers":
+			if len(applied.addedPerfIDs) == 0 {
+				continue
+			}
+			diff.AddedIDs = applied.addedPerfIDs
+		}
+		out[field] = diff
+	}
+	return out
+}
+
+// stashFilename is the primary file's basename as Stash reports it; the path
+// is split on both separators only when Stash sent no basename, since a
+// Windows server's paths do not split on a Unix client's separator.
+func stashFilename(ss stash.Scene) string {
+	pf := ss.PrimaryFile()
+	if pf == nil {
+		return ""
+	}
+	if pf.Basename != "" {
+		return pf.Basename
+	}
+	p := pf.Path
+	if i := strings.LastIndexAny(p, `/\`); i >= 0 {
+		p = p[i+1:]
+	}
+	return p
+}
+
+// dedupNames drops names whose canonical key was already seen, keeping the first spelling.
+func dedupNames(names []string) []string {
+	seen := make(map[string]bool, len(names))
+	out := make([]string, 0, len(names))
+	for _, n := range names {
+		k := match.NormalizeName(n)
+		if !seen[k] {
+			seen[k] = true
+			out = append(out, n)
+		}
+	}
+	return out
 }
 
 // printWouldCreateSummary writes a sorted, grouped list of entities that
@@ -696,11 +937,11 @@ func buildChanges(ss stash.Scene, merged match.MergedScene, mergedURLs []string,
 
 	existingTagNames := make(map[string]bool, len(ss.Tags))
 	for _, t := range ss.Tags {
-		existingTagNames[t.Name] = true
+		existingTagNames[match.NormalizeName(t.Name)] = true
 	}
 	var addedTags []string
 	for _, t := range newTags {
-		if !existingTagNames[t] {
+		if !existingTagNames[match.NormalizeName(t)] {
 			addedTags = append(addedTags, t)
 		}
 	}
@@ -710,11 +951,11 @@ func buildChanges(ss stash.Scene, merged match.MergedScene, mergedURLs []string,
 
 	existingPerfNames := make(map[string]bool, len(ss.Performers))
 	for _, p := range ss.Performers {
-		existingPerfNames[p.Name] = true
+		existingPerfNames[match.NormalizeName(p.Name)] = true
 	}
 	var addedPerfs []string
 	for _, p := range merged.Performers {
-		if !existingPerfNames[p] {
+		if !existingPerfNames[match.NormalizeName(p)] {
 			addedPerfs = append(addedPerfs, p)
 		}
 	}
@@ -723,12 +964,12 @@ func buildChanges(ss stash.Scene, merged match.MergedScene, mergedURLs []string,
 	}
 
 	if merged.Studio != "" {
-		existingStudio := ""
+		existingStudio, existingStudioID := "", ""
 		if ss.Studio != nil {
-			existingStudio = ss.Studio.Name
+			existingStudio, existingStudioID = ss.Studio.Name, ss.Studio.ID
 		}
-		if merged.Studio != existingStudio {
-			changes["studio"] = changelogFieldDiff{From: existingStudio, To: merged.Studio}
+		if match.NormalizeName(merged.Studio) != match.NormalizeName(existingStudio) {
+			changes["studio"] = changelogFieldDiff{From: existingStudio, To: merged.Studio, FromID: existingStudioID}
 		}
 	}
 
@@ -803,8 +1044,48 @@ func diffStrings(existing, merged []string) []string {
 	return added
 }
 
+const changelogFlushEvery = 20
+
+// changelogWriter batches entries and writes them every few scenes, so a crash
+// partway through a long --apply loses at most one batch rather than the run.
+type changelogWriter struct {
+	dir     string
+	pending []changelogEntry
+}
+
+func (w *changelogWriter) add(e changelogEntry) {
+	w.pending = append(w.pending, e)
+	if len(w.pending) >= changelogFlushEvery {
+		if err := w.flush(); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: could not write stashbox changelog (will retry): %v\n", err)
+		}
+	}
+}
+
+func (w *changelogWriter) flush() error {
+	if len(w.pending) == 0 {
+		return nil
+	}
+	if err := appendChangelog(w.dir, w.pending); err != nil {
+		return err
+	}
+	w.pending = nil
+	return nil
+}
+
+// appendChangelog adds entries to the changelog under a file lock, creating the
+// directory and replacing the file atomically.
 func appendChangelog(dir string, entries []changelogEntry) error {
+	if err := os.MkdirAll(dir, 0o750); err != nil {
+		return fmt.Errorf("creating changelog directory %s: %w", dir, err)
+	}
 	path := filepath.Join(dir, "fss-stashbox-changelog.json")
+
+	unlock, err := lockChangelog(path + ".lock")
+	if err != nil {
+		return err
+	}
+	defer unlock()
 
 	var existing []changelogEntry
 	data, err := os.ReadFile(path)
@@ -829,7 +1110,33 @@ func appendChangelog(dir string, entries []changelogEntry) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, out, 0o600)
+	return writeFileAtomic(path, out, 0o600)
+}
+
+// writeFileAtomic writes via a temp file in the same directory and renames it
+// over path, so a crash leaves either the old file or the new one.
+func writeFileAtomic(path string, data []byte, perm os.FileMode) error {
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".fss-tmp-*")
+	if err != nil {
+		return err
+	}
+	name := tmp.Name()
+	defer func() { _ = os.Remove(name) }()
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	if err := os.Chmod(name, perm); err != nil {
+		return err
+	}
+	return os.Rename(name, path)
 }
 
 func extractTagIDs(tags []stash.Tag) []string {

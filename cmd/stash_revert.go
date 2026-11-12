@@ -24,7 +24,10 @@ var stashRevertCmd = &cobra.Command{
 	Long: `Undo changes recorded in fss-stashbox-changelog.json for one or more scenes.
 
 Reverts: title, date, urls (the added ones), tags (the added ones), performers
-(the added ones).
+(the added ones), studio and organized. Tags and performers are removed by the
+Stash ID recorded at import time (older changelogs fall back to the name, which
+is matched case-insensitively and through tag aliases). A list that ends up
+empty is emptied, not left unchanged.
 
 NOT reverted (limitations of what the changelog stores):
   - details: only a 60-char preview is recorded; can't restore the original.
@@ -41,13 +44,14 @@ func init() {
 	stashRevertCmd.Flags().String("dir", "", "directory containing fss-stashbox-changelog.json (default: config out_dir)")
 	stashRevertCmd.Flags().Bool("apply", false, "actually write changes (default is dry-run)")
 	stashRevertCmd.Flags().Bool("all", false, "revert every changelog entry for the scene (default: only the most recent)")
-	stashRevertCmd.Flags().StringSlice("fields", nil, "only revert these fields (title,date,urls,tags,performers); default: all revertible")
+	stashRevertCmd.Flags().StringSlice("fields", nil, "only revert these fields (title,date,urls,tags,performers,studio,organized); default: all revertible")
 }
 
 // revertableFields is the subset of validImportFields that revert can actually
 // restore. details/cover are excluded — see stashRevertCmd.Long.
 var revertableFields = map[string]bool{
 	"title": true, "date": true, "urls": true, "tags": true, "performers": true,
+	"studio": true, "organized": true,
 }
 
 func runStashRevert(cmd *cobra.Command, args []string) error {
@@ -84,6 +88,7 @@ func runStashRevert(cmd *cobra.Command, args []string) error {
 		fmt.Print("\n--- DRY RUN (pass --apply to write changes) ---\n\n")
 	}
 
+	lookup := newEntityLookup(ctx, client)
 	var anyApplied, anyMatched, anyFailed int
 	for _, sceneID := range args {
 		matches := entriesForScene(entries, sceneID)
@@ -105,7 +110,7 @@ func runStashRevert(cmd *cobra.Command, args []string) error {
 
 		// revertOrder applies the entries newest-first. Each entry is computed
 		// against the current (possibly already partially reverted) state.
-		for _, entry := range ordered {
+		for i, entry := range ordered {
 			input, plan, skipped := computeRevert(entry, *current, allowed)
 			fmt.Printf("scene %s (%s) [entry %s]:\n", sceneID, entry.Filename, entry.Timestamp.Format("2006-01-02T15:04:05Z"))
 			if len(plan) == 0 && len(skipped) == 0 {
@@ -123,24 +128,7 @@ func runStashRevert(cmd *cobra.Command, args []string) error {
 				continue
 			}
 
-			// Resolve tag/performer NAMES → IDs, drop them from the current
-			// id list, and feed the remainder back into the input.
-			if len(input.removeTagNames) > 0 {
-				ids, err := resolveExistingTagIDs(ctx, client, input.removeTagNames)
-				if err != nil {
-					return err
-				}
-				input.scene.TagIDs = subtractIDs(currentTagIDs(*current), ids)
-			}
-			if len(input.removePerfNames) > 0 {
-				ids, err := resolveExistingPerfIDs(ctx, client, input.removePerfNames)
-				if err != nil {
-					return err
-				}
-				input.scene.PerformerIDs = subtractIDs(currentPerfIDs(*current), ids)
-			}
-
-			if err := client.UpdateScene(ctx, input.scene); err != nil {
+			if err := applyRevert(ctx, lookup, input, *current); err != nil {
 				// Subsequent entries for this scene compose on top of this one
 				// (newest-first unwinding), so a failure here leaves stale state
 				// — stop this scene rather than revert against it, and surface a
@@ -152,10 +140,15 @@ func runStashRevert(cmd *cobra.Command, args []string) error {
 			anyApplied++
 
 			// Refresh the in-memory current state for subsequent --all entries.
-			refreshed, _, err := client.FindScene(ctx, sceneID)
-			if err == nil && refreshed != nil {
-				current = refreshed
+			refreshed, ok, err := client.FindScene(ctx, sceneID)
+			if err != nil || !ok {
+				if i < len(ordered)-1 {
+					fmt.Fprintf(os.Stderr, "error: re-fetching scene %s after reverting: %v — not reverting its older entries against stale state\n", sceneID, err)
+					anyFailed++
+				}
+				break
 			}
+			current = refreshed
 		}
 	}
 
@@ -252,6 +245,10 @@ type revertInput struct {
 	scene           stash.SceneUpdate
 	removeTagNames  []string
 	removePerfNames []string
+	removeTagIDs    []string
+	removePerfIDs   []string
+	studioName      string
+	clearFields     []string
 }
 
 // computeRevert builds the scene update for a single changelog entry.
@@ -273,7 +270,8 @@ func computeRevert(entry changelogEntry, current stash.Scene, allowed map[string
 			}
 			from := stringValue(diff.From)
 			if from == "" {
-				skipped = append(skipped, "title: original was empty, leaving current")
+				in.clearFields = append(in.clearFields, "title")
+				plan = append(plan, fmt.Sprintf("title: %q → (empty)", current.Title))
 				continue
 			}
 			s := from
@@ -286,7 +284,8 @@ func computeRevert(entry changelogEntry, current stash.Scene, allowed map[string
 			}
 			from := stringValue(diff.From)
 			if from == "" {
-				skipped = append(skipped, "date: original was empty, leaving current")
+				in.clearFields = append(in.clearFields, "date")
+				plan = append(plan, fmt.Sprintf("date: %q → (empty)", current.Date))
 				continue
 			}
 			d := from
@@ -301,6 +300,10 @@ func computeRevert(entry changelogEntry, current stash.Scene, allowed map[string
 				continue
 			}
 			in.scene.URLs = subtractStrings(current.URLs, diff.Added)
+			if len(in.scene.URLs) == 0 {
+				in.scene.URLs = nil
+				in.clearFields = append(in.clearFields, "urls")
+			}
 			plan = append(plan, fmt.Sprintf("urls: -%v", diff.Added))
 
 		case "tags":
@@ -310,7 +313,7 @@ func computeRevert(entry changelogEntry, current stash.Scene, allowed map[string
 			if len(diff.Added) == 0 {
 				continue
 			}
-			in.removeTagNames = diff.Added
+			in.removeTagNames, in.removeTagIDs = diff.Added, diff.AddedIDs
 			plan = append(plan, fmt.Sprintf("tags: -%v", diff.Added))
 
 		case "performers":
@@ -320,8 +323,33 @@ func computeRevert(entry changelogEntry, current stash.Scene, allowed map[string
 			if len(diff.Added) == 0 {
 				continue
 			}
-			in.removePerfNames = diff.Added
+			in.removePerfNames, in.removePerfIDs = diff.Added, diff.AddedIDs
 			plan = append(plan, fmt.Sprintf("performers: -%v", diff.Added))
+
+		case "studio":
+			if !allow(field) {
+				continue
+			}
+			from := stringValue(diff.From)
+			switch {
+			case diff.FromID != "":
+				id := diff.FromID
+				in.scene.StudioID = &id
+			case from != "":
+				in.studioName = from
+			default:
+				skipped = append(skipped, "studio: the scene had no studio before; Stash cannot clear it through an update, leaving current")
+				continue
+			}
+			plan = append(plan, fmt.Sprintf("studio: %q → %q", stringValue(diff.To), from))
+
+		case "organized":
+			if !allow(field) {
+				continue
+			}
+			o := false
+			in.scene.Organized = &o
+			plan = append(plan, "organized: true → false")
 
 		case "details":
 			skipped = append(skipped, "details: only a 60-char preview was recorded; can't restore original")
@@ -388,12 +416,62 @@ func currentPerfIDs(s stash.Scene) []string {
 	return ids
 }
 
-// resolveExistingTagIDs returns the Stash IDs for tags whose names are in the
-// list. Names with no matching tag are silently dropped (nothing to remove).
-func resolveExistingTagIDs(ctx context.Context, client *stash.Client, names []string) ([]string, error) {
+// applyRevert writes one computed revert: scalars and URLs through a scene
+// update, emptied fields through ClearSceneFields, and tags/performers through
+// the bulk REMOVE mutations (an update cannot empty a list).
+func applyRevert(ctx context.Context, l *entityLookup, in revertInput, current stash.Scene) error {
+	tagIDs := in.removeTagIDs
+	if len(tagIDs) == 0 && len(in.removeTagNames) > 0 {
+		ids, err := lookupIDs(in.removeTagNames, l.findTag)
+		if err != nil {
+			return err
+		}
+		tagIDs = ids
+	}
+	perfIDs := in.removePerfIDs
+	if len(perfIDs) == 0 && len(in.removePerfNames) > 0 {
+		ids, err := lookupIDs(in.removePerfNames, l.findPerformer)
+		if err != nil {
+			return err
+		}
+		perfIDs = ids
+	}
+	if in.studioName != "" {
+		id, found, err := l.findStudio(in.studioName)
+		if err != nil {
+			return err
+		}
+		if !found {
+			fmt.Fprintf(os.Stderr, "warning: studio %q no longer exists in Stash, leaving the current studio\n", in.studioName)
+		} else {
+			in.scene.StudioID = &id
+		}
+	}
+
+	if sceneUpdateHasChanges(in.scene) {
+		if err := l.client.UpdateScene(ctx, in.scene); err != nil {
+			return err
+		}
+	}
+	if len(in.clearFields) > 0 {
+		if err := l.client.ClearSceneFields(ctx, current.ID, in.clearFields...); err != nil {
+			return err
+		}
+	}
+	if err := l.client.RemoveSceneTags(ctx, tagIDs, current.ID); err != nil {
+		return err
+	}
+	return l.client.RemoveScenePerformers(ctx, perfIDs, current.ID)
+}
+
+func sceneUpdateHasChanges(u stash.SceneUpdate) bool {
+	return u.Title != nil || u.Date != nil || u.URLs != nil || u.StudioID != nil || u.Organized != nil
+}
+
+func lookupIDs(names []string, find func(string) (string, bool, error)) ([]string, error) {
 	var ids []string
 	for _, n := range names {
-		id, found, err := client.FindTag(ctx, n)
+		id, found, err := find(n)
 		if err != nil {
 			return nil, err
 		}
@@ -404,16 +482,12 @@ func resolveExistingTagIDs(ctx context.Context, client *stash.Client, names []st
 	return ids, nil
 }
 
+// resolveExistingTagIDs returns the Stash IDs for tags whose names (or
+// aliases) are in the list. Names with no matching tag are dropped.
+func resolveExistingTagIDs(ctx context.Context, client *stash.Client, names []string) ([]string, error) {
+	return lookupIDs(names, newEntityLookup(ctx, client).findTag)
+}
+
 func resolveExistingPerfIDs(ctx context.Context, client *stash.Client, names []string) ([]string, error) {
-	var ids []string
-	for _, n := range names {
-		id, found, err := client.FindPerformer(ctx, n)
-		if err != nil {
-			return nil, err
-		}
-		if found {
-			ids = append(ids, id)
-		}
-	}
-	return ids, nil
+	return lookupIDs(names, newEntityLookup(ctx, client).findPerformer)
 }

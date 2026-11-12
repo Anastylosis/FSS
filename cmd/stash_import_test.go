@@ -838,13 +838,13 @@ func TestApplyScene_fieldFilterSuppressesWrites(t *testing.T) {
 	merged := match.MergedScene{Title: "T", Performers: []string{"P"}, Studio: "S"}
 	o := importOpts{apply: true, allowedFields: map[string]bool{"title": true}}
 
-	failures, err := applyScene(context.Background(), f.client(), ss, merged,
+	res, err := applyScene(context.Background(), newEntityLookup(context.Background(), f.client()), ss, merged,
 		[]string{"tag-a"}, nil, "imp1", o)
 	if err != nil {
 		t.Fatalf("applyScene: %v", err)
 	}
-	if len(failures) != 0 {
-		t.Errorf("failures = %v, want none", failures)
+	if len(res.failures) != 0 {
+		t.Errorf("failures = %v, want none", res.failures)
 	}
 	if !f.sawOp("sceneUpdate") {
 		t.Error("scene was never updated")
@@ -862,7 +862,7 @@ func TestApplyScene_writesAllFieldsByDefault(t *testing.T) {
 	ss := stash.Scene{ID: "1", Files: []stash.File{{Path: "/v/a.mp4"}}}
 	merged := match.MergedScene{Title: "T", Performers: []string{"P"}, Studio: "S"}
 
-	if _, err := applyScene(context.Background(), f.client(), ss, merged,
+	if _, err := applyScene(context.Background(), newEntityLookup(context.Background(), f.client()), ss, merged,
 		[]string{"tag-a"}, nil, "imp1", importOpts{apply: true}); err != nil {
 		t.Fatalf("applyScene: %v", err)
 	}
@@ -883,7 +883,7 @@ func TestApplyScene_stashboxTagOnlyForScenesWithStashIDs(t *testing.T) {
 	withIDs := newFakeStash(t)
 	ssWith := ss
 	ssWith.StashIDs = []stash.StashID{{ID: "abc"}}
-	if _, err := applyScene(context.Background(), withIDs.client(), ssWith, merged, nil, nil, "imp1", o); err != nil {
+	if _, err := applyScene(context.Background(), newEntityLookup(context.Background(), withIDs.client()), ssWith, merged, nil, nil, "imp1", o); err != nil {
 		t.Fatalf("applyScene: %v", err)
 	}
 	if !withIDs.sawOp("findTags") {
@@ -891,7 +891,7 @@ func TestApplyScene_stashboxTagOnlyForScenesWithStashIDs(t *testing.T) {
 	}
 
 	without := newFakeStash(t)
-	if _, err := applyScene(context.Background(), without.client(), ss, merged, nil, nil, "imp1", o); err != nil {
+	if _, err := applyScene(context.Background(), newEntityLookup(context.Background(), without.client()), ss, merged, nil, nil, "imp1", o); err != nil {
 		t.Fatalf("applyScene: %v", err)
 	}
 	if without.sawOp("findTags") {
@@ -1043,7 +1043,7 @@ func TestApplyScene_keepsPerformersAlreadyOnTheStashScene(t *testing.T) {
 	}
 	merged := match.MergedScene{Title: "T", Performers: []string{"Becky Sharp"}}
 
-	if _, err := applyScene(context.Background(), f.client(), ss, merged,
+	if _, err := applyScene(context.Background(), newEntityLookup(context.Background(), f.client()), ss, merged,
 		nil, nil, "imp1", importOpts{apply: true}); err != nil {
 		t.Fatalf("applyScene: %v", err)
 	}
@@ -1111,7 +1111,7 @@ func TestOrganizedEndToEnd(t *testing.T) {
 	// 2) The update carries the flag when --fields allows it.
 	f := newFakeStash(t)
 	o := importOpts{apply: true, organized: true, allowedFields: map[string]bool{"organized": true}}
-	if _, err := applyScene(context.Background(), f.client(), ss, merged, nil, nil, "imp1", o); err != nil {
+	if _, err := applyScene(context.Background(), newEntityLookup(context.Background(), f.client()), ss, merged, nil, nil, "imp1", o); err != nil {
 		t.Fatalf("applyScene: %v", err)
 	}
 	f.mu.Lock()
@@ -1128,7 +1128,7 @@ func TestOrganizedEndToEnd(t *testing.T) {
 	// 3) A --fields list that omits it does not set it, even with --organized.
 	f2 := newFakeStash(t)
 	o2 := importOpts{apply: true, organized: true, allowedFields: map[string]bool{"title": true}}
-	if _, err := applyScene(context.Background(), f2.client(), ss, merged, nil, nil, "imp1", o2); err != nil {
+	if _, err := applyScene(context.Background(), newEntityLookup(context.Background(), f2.client()), ss, merged, nil, nil, "imp1", o2); err != nil {
 		t.Fatalf("applyScene: %v", err)
 	}
 	f2.mu.Lock()

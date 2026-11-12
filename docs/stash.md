@@ -284,7 +284,11 @@ When `--include-stashbox` modifies a scene that has StashDB data:
    - Which FSS scene it was matched to
    - What fields changed and their before/after values
 
-The changelog is append-only — multiple import runs accumulate history. Example entry:
+The changelog is append-only — multiple import runs accumulate history. It is written in batches of 20 scenes (so an interrupted run loses at most one batch), each write is an atomic replace under a lock file (`fss-stashbox-changelog.json.lock`, so concurrent imports do not lose each other's entries), and the directory is created if missing. If the changelog cannot be written the command exits non-zero and says that the changes already applied to Stash are unrecorded.
+
+Names are compared the way Stash resolves them: case- and whitespace-insensitively, and tags also through aliases. A scene that already has `JOI` is not "missing" `joi`, so it is reported up to date, gets no new changelog entry, and `revert` can never strip a tag or performer the scene had before the import. Tag and performer entries record the Stash entity IDs actually added (`added_ids`), and studio entries the previous studio (`from_id`). A tag and a category of the same name are listed once. Scene filenames come from the `basename` Stash reports, so a Windows Stash server's paths match on a Linux or macOS fss.
+
+Example entry:
 
 ```json
 {
@@ -295,7 +299,8 @@ The changelog is append-only — multiple import runs accumulate history. Exampl
   "changes": {
     "date": { "from": "2026-02-01", "to": "2026-01-01" },
     "urls": { "added": ["https://manyvids.com/..."] },
-    "tags": { "added": ["JOI", "4K Available"] }
+    "tags": { "added": ["JOI", "4K Available"], "added_ids": ["12", "40"] },
+    "studio": { "from": "Old Studio", "to": "Acme", "from_id": "9" }
   }
 }
 ```
@@ -323,7 +328,7 @@ fss stash revert 42 --fields tags,urls --apply
 | `--dir` | string | config `out_dir` | Directory containing `fss-stashbox-changelog.json` |
 | `--apply` | bool | `false` | Actually write changes (default is dry-run) |
 | `--all` | bool | `false` | Revert every changelog entry for each scene; default reverts only the most recent |
-| `--fields` | []string | _(all revertable)_ | Restrict to these fields: `title`, `date`, `urls`, `tags`, `performers` |
+| `--fields` | []string | _(all revertable)_ | Restrict to these fields: `title`, `date`, `urls`, `tags`, `performers`, `studio`, `organized` |
 
 **What can be reverted (and what can't):**
 
@@ -332,12 +337,14 @@ fss stash revert 42 --fields tags,urls --apply
 | `title` | ✓ | Restored to the original value recorded in the changelog |
 | `date` | ✓ | Restored to the original value |
 | `urls` | ✓ | The URLs added by the import are removed; URLs you added manually stay |
-| `tags` | ✓ | Tags added by the import are removed (looked up by name in Stash) |
-| `performers` | ✓ | Performers added by the import are removed (looked up by name) |
+| `tags` | ✓ | Tags added by the import are removed by recorded ID (older changelogs: by name, case-insensitive and through aliases) |
+| `performers` | ✓ | Performers added by the import are removed by recorded ID (older changelogs: by name) |
+| `studio` | ✓ | The previous studio is restored by recorded ID. A scene that had no studio keeps the new one (Stash cannot clear it through an update); this is reported |
+| `organized` | ✓ | Set back to unorganized |
 | `details` | ✗ | The changelog only records a 60-char preview, so the full original can't be restored. Skipped with a warning. |
 | `cover` | ✗ | The original cover URL was never recorded. Skipped with a warning. |
 
-If a tag or performer was renamed or deleted in Stash since the import, the lookup silently no-ops for that name (nothing to remove). A revert never adds anything — only sets/restores values and removes additions.
+A list or field that the revert empties (the last URL, tag or performer; a title or date that was empty before) is genuinely emptied. If a recorded tag or performer was deleted in Stash since the import, there is nothing to remove. With `--all`, if re-reading the scene after one entry fails, the remaining older entries for that scene are not applied against stale state and the run exits non-zero. A revert never adds anything — only sets/restores values and removes additions.
 
 Re-running revert after a manual fix is safe; if the previous values are already in place, the corresponding changes simply don't apply.
 

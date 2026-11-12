@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"strings"
 	"syscall"
 	"text/tabwriter"
@@ -79,10 +78,7 @@ func runStashUnmatched(cmd *cobra.Command, _ []string) error {
 	_, _ = fmt.Fprintln(w, "ID\tFilename\tTitle\tPerformers")
 	_, _ = fmt.Fprintln(w, "--\t--------\t-----\t----------")
 	for _, s := range scenes {
-		filename := ""
-		if len(s.Files) > 0 {
-			filename = filepath.Base(s.Files[0].Path)
-		}
+		filename := stashFilename(s)
 		perfs := make([]string, len(s.Performers))
 		for i, p := range s.Performers {
 			perfs[i] = p.Name
