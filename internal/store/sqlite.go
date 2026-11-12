@@ -895,7 +895,10 @@ func (s *SQLite) UpsertStudio(studio models.Studio) error {
 		VALUES (?, ?, ?, ?, ?)
 		ON CONFLICT(url) DO UPDATE SET
 		    name            = CASE WHEN excluded.name != '' THEN excluded.name ELSE studios.name END,
-		    last_scraped_at = excluded.last_scraped_at`,
+		    last_scraped_at = CASE
+		        WHEN excluded.last_scraped_at IS NULL THEN studios.last_scraped_at
+		        WHEN studios.last_scraped_at IS NULL OR excluded.last_scraped_at > studios.last_scraped_at THEN excluded.last_scraped_at
+		        ELSE studios.last_scraped_at END`,
 		studio.URL, studio.SiteID, studio.Name,
 		timeStr(studio.AddedAt), timePtrStr(studio.LastScrapedAt),
 	)

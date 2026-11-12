@@ -382,12 +382,16 @@ func scrapeOne(ctx context.Context, st store.Store, tgt scrapeTarget, name, dbPa
 	}
 
 	now := time.Now().UTC()
+	var stamp *time.Time
+	if !cov.incomplete && ctx.Err() == nil {
+		stamp = &now
+	}
 	if uErr := st.UpsertStudio(models.Studio{
 		URL:           studioURL,
 		SiteID:        sc.ID(),
 		Name:          name,
 		AddedAt:       now,
-		LastScrapedAt: &now,
+		LastScrapedAt: stamp,
 	}); uErr != nil {
 		fmt.Fprintf(os.Stderr, "warning: could not update studio record: %v\n", uErr)
 	}

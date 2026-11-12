@@ -256,6 +256,8 @@ from the SQLite `studios` table, the only place a last-scrape time is recorded,
 so `--stale` requires `--db` or a configured `db:` rather than silently scraping
 everything.
 
+A studio is stamped as scraped only when the run completed: an interrupted (Ctrl+C) or incomplete traversal leaves the previous time in place, so `--stale` keeps selecting it until a run finishes. The stamp also never moves backwards, so `fss import` of an older JSON file does not make a studio look stale.
+
 That makes one crontab line enough:
 
 ```cron

@@ -2392,3 +2392,30 @@ func TestSQLiteSceneCountsEmptyDatabase(t *testing.T) {
 		t.Errorf("got %v, want no studios", counts)
 	}
 }
+
+func TestSQLiteUpsertStudioNeverMovesLastScrapedBackwards(t *testing.T) {
+	s := newTestDB(t)
+	now := time.Now().UTC().Truncate(time.Second)
+	newer, older, newest := now.Add(time.Hour), now.Add(-time.Hour), now.Add(2*time.Hour)
+	cases := []struct {
+		name string
+		in   *time.Time
+		want time.Time
+	}{
+		{"nil keeps", nil, newer},
+		{"older keeps", &older, newer},
+		{"newer wins", &newest, newest},
+	}
+	if err := s.UpsertStudio(models.Studio{URL: testStudioURL, SiteID: "x", AddedAt: now, LastScrapedAt: &newer}); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range cases {
+		if err := s.UpsertStudio(models.Studio{URL: testStudioURL, SiteID: "x", AddedAt: now, LastScrapedAt: c.in}); err != nil {
+			t.Fatal(err)
+		}
+		got, _ := s.ListStudios()
+		if len(got) != 1 || got[0].LastScrapedAt == nil || !got[0].LastScrapedAt.Equal(c.want) {
+			t.Errorf("%s: got %+v, want %v", c.name, got, c.want)
+		}
+	}
+}
