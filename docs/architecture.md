@@ -90,6 +90,7 @@ The `Store` interface decouples scraping from persistence:
 ```go
 type Store interface {
     Lock(studioURL string) (io.Closer, error)
+    LockContext(ctx context.Context, studioURL string) (io.Closer, error)
     Load(studioURL string) ([]models.Scene, error)
     Save(studioURL string, scenes []models.Scene) error
     MarkDeleted(studioURL, siteID string, ids []string) error
@@ -145,6 +146,26 @@ Measured trade-offs, and which store to use, are in [storage.md](storage.md).
 `<slug>.lock` sidecar so two concurrent `fss scrape` runs of the same URL cannot
 race on Load+Save. It is re-entrant within a process (`MarkDeleted` locks
 internally and would otherwise self-deadlock) and a no-op on Windows.
+`LockContext(ctx, …)` is what `fss scrape` uses: the wait polls a non-blocking
+`flock`, so Ctrl+C ends it, and after about a second it prints
+`waiting for lock on <studio> (held by another fss)`. `Flat` never holds its
+internal mutex while waiting on another process, and closing a handle twice
+releases once.
+
+**SQLite concurrency:** the pragmas travel in the DSN (`busy_timeout=60000`,
+`foreign_keys=1`, WAL, `synchronous=NORMAL`, `_txlock=immediate`) so every
+pooled connection has them. `_txlock=immediate` matters as much as the timeout:
+a deferred transaction that reads first and upgrades after another process
+commits fails with `SQLITE_BUSY_SNAPSHOT`, which the busy handler never retries.
+Two `fss` processes saving different studios into one database therefore queue
+instead of failing and losing the scrape, as long as the holder commits within
+60 seconds; a longer wait still fails with `database is locked`. Opening a
+database also takes a `<db>.migrate.lock` sidecar lock, so two processes opening
+a fresh database cannot both run the migrations. Migrations that need foreign keys off
+toggle the pragma on the single pooled connection and now report a failure to
+turn it back on. `Load` runs its five queries inside one deferred read
+transaction, so a concurrent `Save` cannot yield scenes from one state and
+relations from another.
 
 ## Shared Scraper Packages
 

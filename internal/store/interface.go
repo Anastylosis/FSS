@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"time"
@@ -88,6 +89,10 @@ type Store interface {
 	// release the lock. On Unix the lock uses flock(2) on a sidecar
 	// `.lock` file; on Windows it is a no-op.
 	Lock(studioURL string) (io.Closer, error)
+
+	// LockContext is Lock with a wait that ctx can cancel. A wait of a second
+	// or more prints a notice naming the studio.
+	LockContext(ctx context.Context, studioURL string) (io.Closer, error)
 
 	// Load returns all scenes previously scraped for this studio URL.
 	Load(studioURL string) ([]models.Scene, error)

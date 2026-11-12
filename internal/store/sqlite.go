@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -25,24 +26,29 @@ type SQLite struct {
 }
 
 func NewSQLite(path string) (*SQLite, error) {
-	db, err := sql.Open("sqlite", path)
+	// The sidecar lock covers opening as well as migrating. migrate reads the
+	// schema version outside any transaction, so two openers of a fresh database
+	// would both start from version 0 and the loser would replay migrations over
+	// the winner's finished schema; the first connection's journal_mode change
+	// is likewise not retried by busy_timeout.
+	if path != "" && !strings.HasPrefix(path, ":memory:") {
+		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			return nil, fmt.Errorf("creating lock dir: %w", err)
+		}
+		lock, err := lockFileCtx(context.Background(), path+".migrate.lock", "database open")
+		if err != nil {
+			return nil, err
+		}
+		defer func() { _ = lock.Close() }()
+	}
+	db, err := sql.Open("sqlite", sqliteDSN(path))
 	if err != nil {
 		return nil, fmt.Errorf("opening sqlite %s: %w", path, err)
 	}
 	db.SetMaxOpenConns(1) // SQLite does not support concurrent writes
-	// Issue each PRAGMA in its own Exec. Multi-statement PRAGMA in a single
-	// Exec is unreliable across SQLite drivers, and silently dropping
-	// foreign_keys=ON would leave every ON DELETE CASCADE clause dead.
-	pragmas := []string{
-		"PRAGMA foreign_keys = ON",
-		"PRAGMA journal_mode = WAL",
-		"PRAGMA synchronous = NORMAL",
-	}
-	for _, p := range pragmas {
-		if _, err := db.Exec(p); err != nil {
-			_ = db.Close()
-			return nil, fmt.Errorf("%s: %w", p, err)
-		}
+	if err := db.Ping(); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("opening sqlite %s: %w", path, err)
 	}
 	s := &SQLite{db: db, lockDir: filepath.Dir(path)}
 	if err := s.migrate(); err != nil {
@@ -52,14 +58,44 @@ func NewSQLite(path string) (*SQLite, error) {
 	return s, nil
 }
 
+// sqliteDSN carries the pragmas in the DSN so every pooled connection gets
+// them, not only the first. _txlock=immediate takes the write lock at BEGIN:
+// a deferred transaction that opens with a read and upgrades after another
+// writer commits gets SQLITE_BUSY_SNAPSHOT, which busy_timeout never retries.
+func sqliteDSN(path string) string {
+	prefix := "file:"
+	if strings.HasPrefix(path, "/") {
+		// file:// would read a leading // as a URI authority.
+		path = filepath.Clean(path)
+		prefix = "file://"
+	}
+	esc := strings.NewReplacer("%", "%25", "?", "%3f", "#", "%23").Replace(path)
+	return prefix + esc + "?_pragma=busy_timeout(60000)&_pragma=foreign_keys(1)" +
+		"&_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)&_txlock=immediate"
+}
+
+// enableForeignKeys restores the pragma after a migration that had to turn it
+// off. A failure here would leave every ON DELETE CASCADE dead, so it is an error.
+func (s *SQLite) enableForeignKeys() error {
+	if _, err := s.db.Exec("PRAGMA foreign_keys = ON"); err != nil {
+		return fmt.Errorf("re-enabling foreign keys: %w", err)
+	}
+	return nil
+}
+
 func (s *SQLite) Close() error { return s.db.Close() }
 
 func (s *SQLite) Lock(studioURL string) (io.Closer, error) {
+	return s.LockContext(context.Background(), studioURL)
+}
+
+// LockContext is Lock with a cancellable wait.
+func (s *SQLite) LockContext(ctx context.Context, studioURL string) (io.Closer, error) {
 	studioURL = canonicalKey(studioURL)
 	if err := os.MkdirAll(s.lockDir, 0o700); err != nil {
 		return nil, fmt.Errorf("creating lock dir: %w", err)
 	}
-	return lockFile(filepath.Join(s.lockDir, Slugify(studioURL)+".lock"))
+	return lockFileCtx(ctx, filepath.Join(s.lockDir, Slugify(studioURL)+".lock"), studioURL)
 }
 
 // ---- schema ----
@@ -508,11 +544,15 @@ func (s *SQLite) applyMigration3() error {
 // Foreign keys must be OFF during the rebuild (their toggle cannot live inside
 // a transaction), so we disable them on the single shared connection, run the
 // rebuild in one transaction, then restore them.
-func (s *SQLite) applyMigration2() error {
+func (s *SQLite) applyMigration2() (err error) {
 	if _, err := s.db.Exec("PRAGMA foreign_keys = OFF"); err != nil {
 		return err
 	}
-	defer func() { _, _ = s.db.Exec("PRAGMA foreign_keys = ON") }()
+	defer func() {
+		if ferr := s.enableForeignKeys(); ferr != nil && err == nil {
+			err = ferr
+		}
+	}()
 
 	tx, err := s.db.Begin()
 	if err != nil {
@@ -604,6 +644,12 @@ func (s *SQLite) applyMigration1() error {
 
 // ---- Store interface ----
 
+// rowQuerier is what the relation loaders need; *sql.Conn satisfies it, which
+// lets Load run every query on the one connection holding its read transaction.
+type rowQuerier interface {
+	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
+}
+
 func (s *SQLite) Load(studioURL string) ([]models.Scene, error) {
 	studioURL = canonicalKey(studioURL)
 	// Every column below carrying a DEFAULT is still nullable — a DEFAULT only
@@ -613,7 +659,20 @@ func (s *SQLite) Load(studioURL string) ([]models.Scene, error) {
 	// scanned into a sql.Null* per field. `date` is the one column with no
 	// default at all, and is the likeliest to be NULL in a hand-edited or
 	// externally-written database.
-	rows, err := s.db.Query(`
+	ctx := context.Background()
+	conn, err := s.db.Conn(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = conn.Close() }()
+	// A deferred BEGIN (the DSN's _txlock applies to Begin, not to this) gives
+	// all five queries one WAL snapshot without taking the write lock.
+	if _, err := conn.ExecContext(ctx, "BEGIN"); err != nil {
+		return nil, err
+	}
+	defer func() { _, _ = conn.ExecContext(ctx, "ROLLBACK") }()
+
+	rows, err := conn.QueryContext(ctx, `
 		SELECT id, site_id, studio_url,
 		       COALESCE(title, ''), COALESCE(url, ''),
 		       COALESCE(date, ''), COALESCE(description, ''),
@@ -653,19 +712,19 @@ func (s *SQLite) Load(studioURL string) ([]models.Scene, error) {
 		return scenes[i].ID < scenes[j].ID
 	})
 
-	if err := s.loadRelation(studioURL, "scene_performers", "performers", "performer_id", scenes); err != nil {
+	if err := s.loadRelation(conn, studioURL, "scene_performers", "performers", "performer_id", scenes); err != nil {
 		return nil, err
 	}
-	if err := s.loadRelation(studioURL, "scene_tags", "tags", "tag_id", scenes); err != nil {
+	if err := s.loadRelation(conn, studioURL, "scene_tags", "tags", "tag_id", scenes); err != nil {
 		return nil, err
 	}
-	if err := s.loadRelation(studioURL, "scene_categories", "categories", "category_id", scenes); err != nil {
+	if err := s.loadRelation(conn, studioURL, "scene_categories", "categories", "category_id", scenes); err != nil {
 		return nil, err
 	}
-	if err := s.loadPriceHistory(studioURL, scenes); err != nil {
+	if err := s.loadPriceHistory(conn, studioURL, scenes); err != nil {
 		return nil, err
 	}
-	if err := s.loadExternalIDs(studioURL, scenes); err != nil {
+	if err := s.loadExternalIDs(conn, studioURL, scenes); err != nil {
 		return nil, err
 	}
 	return scenes, nil
@@ -1378,7 +1437,7 @@ func syncPriceHistory(sess *saveSession, sc models.Scene) error {
 // row, and []string / []int decode far more cheaply than a slice of structs.
 // Order is taken from the position column, never from the order rows happen to
 // arrive in.
-func (s *SQLite) loadRelation(studioURL, junctionTable, entityTable, fkCol string, scenes []models.Scene) error {
+func (s *SQLite) loadRelation(q rowQuerier, studioURL, junctionTable, entityTable, fkCol string, scenes []models.Scene) error {
 	if err := validateRelationIDs(junctionTable, entityTable, fkCol); err != nil {
 		return err
 	}
@@ -1393,7 +1452,7 @@ func (s *SQLite) loadRelation(studioURL, junctionTable, entityTable, fkCol strin
 		idx[sceneKey{id: sc.ID, siteID: sc.SiteID}] = i
 	}
 
-	rows, err := s.db.Query(`SELECT j.scene_id, j.site_id,
+	rows, err := q.QueryContext(context.Background(), `SELECT j.scene_id, j.site_id,
 			json_group_array(e.name), json_group_array(j.position)
 		FROM `+junctionTable+` j
 		JOIN `+entityTable+` e ON j.`+fkCol+` = e.id
@@ -1460,7 +1519,7 @@ func orderedNames(namesJSON, positionsJSON string) ([]string, error) {
 	return out, nil
 }
 
-func (s *SQLite) loadExternalIDs(studioURL string, scenes []models.Scene) error {
+func (s *SQLite) loadExternalIDs(q rowQuerier, studioURL string, scenes []models.Scene) error {
 	if len(scenes) == 0 {
 		return nil
 	}
@@ -1469,7 +1528,7 @@ func (s *SQLite) loadExternalIDs(studioURL string, scenes []models.Scene) error 
 		idx[sceneKey{id: sc.ID, siteID: sc.SiteID}] = i
 	}
 
-	rows, err := s.db.Query(`
+	rows, err := q.QueryContext(context.Background(), `
 		SELECT scene_id, site_id, source, external_id
 		FROM scene_external_ids WHERE studio_url = ?`, studioURL)
 	if err != nil {
@@ -1494,7 +1553,7 @@ func (s *SQLite) loadExternalIDs(studioURL string, scenes []models.Scene) error 
 	return rows.Err()
 }
 
-func (s *SQLite) loadPriceHistory(studioURL string, scenes []models.Scene) error {
+func (s *SQLite) loadPriceHistory(q rowQuerier, studioURL string, scenes []models.Scene) error {
 	if len(scenes) == 0 {
 		return nil
 	}
@@ -1503,7 +1562,7 @@ func (s *SQLite) loadPriceHistory(studioURL string, scenes []models.Scene) error
 		idx[sceneKey{id: sc.ID, siteID: sc.SiteID}] = i
 	}
 
-	rows, err := s.db.Query(`
+	rows, err := q.QueryContext(context.Background(), `
 		SELECT ph.scene_id, ph.site_id, ph.date, ph.regular, ph.discounted,
 		       ph.is_free, ph.is_on_sale, ph.discount_percent, ph.currency
 		FROM price_history ph

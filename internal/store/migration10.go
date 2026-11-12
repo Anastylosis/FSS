@@ -21,7 +21,7 @@ func (s *SQLite) applyMigration10() error {
 	}
 	tx, err := s.db.Begin()
 	if err != nil {
-		_, _ = s.db.Exec("PRAGMA foreign_keys = ON")
+		_ = s.enableForeignKeys()
 		return err
 	}
 	err = migration10Tx(tx, mapping)
@@ -30,8 +30,8 @@ func (s *SQLite) applyMigration10() error {
 	} else {
 		err = tx.Commit()
 	}
-	if _, ferr := s.db.Exec("PRAGMA foreign_keys = ON"); ferr != nil && err == nil {
-		err = fmt.Errorf("re-enabling foreign keys: %w", ferr)
+	if ferr := s.enableForeignKeys(); ferr != nil && err == nil {
+		err = ferr
 	}
 	return err
 }

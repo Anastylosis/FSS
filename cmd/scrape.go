@@ -274,7 +274,7 @@ func scrapeOne(ctx context.Context, st store.Store, tgt scrapeTarget, name, dbPa
 		scraper.WarnURLFallthrough(sc.ID(), studioURL)
 	}
 
-	unlock, err := st.Lock(studioURL)
+	unlock, err := st.LockContext(ctx, studioURL)
 	if err != nil {
 		return fmt.Errorf("locking studio: %w", err)
 	}
@@ -355,7 +355,7 @@ func scrapeOne(ctx context.Context, st store.Store, tgt scrapeTarget, name, dbPa
 	// redesign leaves one card template matching. The 0-scene guard above only
 	// catches the total loss. Everything short of that reaches here looking
 	// like a clean run, so check it against what is already stored.
-	if (cov.fresh > 0 || (!full && !refresh)) && cov.collapsed() && !proceedAfterCollapse(cov, studioURL, sc.ID(), full || refresh, force) {
+	if (cov.fresh > 0 || (!full && !refresh)) && cov.collapsed() && !proceedAfterCollapse(ctx, cov, studioURL, sc.ID(), full || refresh, force) {
 		return nil
 	}
 
@@ -373,7 +373,7 @@ func scrapeOne(ctx context.Context, st store.Store, tgt scrapeTarget, name, dbPa
 	}
 
 	if dbPath != "" {
-		_, eErr := exportStudio(st, store.NewFlat(outDir, nil), studioURL, outDir, formats, nil, false, !sameDir(outDir, filepath.Dir(dbPath)))
+		_, eErr := exportStudio(ctx, st, store.NewFlat(outDir, nil), studioURL, outDir, formats, nil, false, !sameDir(outDir, filepath.Dir(dbPath)))
 		if errors.Is(eErr, errExportRefused) {
 			fmt.Fprintf(os.Stderr, "warning: %v\n", eErr)
 		} else if eErr != nil {
@@ -1010,7 +1010,7 @@ var (
 // proceedAfterCollapse reports whether to go ahead with the save after a
 // coverage collapse. Incremental merges, so it only reports; --full/--refresh
 // hand the stored scenes to an authoritative Save and ask first.
-func proceedAfterCollapse(cov coverage, studioURL, siteID string, destructive, force bool) bool {
+func proceedAfterCollapse(ctx context.Context, cov coverage, studioURL, siteID string, destructive, force bool) bool {
 	fmt.Fprintf(os.Stderr,
 		"\n[warn] %s: this scrape re-saw %d of %d stored scenes (%d%%) — the site or the scraper may have changed\n",
 		siteID, cov.seen, cov.stored, cov.percent())
@@ -1032,7 +1032,25 @@ func proceedAfterCollapse(cov coverage, studioURL, siteID string, destructive, f
 	}
 
 	fmt.Fprint(os.Stderr, "       proceed anyway? [y/N] ")
-	line, err := bufio.NewReader(promptIn).ReadString('\n')
+	type answer struct {
+		line string
+		err  error
+	}
+	in := promptIn
+	answered := make(chan answer, 1)
+	go func() {
+		line, err := bufio.NewReader(in).ReadString('\n')
+		answered <- answer{line, err}
+	}()
+	var line string
+	var err error
+	select {
+	case a := <-answered:
+		line, err = a.line, a.err
+	case <-ctx.Done():
+		fmt.Fprintln(os.Stderr, "\n       interrupted — skipping the save")
+		return false
+	}
 	if err != nil && line == "" {
 		fmt.Fprintln(os.Stderr, "       no answer — skipping the save")
 		return false
@@ -1051,6 +1069,11 @@ func proceedAfterCollapse(cov coverage, studioURL, siteID string, destructive, f
 // sameDir reports whether a and b name one directory; scrape --db already
 // holds the SQLite lock, whose file is the flat lock when the two coincide.
 func sameDir(a, b string) bool {
+	if ai, err := os.Stat(a); err == nil {
+		if bi, err := os.Stat(b); err == nil {
+			return os.SameFile(ai, bi)
+		}
+	}
 	aa, err1 := filepath.Abs(a)
 	bb, err2 := filepath.Abs(b)
 	return err1 == nil && err2 == nil && filepath.Clean(aa) == filepath.Clean(bb)

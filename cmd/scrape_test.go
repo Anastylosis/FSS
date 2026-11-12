@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -1173,7 +1174,7 @@ func TestProceedAfterCollapse(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			withPrompt(t, c.terminal, c.answer)
-			got := proceedAfterCollapse(collapsed, "https://example.com", "example", c.destructive, c.force)
+			got := proceedAfterCollapse(context.Background(), collapsed, "https://example.com", "example", c.destructive, c.force)
 			if got != c.want {
 				t.Errorf("proceedAfterCollapse = %v, want %v", got, c.want)
 			}
@@ -1444,5 +1445,29 @@ func TestCollectScenesPacesTheWholeRun(t *testing.T) {
 	if span, want := time.Since(start), time.Duration(workers-1)*delay; span < want {
 		t.Errorf("%d workers finished in %v, want at least %v — they are not sharing one limiter",
 			workers, span, want)
+	}
+}
+
+func TestProceedAfterCollapseHonoursCtrlC(t *testing.T) {
+	origTerm, origIn := stdinIsTerminal, promptIn
+	pr, pw := io.Pipe()
+	stdinIsTerminal = func() bool { return true }
+	promptIn = pr
+	t.Cleanup(func() { stdinIsTerminal, promptIn = origTerm, origIn; _ = pw.Close() })
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan bool, 1)
+	go func() {
+		done <- proceedAfterCollapse(ctx, coverage{stored: 400, seen: 9}, "https://example.com", "example", true, false)
+	}()
+	time.Sleep(50 * time.Millisecond)
+	cancel()
+	select {
+	case got := <-done:
+		if got {
+			t.Error("an interrupted prompt must not proceed with the save")
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("prompt kept waiting for Enter after Ctrl+C")
 	}
 }

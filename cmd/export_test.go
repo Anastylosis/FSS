@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"os"
@@ -328,7 +329,7 @@ func TestScrapeDBExportGuardRefusesWithoutFailing(t *testing.T) {
 	if err := fl.Save(u, flatScenes(u, "1", "2", "3")); err != nil {
 		t.Fatal(err)
 	}
-	_, err = exportStudio(db, fl, u, out, []string{"json"}, nil, false, true)
+	_, err = exportStudio(context.Background(), db, fl, u, out, []string{"json"}, nil, false, true)
 	if !errors.Is(err, errExportRefused) {
 		t.Fatalf("err = %v", err)
 	}
@@ -357,7 +358,7 @@ func TestScrapeDBExportInOutDirDoesNotDeadlock(t *testing.T) {
 
 	done := make(chan error, 1)
 	go func() {
-		_, err := exportStudio(db, store.NewFlat(out, nil), u, out, []string{"json"}, nil, false, !sameDir(out, filepath.Dir(dbPath)))
+		_, err := exportStudio(context.Background(), db, store.NewFlat(out, nil), u, out, []string{"json"}, nil, false, !sameDir(out, filepath.Dir(dbPath)))
 		done <- err
 	}()
 	select {

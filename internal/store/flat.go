@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -32,23 +33,44 @@ func NewFlat(dir string, formats []string) *Flat {
 	return &Flat{dir: dir, formats: formats, held: map[string]*reentrantLock{}}
 }
 
-// reentrantLock wraps a held flock with a reference count. Close releases the
-// underlying lock only when the last holder in this process lets go.
+// reentrantLock wraps a held flock with a reference count. The flock is
+// released when the last handle in this process lets go. ready closes once the
+// flock is acquired (or has failed, with err set), so a caller needing the same
+// lock waits on it without holding Flat.mu.
 type reentrantLock struct {
 	f     *Flat
 	path  string
 	inner io.Closer
 	refs  int
+	ready chan struct{}
+	err   error
 }
 
-func (r *reentrantLock) Close() error {
+// lockHandle is one holder's Closer; closing it twice releases once.
+type lockHandle struct {
+	r    *reentrantLock
+	once sync.Once
+}
+
+func (h *lockHandle) Close() error {
+	var err error
+	h.once.Do(func() { err = h.r.release() })
+	return err
+}
+
+func (r *reentrantLock) release() error {
 	r.f.mu.Lock()
 	defer r.f.mu.Unlock()
 	r.refs--
 	if r.refs > 0 {
 		return nil
 	}
-	delete(r.f.held, r.path)
+	if r.f.held[r.path] == r {
+		delete(r.f.held, r.path)
+	}
+	if r.inner == nil {
+		return nil
+	}
 	return r.inner.Close()
 }
 
@@ -86,25 +108,69 @@ func (f *Flat) csvPath(studioURL string) string {
 // Cross-process locking is unchanged: a different process still blocks, which is
 // the point of the lock.
 func (f *Flat) Lock(studioURL string) (io.Closer, error) {
+	return f.LockContext(context.Background(), studioURL)
+}
+
+// LockContext is Lock with a cancellable wait. Flat.mu is never held while
+// blocked on another process, so releasing one studio is not stalled by a wait
+// on another.
+func (f *Flat) LockContext(ctx context.Context, studioURL string) (io.Closer, error) {
 	studioURL = canonicalKey(studioURL)
 	if err := os.MkdirAll(f.dir, 0o755); err != nil {
 		return nil, fmt.Errorf("creating output dir for lock: %w", err)
 	}
 	path := filepath.Join(f.dir, Slugify(studioURL)+".lock")
 
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	if r, ok := f.held[path]; ok {
+	for {
+		f.mu.Lock()
+		r, ok := f.held[path]
+		if !ok {
+			return f.acquire(ctx, path, studioURL)
+		}
 		r.refs++
-		return r, nil
+		f.mu.Unlock()
+		h := &lockHandle{r: r}
+		select {
+		case <-r.ready:
+		case <-ctx.Done():
+			_ = h.Close()
+			return nil, ctx.Err()
+		}
+		if r.err == nil {
+			return h, nil
+		}
+		// The acquirer failed (often its own cancellation); that is not this
+		// caller's failure, so try again as the acquirer.
+		_ = h.Close()
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 	}
-	inner, err := lockFile(path)
+}
+
+// acquire is called with f.mu held and releases it.
+func (f *Flat) acquire(ctx context.Context, path, label string) (io.Closer, error) {
+	r := &reentrantLock{f: f, path: path, refs: 1, ready: make(chan struct{})}
+	f.held[path] = r
+	f.mu.Unlock()
+
+	inner, err := lockFileCtx(ctx, path, label)
+
+	f.mu.Lock()
+	if err != nil {
+		r.err = err
+		if f.held[path] == r {
+			delete(f.held, path)
+		}
+	} else {
+		r.inner = inner
+	}
+	f.mu.Unlock()
+	close(r.ready)
 	if err != nil {
 		return nil, err
 	}
-	r := &reentrantLock{f: f, path: path, inner: inner, refs: 1}
-	f.held[path] = r
-	return r, nil
+	return &lockHandle{r: r}, nil
 }
 
 func (f *Flat) Load(studioURL string) ([]models.Scene, error) {

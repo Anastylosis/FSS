@@ -24,7 +24,7 @@ import (
 // deduplicated on their own keys.
 //
 // Foreign keys are off for the rebuild, matching applyMigration2.
-func (s *SQLite) applyMigration9() error {
+func (s *SQLite) applyMigration9() (err error) {
 	mapping, err := s.studioURLMapping()
 	if err != nil {
 		return err
@@ -36,7 +36,11 @@ func (s *SQLite) applyMigration9() error {
 	if _, err := s.db.Exec("PRAGMA foreign_keys = OFF"); err != nil {
 		return err
 	}
-	defer func() { _, _ = s.db.Exec("PRAGMA foreign_keys = ON") }()
+	defer func() {
+		if ferr := s.enableForeignKeys(); ferr != nil && err == nil {
+			err = ferr
+		}
+	}()
 
 	tx, err := s.db.Begin()
 	if err != nil {

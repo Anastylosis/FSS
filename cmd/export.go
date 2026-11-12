@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -99,7 +100,7 @@ func runExport(cmd *cobra.Command, args []string) error {
 		if len(args) > 0 {
 			studioURL = normalizeInputURL(studioURL)
 		}
-		n, err := exportStudio(db, flat, studioURL, outDir, formats, known, force, true)
+		n, err := exportStudio(context.Background(), db, flat, studioURL, outDir, formats, known, force, true)
 		written += n
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "error:", err)
@@ -116,7 +117,7 @@ var errExportRefused = errors.New("export refused")
 
 type exportSceneKey struct{ id, site string }
 
-func exportStudio(src store.Store, flat *store.Flat, studioURL, outDir string, formats []string, known map[string]bool, force, lockFlat bool) (int, error) {
+func exportStudio(ctx context.Context, src store.Store, flat *store.Flat, studioURL, outDir string, formats []string, known map[string]bool, force, lockFlat bool) (int, error) {
 	canon := output.CanonicalStudioURL(studioURL)
 	scenes, err := src.Load(canon)
 	if err != nil {
@@ -127,7 +128,7 @@ func exportStudio(src store.Store, flat *store.Flat, studioURL, outDir string, f
 	}
 
 	if lockFlat {
-		lock, err := flat.Lock(canon)
+		lock, err := flat.LockContext(ctx, canon)
 		if err != nil {
 			return 0, err
 		}
