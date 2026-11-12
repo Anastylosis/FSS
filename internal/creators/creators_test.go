@@ -314,3 +314,28 @@ func TestNewCanonUsesCallerKey(t *testing.T) {
 		t.Error("store not found under the preferred spelling")
 	}
 }
+
+func TestKeyPinsLatinAndHandlesMarks(t *testing.T) {
+	cases := []struct{ in, want string }{
+		{"Emma Woodhouse", "emmawoodhouse"},
+		{"EmmaWoodhouse", "emmawoodhouse"},
+		{"Emma Woodhouse Films", "emmawoodhousefilms"},
+		{"Zo\u00eb", "zo\u00eb"},
+		{"Zoe\u0308", "zo\u00eb"},
+		{"O'Brien-Smith 2", "obriensmith2"},
+		{"\u0938\u0940\u092e\u093e", "\u0938\u0940\u092e\u093e"},
+		{"\u0e21\u0e32\u0e25\u0e35", "\u0e21\u0e32\u0e25\u0e35"},
+		{"!!!", ""},
+	}
+	for _, c := range cases {
+		if got := Key(c.in); got != c.want {
+			t.Errorf("Key(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+	if Key("\u0938\u0940\u092e\u093e") == Key("\u0938\u094b\u092e\u093e") {
+		t.Error("distinct Devanagari names collide")
+	}
+	if Key("\u0e21\u0e32\u0e25\u0e35") == Key("\u0e21\u0e30\u0e25\u0e34") {
+		t.Error("distinct Thai names collide")
+	}
+}

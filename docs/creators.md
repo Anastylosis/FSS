@@ -196,13 +196,27 @@ Studios are grouped on two signals:
 1. **Name containment** — `EmmaWoodhouse`, `Emma Woodhouse` and `Emma Woodhouse Films` share a
    normalised substring. Fragments shorter than five characters are ignored, so
    a three-letter studio name cannot absorb every longer name containing it.
-2. **A shared dominant performer** — a performer credited on at least half a
-   store's scenes. This is what catches storefronts whose names have nothing in
+2. **A shared dominant performer** — a performer credited on at least half of
+   a store's scenes, on a store with at least three scenes (one scene makes its
+   single guest "dominant"). Performers are counted by normalised name, so
+   `Jane Eyre` and `jane eyre ` are one person; when two performers tie on a
+   store, the one matching the store's own label wins. This is what catches storefronts whose names have nothing in
    common, and what pulls `Baker Street Studio` into the Irene Adler group.
 
 The creator is named after the dominant performer where there is one, since a
 storefront label is often a brand (`Emma Woodhouse Films`) or a handle
-(`odettelang`); every other spelling becomes an alias.
+(`odettelang`). **Store labels are never written as aliases**: the scrape already
+folds a credit equal to the scene's own studio, and an alias applies to every
+store in the file, so a label that is a co-star's name on another store would
+erase that co-star. An alias is proposed only for the residue: a store whose
+dominant credit differs from both its own label and the creator's name, and is
+not another store's label or dominant performer. Studios that published no name
+are never grouped by name containment.
+
+`--write` loads the creators already in the directory first and skips a proposal
+whose name or alias is already claimed (naming the file that holds it), so it
+cannot leave `creators.d` unloadable. A directory that does not load is reported
+before anything is written. Output order is deterministic.
 
 Both signals are heuristics, so `suggest` prints for review by default and
 `--write` never overwrites an existing file without `--force`. It also **names**
@@ -226,7 +240,9 @@ fss scrape --all-creators                 # everything defined
 ```
 
 `--creator` matches the name or any alias, ignoring case, spacing and
-punctuation — `"Emma Woodhouse"`, `EmmaWoodhouse` and `emma-woodhouse` are the same lookup. A
+punctuation (names are NFC-normalised and combining marks are kept, so Devanagari
+and Thai names with different vowel marks stay distinct, and a decomposed `Zoe` + diaeresis
+matches the precomposed spelling) — `"Emma Woodhouse"`, `EmmaWoodhouse` and `emma-woodhouse` are the same lookup. A
 value that uniquely prefixes one creator resolves to it; one that prefixes
 several is an error naming them, never a silent pick.
 

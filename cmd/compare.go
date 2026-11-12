@@ -249,7 +249,14 @@ func creatorGroupings(cmd *cobra.Command, scenes []models.Scene) (map[string][]s
 			continue
 		}
 		c := proposalFor(g)
-		out[c.Name] = c.URLs()
+		name := c.Name
+		for n := 2; ; n++ {
+			if _, taken := out[name]; !taken {
+				break
+			}
+			name = fmt.Sprintf("%s (%d)", c.Name, n)
+		}
+		out[name] = c.URLs()
 	}
 	return out, true, nil
 }
@@ -330,7 +337,12 @@ func buildReport(name string, storeURLs []string, byStudio map[string][]models.S
 		withScenes = append(withScenes, st.url)
 	}
 	r.labels = storeLabels(withScenes)
-	sort.Slice(r.stores, func(i, j int) bool { return r.stores[i].scenes > r.stores[j].scenes })
+	sort.Slice(r.stores, func(i, j int) bool {
+		if r.stores[i].scenes != r.stores[j].scenes {
+			return r.stores[i].scenes > r.stores[j].scenes
+		}
+		return r.stores[i].url < r.stores[j].url
+	})
 	sort.Slice(r.groups, func(i, j int) bool {
 		_, _, gi, _ := r.groups[i].spread()
 		_, _, gj, _ := r.groups[j].spread()
@@ -421,7 +433,12 @@ func printReport(r creatorReport, top int, exclusives bool) {
 			cheapest = append(cheapest, s)
 		}
 	}
-	sort.Slice(cheapest, func(i, j int) bool { return cheapest[i].cheapest > cheapest[j].cheapest })
+	sort.Slice(cheapest, func(i, j int) bool {
+		if cheapest[i].cheapest != cheapest[j].cheapest {
+			return cheapest[i].cheapest > cheapest[j].cheapest
+		}
+		return cheapest[i].url < cheapest[j].url
+	})
 	if len(cheapest) > 0 {
 		fmt.Printf("\n  Cheapest source for the %s carried by more than one store:\n", plural(len(r.groups), "title"))
 		for _, s := range cheapest {

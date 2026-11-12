@@ -1,10 +1,15 @@
 package cmd
 
 import (
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
 
+	"github.com/spf13/cobra"
+
+	"github.com/Anastylosis/FSS/internal/creators"
 	"github.com/Anastylosis/FSS/models"
 )
 
@@ -154,12 +159,8 @@ func TestProposalForPrefersThePerformerName(t *testing.T) {
 	if len(c.Stores) != 2 {
 		t.Errorf("Stores = %d, want 2", len(c.Stores))
 	}
-	// Storefront spellings become aliases so --creator matches whichever the
-	// operator remembers — but only those that add matching power. "EmmaWoodhouse"
-	// keys the same as the name "Emma Woodhouse" and would be dead weight.
-	sort.Strings(c.Aliases)
-	if strings.Join(c.Aliases, ",") != "Emma Woodhouse Films" {
-		t.Errorf("Aliases = %v, want just the spelling that keys differently", c.Aliases)
+	if len(c.Aliases) != 0 {
+		t.Errorf("Aliases = %v; store labels are covered by the studio rule and must not be listed", c.Aliases)
 	}
 }
 
@@ -190,5 +191,111 @@ func TestMostCommonIsDeterministic(t *testing.T) {
 	}
 	if got, n := mostCommon(map[string]int{}); got != "" || n != 0 {
 		t.Errorf("mostCommon of an empty map = %q/%d", got, n)
+	}
+}
+
+func TestSuggestDoesNotChainThroughACoStar(t *testing.T) {
+	var scenes []models.Scene
+	scenes = append(scenes, repeat(4, "https://a.example.com/jane", "Jane Eyre", "Jane Eyre")...)
+	scenes = append(scenes, repeat(4, "https://b.example.com/polly", "Polly Peachum", "Polly Peachum", "Jane Eyre")...)
+
+	groups := clusterStudios(profileStudios(scenes))
+	if len(groups) != 2 {
+		t.Fatalf("got %d groups, want 2: Polly's own store credits Polly as dominant", len(groups))
+	}
+	var all []studioProfile
+	for _, g := range groups {
+		all = append(all, g...)
+	}
+	if c := proposalFor(all); len(c.Aliases) != 0 {
+		t.Errorf("Aliases = %v, want none", c.Aliases)
+	}
+}
+
+func TestDominantPerformerNeedsMinimumScenesAndCountsByKey(t *testing.T) {
+	one := profileStudios([]models.Scene{studioScene("https://s.example.com", "S", "Guest")})
+	if one[0].performer != "" {
+		t.Errorf("a one-scene store made %q dominant", one[0].performer)
+	}
+	scenes := []models.Scene{
+		studioScene("https://s.example.com", "S", "Jane Eyre"),
+		studioScene("https://s.example.com", "S", "jane eyre "),
+		studioScene("https://s.example.com", "S", "JANE EYRE"),
+		studioScene("https://s.example.com", "S", "Other"),
+	}
+	scenes[1].ID, scenes[2].ID = "x", "y"
+	if got := profileStudios(scenes)[0].performer; got == "" {
+		t.Errorf("spelling variants of one performer were counted separately")
+	}
+}
+
+func TestProposalForKeepsOnlyResidueSpellings(t *testing.T) {
+	var scenes []models.Scene
+	scenes = append(scenes, repeat(4, "https://a.example.com/x", "Mina Harker", "Mina Harker")...)
+	scenes = append(scenes, repeat(4, "https://b.example.com/x", "Mina Harker Shop", "Mina H")...)
+	c := proposalFor(clusterStudios(profileStudios(scenes))[0])
+	if c.Name != "Mina H" && c.Name != "Mina Harker" {
+		t.Fatalf("Name = %q", c.Name)
+	}
+	for _, a := range c.Aliases {
+		if creators.Key(a) == creators.Key("Mina Harker Shop") {
+			t.Errorf("store label %q listed as alias", a)
+		}
+	}
+}
+
+func TestUnnamedStudiosDoNotMergeOnURL(t *testing.T) {
+	var scenes []models.Scene
+	scenes = append(scenes, repeat(2, "https://www.clips4sale.com/studio/123", "")...)
+	scenes = append(scenes, repeat(2, "https://www.clips4sale.com/studio/12345", "")...)
+	if got := len(clusterStudios(profileStudios(scenes))); got != 2 {
+		t.Errorf("got %d groups, want 2 nameless studios kept apart", got)
+	}
+}
+
+func TestClusterStudiosOrderIsDeterministic(t *testing.T) {
+	var scenes []models.Scene
+	for _, u := range []string{"c", "a", "d", "b"} {
+		scenes = append(scenes, repeat(3, "https://"+u+".example.com", "Store "+u, "P"+u)...)
+	}
+	for i := 0; i < 20; i++ {
+		var ordered []string
+		for _, g := range clusterStudios(profileStudios(scenes)) {
+			ordered = append(ordered, g[0].url)
+		}
+		if !sort.StringsAreSorted(ordered) {
+			t.Fatalf("clusters not ordered: %v", ordered)
+		}
+	}
+}
+
+func TestWriteProposalsSkipsCollidingKeys(t *testing.T) {
+	dir := t.TempDir()
+	existing := "name: Jane Eyre\nstores:\n  - url: https://a.example.com\n"
+	if err := os.WriteFile(filepath.Join(dir, "jane-eyre.yaml"), []byte(existing), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cmd := &cobra.Command{}
+	cmd.Flags().String("creators-dir", dir, "")
+	cmd.Flags().Bool("force", false, "")
+	proposals := []creators.Creator{
+		{Name: "JaneEyre", Stores: []creators.Store{{URL: "https://b.example.com"}}},
+		{Name: "Polly Peachum", Stores: []creators.Store{{URL: "https://c.example.com"}}},
+		{Name: "Other", Aliases: []string{"Polly Peachum"}, Stores: []creators.Store{{URL: "https://d.example.com"}}},
+	}
+	if err := writeProposals(cmd, proposals); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := creators.Load(dir); err != nil {
+		t.Fatalf("directory no longer loads: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "janeeyre.yaml")); err == nil {
+		t.Error("colliding proposal was written")
+	}
+	if _, err := os.Stat(filepath.Join(dir, "other.yaml")); err == nil {
+		t.Error("proposal colliding within the batch was written")
+	}
+	if _, err := os.Stat(filepath.Join(dir, "polly-peachum.yaml")); err != nil {
+		t.Error("non-colliding proposal was not written")
 	}
 }

@@ -20,6 +20,7 @@ import (
 	"unicode"
 
 	"github.com/adrg/xdg"
+	"golang.org/x/text/unicode/norm"
 	"gopkg.in/yaml.v3"
 
 	"github.com/Anastylosis/FSS/output"
@@ -95,7 +96,9 @@ func (c Creator) Keys() []string {
 }
 
 // Key canonicalises a creator name for comparison: lowercased, with everything
-// that is not a letter or digit removed.
+// that is not a letter, digit or combining mark removed. The input is NFC
+// normalised first so a decomposed spelling keys like its precomposed form, and
+// marks are kept because in Indic and Thai scripts they are part of the word.
 //
 // It is deliberately tighter than match.NormalizeName, which keeps spaces. The
 // same person is spelled "Emma Woodhouse", "EmmaWoodhouse" and "Emma Woodhouse Films" across
@@ -104,8 +107,8 @@ func (c Creator) Keys() []string {
 func Key(s string) string {
 	var b strings.Builder
 	b.Grow(len(s))
-	for _, r := range strings.ToLower(s) {
-		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+	for _, r := range strings.ToLower(norm.NFC.String(s)) {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) || unicode.IsMark(r) {
 			b.WriteRune(r)
 		}
 	}
@@ -180,7 +183,7 @@ func Load(dir string) ([]Creator, error) {
 
 		for _, k := range c.Keys() {
 			if prev, dup := byKey[k]; dup {
-				return nil, fmt.Errorf("%s: creator name or alias %q is already claimed by %s", path, k, prev)
+				return nil, fmt.Errorf("creator name or alias %q is claimed by both %s and %s", k, prev, path)
 			}
 			byKey[k] = path
 		}

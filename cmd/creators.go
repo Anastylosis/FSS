@@ -183,7 +183,12 @@ type studioProfile struct {
 	name      string // most common Scene.Studio
 	scenes    int
 	performer string // performer appearing in at least half the scenes, if any
+	unnamed   bool   // no scene carried a Studio; name is the URL
 }
+
+// minDominantScenes is the fewest scenes a store needs before a performer can
+// be called dominant on it: with one scene, its single guest is on 100% of them.
+const minDominantScenes = 3
 
 func runCreatorsSuggest(cmd *cobra.Command, _ []string) error {
 	scenes, src, err := loadFSSScenes(cmd)
@@ -211,7 +216,11 @@ func runCreatorsSuggest(cmd *cobra.Command, _ []string) error {
 	}
 	sort.Strings(singles)
 	sort.Slice(proposals, func(i, j int) bool {
-		return creators.Key(proposals[i].Name) < creators.Key(proposals[j].Name)
+		ki, kj := creators.Key(proposals[i].Name), creators.Key(proposals[j].Name)
+		if ki != kj {
+			return ki < kj
+		}
+		return proposals[i].Stores[0].URL < proposals[j].Stores[0].URL
 	})
 
 	if len(proposals) == 0 {
@@ -261,16 +270,35 @@ func writeProposals(cmd *cobra.Command, proposals []creators.Creator) error {
 		return fmt.Errorf("creating %s: %w", dir, err)
 	}
 
+	existing, err := creators.Load(dir)
+	if err != nil {
+		return fmt.Errorf("creators already in %s do not load, fix that before writing more: %w", dir, err)
+	}
+	claimed := map[string]string{} // creator key → file that holds it
+	for _, e := range existing {
+		for _, k := range e.Keys() {
+			claimed[k] = filepath.Base(e.Path)
+		}
+	}
+
 	force, _ := cmd.Flags().GetBool("force")
 	written, skipped := 0, 0
 	for _, c := range proposals {
 		path := filepath.Join(dir, creators.Filename(c.Name))
-		if !force {
-			if _, err := os.Stat(path); err == nil {
-				fmt.Printf("  skip   %s (already exists; --force to overwrite)\n", filepath.Base(path))
-				skipped++
-				continue
-			}
+		_, statErr := os.Stat(path)
+		exists := statErr == nil
+		if exists && !force {
+			fmt.Printf("  skip   %s (file already exists; --force to overwrite)\n", filepath.Base(path))
+			skipped++
+			continue
+		}
+		if holder, clash := claimedElsewhere(c, claimed, filepath.Base(path)); clash {
+			fmt.Printf("  skip   %s (name or alias already claimed by %s)\n", filepath.Base(path), holder)
+			skipped++
+			continue
+		}
+		for _, k := range c.Keys() {
+			claimed[k] = filepath.Base(path)
 		}
 		body, err := c.Marshal()
 		if err != nil {
@@ -289,11 +317,22 @@ func writeProposals(cmd *cobra.Command, proposals []creators.Creator) error {
 	return nil
 }
 
+// claimedElsewhere reports a key of c already held by a file other than self.
+func claimedElsewhere(c creators.Creator, claimed map[string]string, self string) (string, bool) {
+	for _, k := range c.Keys() {
+		if holder, ok := claimed[k]; ok && holder != self {
+			return holder, true
+		}
+	}
+	return "", false
+}
+
 // profileStudios reduces the scene set to one profile per studio URL.
 func profileStudios(scenes []models.Scene) []studioProfile {
 	type acc struct {
 		names      map[string]int
-		performers map[string]int
+		performers map[string]int // by creators.Key
+		spellings  map[string]map[string]int
 		total      int
 	}
 	byURL := map[string]*acc{}
@@ -303,7 +342,7 @@ func profileStudios(scenes []models.Scene) []studioProfile {
 		}
 		a := byURL[sc.StudioURL]
 		if a == nil {
-			a = &acc{names: map[string]int{}, performers: map[string]int{}}
+			a = &acc{names: map[string]int{}, performers: map[string]int{}, spellings: map[string]map[string]int{}}
 			byURL[sc.StudioURL] = a
 		}
 		a.total++
@@ -314,11 +353,16 @@ func profileStudios(scenes []models.Scene) []studioProfile {
 		// scene cannot manufacture dominance.
 		seen := map[string]bool{}
 		for _, p := range sc.Performers {
-			if p == "" || seen[p] {
+			k := creators.Key(p)
+			if k == "" || seen[k] {
 				continue
 			}
-			seen[p] = true
-			a.performers[p]++
+			seen[k] = true
+			a.performers[k]++
+			if a.spellings[k] == nil {
+				a.spellings[k] = map[string]int{}
+			}
+			a.spellings[k][p]++
 		}
 	}
 
@@ -328,18 +372,40 @@ func profileStudios(scenes []models.Scene) []studioProfile {
 		p.name, _ = mostCommon(a.names)
 		if p.name == "" {
 			p.name = url
+			p.unnamed = true
 		}
-		name, n := mostCommon(a.performers)
-		// Half the catalogue is a high bar for a multi-performer network and a
-		// near-certainty for a solo creator's own storefront, which is exactly
-		// the distinction this signal has to make.
-		if n*2 >= a.total {
-			p.performer = name
+		if a.total >= minDominantScenes {
+			p.performer = dominantPerformer(a.performers, a.spellings, creators.Key(p.name), a.total)
 		}
 		out = append(out, p)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].url < out[j].url })
 	return out
+}
+
+// dominantPerformer picks the performer credited on at least half a store's
+// scenes. Half the catalogue is a high bar for a multi-performer network and a
+// near-certainty for a solo creator's own storefront, which is the distinction
+// this signal has to make. When several tie for the top, the one matching the
+// store's own label wins, since that is the shop crediting itself; otherwise the
+// tie is broken deterministically.
+func dominantPerformer(counts map[string]int, spellings map[string]map[string]int, studioKey string, total int) string {
+	best, bestN := "", 0
+	for k, n := range counts {
+		switch {
+		case n > bestN:
+			best, bestN = k, n
+		case n == bestN && k != best:
+			if k == studioKey || (best != studioKey && k < best) {
+				best = k
+			}
+		}
+	}
+	if best == "" || bestN*2 < total {
+		return ""
+	}
+	name, _ := mostCommon(spellings[best])
+	return name
 }
 
 // mostCommon returns the highest-counted key, breaking ties by the shorter and
@@ -400,8 +466,14 @@ func clusterStudios(profiles []studioProfile) [][]studioProfile {
 	}
 
 	for i := range profiles {
+		if profiles[i].unnamed {
+			continue
+		}
 		ki := creators.Key(profiles[i].name)
 		for j := i + 1; j < len(profiles); j++ {
+			if profiles[j].unnamed {
+				continue
+			}
 			kj := creators.Key(profiles[j].name)
 			short, long := ki, kj
 			if len(short) > len(long) {
@@ -420,9 +492,15 @@ func clusterStudios(profiles []studioProfile) [][]studioProfile {
 	}
 	out := make([][]studioProfile, 0, len(grouped))
 	for _, g := range grouped {
-		sort.Slice(g, func(a, b int) bool { return g[a].scenes > g[b].scenes })
+		sort.Slice(g, func(a, b int) bool {
+			if g[a].scenes != g[b].scenes {
+				return g[a].scenes > g[b].scenes
+			}
+			return g[a].url < g[b].url
+		})
 		out = append(out, g)
 	}
+	sort.Slice(out, func(a, b int) bool { return out[a][0].url < out[b][0].url })
 	return out
 }
 
@@ -440,25 +518,51 @@ func proposalFor(group []studioProfile) creators.Creator {
 	name, _ := mostCommon(perfCounts)
 	if name == "" {
 		// No dominant performer anywhere: fall back to the shortest studio
-		// label, which is the one least likely to carry a brand suffix.
-		name = group[0].name
-		for _, p := range group[1:] {
-			if len(p.name) < len(name) {
+		// label, which is the one least likely to carry a brand suffix. A
+		// studio that published no name is a last resort, never a label.
+		for _, p := range group {
+			if !p.unnamed && (name == "" || len(p.name) < len(name)) {
 				name = p.name
 			}
+		}
+		if name == "" {
+			name = group[0].name
 		}
 	}
 
 	c := creators.Creator{Name: name}
-	seenAlias := map[string]bool{creators.Key(name): true}
 	for _, p := range group {
 		c.Stores = append(c.Stores, creators.Store{URL: p.url})
-		// Every distinct spelling the storefronts use becomes an alias, so
-		// --creator matches whichever one the operator remembers.
-		if k := creators.Key(p.name); k != "" && !seenAlias[k] {
-			seenAlias[k] = true
-			c.Aliases = append(c.Aliases, p.name)
+	}
+	c.Aliases = residueSpellings(group, name)
+	return c
+}
+
+// residueSpellings returns the spellings canon cannot derive by itself: a store
+// whose dominant credit differs from both its own studio label and the creator's
+// name. A store label is never listed — canon already folds a credit equal to
+// the scene's studio — and a credit that is another store's label or dominant
+// performer is a co-star there, which listing it would erase.
+func residueSpellings(group []studioProfile, name string) []string {
+	taken := map[string]bool{creators.Key(name): true}
+	uses := map[string]int{}
+	for _, p := range group {
+		if !p.unnamed {
+			uses[creators.Key(p.name)]++
+		}
+		if p.performer != "" {
+			uses[creators.Key(p.performer)]++
 		}
 	}
-	return c
+	var out []string
+	for _, p := range group {
+		k := creators.Key(p.performer)
+		if k == "" || taken[k] || p.unnamed || k == creators.Key(p.name) || uses[k] > 1 {
+			continue
+		}
+		taken[k] = true
+		out = append(out, p.performer)
+	}
+	sort.Strings(out)
+	return out
 }
