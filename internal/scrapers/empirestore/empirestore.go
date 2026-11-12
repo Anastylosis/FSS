@@ -27,6 +27,7 @@ var sites = []siteConfig{
 	{"spungygunkfilms", "spungygunkfilms.empirestores.co", "Spungy Gunk Films", "/shop-streaming-video-by-scene.html"},
 	{"dvsx", "dvsx.com", "DVSX", "/watch-streaming-video-by-scene.html?studio=21558&sort=released"},
 	{"only3x", "only3x.com", "Only 3x", "/watch-newest-only-3x-clips-and-scenes.html"},
+	{"thirdworldmedia", "thirdworldxxx.com", "Third World Media", "/watch-newest-clips-and-scenes.html"},
 }
 
 type siteScraper struct {

@@ -7,8 +7,8 @@ import (
 )
 
 func TestSitesTable(t *testing.T) {
-	if len(sites) != 9 {
-		t.Errorf("sites count = %d, want 9", len(sites))
+	if len(sites) != 10 {
+		t.Errorf("sites count = %d, want 10", len(sites))
 	}
 }
 
