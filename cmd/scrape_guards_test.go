@@ -29,8 +29,8 @@ func TestScrapeOne_emptyRefreshGuard(t *testing.T) {
 	run := func(force bool) {
 		t.Helper()
 		if err := scrapeOne(context.Background(), st, scrapeTarget{url: url}, "", "", "", []string{"json"},
-			false, true, force, true, 1, siteSettings{}, sceneOverrides{}); err != nil {
-			t.Fatalf("scrapeOne: %v", err)
+			false, true, force, true, 1, siteSettings{}, sceneOverrides{}); (err != nil) == force || (err != nil && exitCodeOf(err) != ExitRefused) {
+			t.Fatalf("scrapeOne(force=%v): %v", force, err)
 		}
 	}
 	run(false)

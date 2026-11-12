@@ -228,21 +228,36 @@ func runScrape(cmd *cobra.Command, args []string) error {
 	// only; we deliberately do NOT run multiple URLs in parallel so the worker
 	// cap is the global cap (no N×workers explosion against unrelated hosts).
 	var firstErr error
+	worst := 0
+	note := func(err error) {
+		if firstErr == nil {
+			firstErr = err
+		}
+		if c := exitCodeOf(err); exitPriority(c) > exitPriority(worst) {
+			worst = c
+		}
+	}
 	for i, tgt := range targets {
 		if i > 0 {
 			fmt.Println()
 		}
 		if err := scrapeOne(ctx, st, tgt, name, dbPath, outDir, formats, full, refresh, force, !noPreserve, workers, sites, overrides); err != nil {
-			fmt.Fprintf(os.Stderr, "error scraping %s: %v\n", tgt.url, err)
-			if firstErr == nil {
-				firstErr = err
+			if !isReported(err) {
+				fmt.Fprintf(os.Stderr, "error scraping %s: %v\n", tgt.url, err)
 			}
+			note(err)
 		}
 		if ctx.Err() != nil {
 			break
 		}
 	}
-	return firstErr
+	if ctx.Err() != nil {
+		note(&exitError{code: ExitInterrupted, err: errors.New("interrupted")})
+	}
+	if firstErr == nil {
+		return nil
+	}
+	return &exitError{code: worst, err: firstErr, reported: true}
 }
 
 // siteSettings is the per-site knobs a run resolves once from config and flags:
@@ -347,7 +362,7 @@ func scrapeOne(ctx context.Context, st store.Store, tgt scrapeTarget, name, dbPa
 			fmt.Fprintf(os.Stderr,
 				"warning: scrape returned 0 scenes but %d are already stored for %s — refusing destructive save (use --force to override)\n",
 				at, studioURL)
-			return nil
+			return &exitError{code: ExitRefused, err: fmt.Errorf("refused destructive save: 0 scenes scraped, %d stored", at), reported: true}
 		}
 	}
 
@@ -356,7 +371,7 @@ func scrapeOne(ctx context.Context, st store.Store, tgt scrapeTarget, name, dbPa
 	// catches the total loss. Everything short of that reaches here looking
 	// like a clean run, so check it against what is already stored.
 	if (cov.fresh > 0 || (!full && !refresh)) && cov.collapsed() && !proceedAfterCollapse(ctx, cov, studioURL, sc.ID(), full || refresh, force) {
-		return nil
+		return &exitError{code: ExitRefused, err: fmt.Errorf("save declined: coverage collapsed for %s", studioURL), reported: true}
 	}
 
 	// Normalise StudioURL to the URL being saved. Some scrapers stamp a
@@ -710,8 +725,8 @@ func collectScenes(ctx context.Context, sc scraper.StudioScraper, studioURL stri
 	if ctx.Err() != nil {
 		fmt.Printf("Interrupted — saving %d partial results...\n", len(scenes))
 	}
-	if errCount > 0 && len(scenes) == 0 {
-		return nil, traversal{incomplete: true}, fmt.Errorf("scrape failed with %d error(s) and 0 scenes", errCount)
+	if missing > 0 && len(scenes) == 0 {
+		return nil, traversal{incomplete: true}, fmt.Errorf("scrape failed with %d error(s) and 0 scenes", missing)
 	}
 	// Only failures that cost us scenes make a traversal incomplete. A run
 	// whose sole errors were absent resources (an optional sub-listing the

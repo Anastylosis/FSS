@@ -279,6 +279,19 @@ fss completion zsh > "${fpath[1]}/_fss" # zsh
 fss completion fish | source            # fish
 ```
 
+### Exit codes
+
+**Release note:** commands now exit non-zero when they did not fully succeed. Scripts and cron jobs that treated every run as success should be reviewed.
+
+| Code | Meaning |
+|------|---------|
+| 0 | Success. A traversal that merely came back incomplete (some pages failed but scenes were saved) still exits 0. |
+| 1 | Failure: an error, any `scrape` target failing, `stash import --apply` with failed scenes, `fss import` with unreadable or unsaveable files, or a `fss doctor` check failing. |
+| 2 | A save was refused or declined and nothing was written: the 0-scene guard, or a coverage-collapse prompt answered no or skipped because stdin is not a terminal (`--force` overrides both). |
+| 3 | Interrupted by SIGINT/SIGTERM. Partial results may have been saved; later targets did not run. |
+
+With several `scrape` targets the most severe code wins (3, then 1, then 2). Errors print once, without the flag list.
+
 ### `fss config init`
 
 Creates a default config file at the XDG config path (e.g. `~/.config/fss/config.yaml`). Fails if the file already exists.

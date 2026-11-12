@@ -17,9 +17,13 @@ import (
 var cfg *config.Config
 
 var rootCmd = &cobra.Command{
-	Use:   "fss",
-	Short: "FullStudioScraper — scrape all scenes and metadata from a studio URL",
+	Use:           "fss",
+	Short:         "FullStudioScraper — scrape all scenes and metadata from a studio URL",
+	SilenceErrors: true,
 	PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
+		// Args and flags parsed: from here an error is a runtime failure, not
+		// a usage mistake, so do not append the flag list.
+		cmd.SilenceUsage = true
 		verbose, _ := cmd.Flags().GetCount("debug")
 		scraper.SetVerbose(verbose)
 
@@ -86,6 +90,9 @@ func Execute() {
 	}
 	cobrai18n.Localize(rootCmd) // restore func deliberately dropped: one Execute per process
 	if err := rootCmd.Execute(); err != nil {
-		os.Exit(1)
+		if !isReported(err) {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		}
+		os.Exit(exitCodeOf(err))
 	}
 }

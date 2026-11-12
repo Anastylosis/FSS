@@ -495,6 +495,12 @@ func runStashImport(cmd *cobra.Command, _ []string) error {
 		fmt.Printf("Dry-run: %d would match, %d already up-to-date, %d skipped, %d ambiguous\n",
 			stats.matched, stats.upToDate, stats.skipped, stats.ambiguous)
 	}
+	if o.apply && stats.failed > 0 {
+		return &exitError{code: ExitFailure, err: fmt.Errorf("%d scene(s) failed to import", stats.failed), reported: true}
+	}
+	if o.apply && ctx.Err() != nil {
+		return &exitError{code: ExitInterrupted, err: errors.New("interrupted"), reported: true}
+	}
 	return nil
 }
 

@@ -34,8 +34,8 @@ func TestScrapeOne_fullGuardCountsSoftDeleted(t *testing.T) {
 	st := store.NewFlat(t.TempDir(), []string{"json"})
 	seedDeleted(t, st, url, "a1alldel", 30)
 	if err := scrapeOne(context.Background(), st, scrapeTarget{url: url}, "", "", "", []string{"json"},
-		true, false, false, true, 1, siteSettings{}, sceneOverrides{}); err != nil {
-		t.Fatal(err)
+		true, false, false, true, 1, siteSettings{}, sceneOverrides{}); exitCodeOf(err) != ExitRefused {
+		t.Fatalf("want ExitRefused, got %v", err)
 	}
 	if got, _ := st.Load(url); len(got) != 30 {
 		t.Errorf("%d scenes remain, want 30", len(got))

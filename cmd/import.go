@@ -112,6 +112,9 @@ func runImport(cmd *cobra.Command, args []string) error {
 		fmt.Printf(", %d file(s) skipped", skipped)
 	}
 	fmt.Println()
+	if skipped > 0 {
+		return &exitError{code: ExitFailure, err: fmt.Errorf("%d file(s) could not be imported", skipped), reported: true}
+	}
 	return nil
 }
 

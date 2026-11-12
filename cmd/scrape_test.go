@@ -998,8 +998,8 @@ func TestScrapeOne_emptyWipeGuard(t *testing.T) {
 
 	// --full, no --force: must refuse and keep the existing scene.
 	if err := scrapeOne(context.Background(), st, scrapeTarget{url: url}, "", "", "", []string{"json"},
-		true, false, false, true, 1, siteSettings{}, sceneOverrides{}); err != nil {
-		t.Fatalf("scrapeOne (guard): %v", err)
+		true, false, false, true, 1, siteSettings{}, sceneOverrides{}); exitCodeOf(err) != ExitRefused {
+		t.Fatalf("scrapeOne (guard): want ExitRefused, got %v", err)
 	}
 	got, _ := st.Load(url)
 	if len(got) != 1 {
@@ -1226,8 +1226,8 @@ func TestScrapeOneCollapseSkipsDestructiveSave(t *testing.T) {
 	// Declined at the prompt: the store must be untouched.
 	withPrompt(t, true, "n\n")
 	if err := scrapeOne(context.Background(), st, scrapeTarget{url: studioURL}, "", "", dir, []string{"json"},
-		true, false, false, true, 1, siteSettings{}, sceneOverrides{}); err != nil {
-		t.Fatalf("scrapeOne: %v", err)
+		true, false, false, true, 1, siteSettings{}, sceneOverrides{}); exitCodeOf(err) != ExitRefused {
+		t.Fatalf("scrapeOne: want ExitRefused, got %v", err)
 	}
 	after, err := st.Load(studioURL)
 	if err != nil {

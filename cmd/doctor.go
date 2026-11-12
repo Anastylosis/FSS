@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -69,9 +70,7 @@ func runDoctor(cmd *cobra.Command, _ []string) error {
 		if dbPath == "" {
 			return "disabled (flat JSON mode)", true
 		}
-		if dbPath == "default" {
-			dbPath = config.DefaultDBPath()
-		}
+		dbPath = config.ResolveDBPath(dbPath)
 		s, err := store.NewSQLite(dbPath)
 		if err != nil {
 			return dbPath + " — " + err.Error(), false
@@ -251,6 +250,7 @@ func runDoctor(cmd *cobra.Command, _ []string) error {
 		_, _ = fmt.Fprintln(w, "All checks passed.")
 	} else {
 		_, _ = fmt.Fprintln(w, "Some checks failed — see above.")
+		return &exitError{code: ExitFailure, err: errors.New("one or more doctor checks failed"), reported: true}
 	}
 	return nil
 }
