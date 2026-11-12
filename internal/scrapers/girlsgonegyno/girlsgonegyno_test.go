@@ -96,8 +96,8 @@ func TestMatchesURL(t *testing.T) {
 }
 
 func TestCaptiveClinicConfigRegistered(t *testing.T) {
-	if len(sites) != 3 {
-		t.Fatalf("expected 3 configured sites, got %d", len(sites))
+	if len(sites) != 4 {
+		t.Fatalf("expected 4 configured sites, got %d", len(sites))
 	}
 	if sites[1].ID != "captiveclinic" {
 		t.Errorf("sites[1].ID = %q, want captiveclinic", sites[1].ID)
@@ -190,6 +190,67 @@ func TestToSceneLeluLove(t *testing.T) {
 	}
 	if len(sc.Performers) != 1 || sc.Performers[0] != "Lelu Love" || !strings.HasSuffix(sc.Thumbnail, "s3v7a2x4y8l0c8.jpg") {
 		t.Errorf("scene = %+v", sc)
+	}
+}
+
+const diaperCard = `
+<div class="col-12 col-sm-6 col-md-4 pl-2 pr-2 pb-4"> <div class="card" style="width:100%;height:100%;"> <a href="https://www.diaperedonline.com/?mb=VHJhaWxlcnx8dzRuM3A2ZTBqNGEx"> <img class="card-img-top thumbvideo" src="https://www.diaperedonline.com/content/art/videos/w4n3p6e0j4a1.jpg" alt="Bambi &amp; Siren"> </a> <div class="card-body"> <h5 class="card-title"> <a href="https://www.diaperedonline.com/?mb=VHJhaWxlcnx8dzRuM3A2ZTBqNGEx">Bambi &amp; Siren: Strapon Sex While Samara Watches</a> </h5> <p class="card-text"><strong>Model: </strong><a href="https://www.diaperedonline.com/?mb=TW9kZWxz">Bambi</a>, <a href="https://www.diaperedonline.com/?mb=TW9kZWxz">Samara</a><br><strong>Posted: </strong>Fri, 20 Nov 2026</p> </div> </div> </div>`
+
+func TestToSceneDiaperedOnline(t *testing.T) {
+	s := New(sites[3])
+	if s.cfg.PageSize != 15 || !s.cfg.InlineCards {
+		t.Errorf("PageSize = %d, InlineCards = %v", s.cfg.PageSize, s.cfg.InlineCards)
+	}
+	card := strings.SplitN(diaperCard, `<div class="col-12 col-sm-6 col-md-4 pl-2 pr-2 pb-4">`, 2)[1]
+	sc, ok := s.toScene("https://www.diaperedonline.com/", card, time0())
+	if !ok {
+		t.Fatal("card rejected")
+	}
+	if sc.ID != "w4n3p6e0j4a1" || sc.Title != "Bambi & Siren: Strapon Sex While Samara Watches" {
+		t.Errorf("ID/Title = %q %q", sc.ID, sc.Title)
+	}
+	if !strings.HasSuffix(sc.Thumbnail, "w4n3p6e0j4a1.jpg") {
+		t.Errorf("Thumbnail = %q", sc.Thumbnail)
+	}
+	if len(sc.Performers) != 2 || sc.Performers[0] != "Bambi" || sc.Performers[1] != "Samara" {
+		t.Errorf("Performers = %v", sc.Performers)
+	}
+	if !sc.Date.Equal(time.Date(2026, 11, 20, 0, 0, 0, 0, time.UTC)) {
+		t.Errorf("Date = %v", sc.Date)
+	}
+}
+
+func TestListScenesInlineCardsEndToEnd(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		switch r.URL.Path {
+		case "/index.php":
+			_, _ = fmt.Fprint(w, "<html><body>"+diaperCard+diaperCard+"</body></html>")
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer ts.Close()
+
+	cfg := sites[3]
+	cfg.SiteBase = ts.URL
+	s := New(cfg)
+
+	ch, err := s.ListScenes(context.Background(), ts.URL, scraper.ListOpts{})
+	if err != nil {
+		t.Fatalf("ListScenes error: %v", err)
+	}
+	var scenes int
+	for r := range ch {
+		switch r.Kind {
+		case scraper.KindScene:
+			scenes++
+		case scraper.KindError:
+			t.Errorf("unexpected error: %v", r.Err)
+		}
+	}
+	if scenes != 2 {
+		t.Errorf("got %d scenes, want 2", scenes)
 	}
 }
 

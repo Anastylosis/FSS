@@ -50,6 +50,10 @@ type SiteConfig struct {
 	// Performer credits every scene to one person on a site whose cards
 	// carry no Model line (a performer's own store).
 	Performer string
+	// InlineCards means the listing page carries its cards directly rather
+	// than lazy-loading them from a content/pages fragment (the Bootstrap 4
+	// card template, e.g. Diapered Online).
+	InlineCards bool
 }
 
 var sites = []SiteConfig{
@@ -72,6 +76,14 @@ var sites = []SiteConfig{
 		MatchRe:   regexp.MustCompile(`^https?://(?:www\.)?lelulove\.com(?:/|$)`),
 		PageSize:  9,
 		Performer: "Lelu Love",
+	},
+	{
+		ID:          "diaperedonline",
+		SiteBase:    "https://www.diaperedonline.com",
+		Studio:      "Diapered Online",
+		MatchRe:     regexp.MustCompile(`^https?://(?:www\.)?diaperedonline\.com(?:/|$)`),
+		PageSize:    15,
+		InlineCards: true,
 	},
 }
 
@@ -130,8 +142,9 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 }
 
 var (
-	loadHashRe  = regexp.MustCompile(`\.load\("(content/pages/[a-z0-9_]+\.list\.htm)"\)`)
-	cardSplitRe = regexp.MustCompile(`<div class='col-sm-4 img-portfolio'>`)
+	loadHashRe        = regexp.MustCompile(`\.load\("(content/pages/[a-z0-9_]+\.list\.htm)"\)`)
+	cardSplitRe       = regexp.MustCompile(`<div class='col-sm-4 img-portfolio'>`)
+	inlineCardSplitRe = regexp.MustCompile(`<div class="col-12 col-sm-6 col-md-4 pl-2 pr-2 pb-4">`)
 )
 
 // fetchPage fetches the wrapper for the given offset, extracts the lazy-load
@@ -142,6 +155,9 @@ func (s *Scraper) fetchPage(ctx context.Context, offset int) ([]string, error) {
 	wrapper, err := s.fetchBody(ctx, wrapperURL)
 	if err != nil {
 		return nil, fmt.Errorf("fetching wrapper: %w", err)
+	}
+	if s.cfg.InlineCards {
+		return splitCards(wrapper, inlineCardSplitRe), nil
 	}
 	m := loadHashRe.FindStringSubmatch(wrapper)
 	if m == nil {
@@ -154,11 +170,16 @@ func (s *Scraper) fetchPage(ctx context.Context, offset int) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("fetching fragment: %w", err)
 	}
-	parts := cardSplitRe.Split(frag, -1)
+	return splitCards(frag, cardSplitRe), nil
+}
+
+// splitCards returns the chunks after the first split marker, one per card.
+func splitCards(html string, marker *regexp.Regexp) []string {
+	parts := marker.Split(html, -1)
 	if len(parts) <= 1 {
-		return nil, nil
+		return nil
 	}
-	return parts[1:], nil
+	return parts[1:]
 }
 
 func (s *Scraper) fetchBody(ctx context.Context, u string) (string, error) {
@@ -180,9 +201,9 @@ func (s *Scraper) fetchBody(ctx context.Context, u string) (string, error) {
 var (
 	ridRe        = regexp.MustCompile(`data-rid="([a-z0-9]+)"`)
 	trailerRe    = regexp.MustCompile(`\?mb=([A-Za-z0-9+/=]+)`)
-	titleRe      = regexp.MustCompile(`(?s)<h4[^>]*>\s*<a[^>]+>([^<]+)</a>`)
-	thumbRe      = regexp.MustCompile(`<img class='img-responsive thumbvideo'[^>]+src='([^']+)'`)
-	modelBlockRe = regexp.MustCompile(`(?s)<strong>Model:\s*</strong>(.*?)<br>`)
+	titleRe      = regexp.MustCompile(`(?s)<h[45][^>]*>\s*<a[^>]+>([^<]+)</a>`)
+	thumbRe      = regexp.MustCompile(`<img class=["'][^"']*thumbvideo[^"']*["'][^>]*src=["']([^"']+)["']`)
+	modelBlockRe = regexp.MustCompile(`(?s)<strong>Model:\s*</strong>(.*?)(?:<br>|</p>)`)
 	performerRe  = regexp.MustCompile(`<a[^>]*>([^<]+)</a>`)
 	postedRe     = regexp.MustCompile(`<strong>Posted:\s*</strong>\s*([^<]+)`)
 	lengthRe     = regexp.MustCompile(`<strong>Length:\s*</strong>([0-9:]+)`)

@@ -19,3 +19,7 @@ func TestLiveLeluLove(t *testing.T) {
 func TestLiveCaptiveClinic(t *testing.T) {
 	testutil.RunLiveScrape(t, New(sites[1]), "https://www.captiveclinic.com/", 3)
 }
+
+func TestLiveDiaperedOnline(t *testing.T) {
+	testutil.RunLiveScrape(t, New(sites[3]), "https://www.diaperedonline.com/", 3)
+}
