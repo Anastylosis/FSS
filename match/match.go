@@ -445,7 +445,7 @@ func matchAgainst(titleMap map[string][]models.Scene, si *substringIndex, norm s
 	}
 
 	if len(candidates) == 1 {
-		return MatchResult{Confidence: MatchSubstring, Scenes: candidates[0].scenes}
+		return substringResult(candidates[0].scenes)
 	}
 
 	distinctTitles := map[string]bool{}
@@ -458,7 +458,7 @@ func matchAgainst(titleMap map[string][]models.Scene, si *substringIndex, norm s
 		for _, c := range candidates {
 			allScenes = append(allScenes, c.scenes...)
 		}
-		return MatchResult{Confidence: MatchSubstring, Scenes: allScenes}
+		return substringResult(allScenes)
 	}
 
 	// Pick the longest matching title as the most-specific match (more
@@ -486,7 +486,16 @@ func matchAgainst(titleMap map[string][]models.Scene, si *substringIndex, norm s
 			Candidates: len(distinctTitles),
 		}
 	}
-	return MatchResult{Confidence: MatchSubstring, Scenes: best.scenes}
+	return substringResult(best.scenes)
+}
+
+// substringResult applies the same-title guard of the exact path: scenes that
+// conflict on date or duration are different scenes, so the match is ambiguous.
+func substringResult(scenes []models.Scene) MatchResult {
+	if !exactScenesAgree(scenes) {
+		return MatchResult{Confidence: MatchAmbiguous, Candidates: len(scenes)}
+	}
+	return MatchResult{Confidence: MatchSubstring, Scenes: scenes}
 }
 
 // sceneDateTolerance is how far two scenes' dates may differ and still be
@@ -514,6 +523,9 @@ func exactScenesAgree(scenes []models.Scene) bool {
 // sceneDateTolerance apart, mark them as different. Missing data can't
 // disagree, so it never blocks a legitimate cross-site merge.
 func scenesCompatible(a, b models.Scene) bool {
+	if same, known := externalIDsAgree(a, b); known {
+		return same
+	}
 	if a.Duration > 0 && b.Duration > 0 && !durationClose(a.Duration, float64(b.Duration)) {
 		return false
 	}
@@ -570,4 +582,19 @@ func countCodepoints(s string) int {
 		n++
 	}
 	return n
+}
+
+// externalIDsAgree compares the cross-site IDs two scenes both carry. known is
+// false when they share no source, so the date/duration heuristics decide; a
+// shared ID settles it, and a differing ID for one source means different scenes.
+func externalIDsAgree(a, b models.Scene) (same, known bool) {
+	for src, av := range a.ExternalIDs {
+		if bv, ok := b.ExternalIDs[src]; ok && av != "" && bv != "" {
+			if av == bv {
+				return true, true
+			}
+			known = true
+		}
+	}
+	return false, known
 }

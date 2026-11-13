@@ -98,6 +98,20 @@ func TestRunDryRun(t *testing.T) {
 	}
 }
 
+func TestRunSharedNFONameSkipsSecondVideo(t *testing.T) {
+	dir := t.TempDir()
+	mp4 := filepath.Join(dir, "scene.mp4")
+	mkv := filepath.Join(dir, "scene.mkv")
+	idx := match.BuildIndex([]models.Scene{scene("1", "manyvids", "scene")})
+	results := Run([]string{mp4, mkv}, idx, Options{Apply: true, Force: true})
+	if len(results) != 2 || results[0].Skipped || !results[1].Skipped {
+		t.Fatalf("unexpected results: %+v", results)
+	}
+	if !strings.Contains(results[1].SkipReason, "scene.mp4") {
+		t.Errorf("reason = %q", results[1].SkipReason)
+	}
+}
+
 func TestRunApply(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "Fostering the Bully.mp4"), []byte("x"), 0o644); err != nil {

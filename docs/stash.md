@@ -160,7 +160,9 @@ FSS matches Stash scenes to FSS scenes by comparing each Stash scene's filename 
 
 **Duration filtering:** When the file's duration is known, candidates where the FSS scene duration differs by more than `max(10% of file duration, 30 seconds)` are rejected. This reduces false positives when multiple scenes have similar titles. In pass 3, duration is required — without it, the pass is skipped entirely.
 
-**Disambiguation:** When multiple distinct titles match as substrings, the longest (most specific) title wins. If two titles tie in length, the match is flagged as ambiguous and skipped.
+**Disambiguation:** When multiple distinct titles match as substrings, the longest (most specific) title wins. If two titles tie in length, the match is flagged as ambiguous and skipped. The same holds when a substring hit yields several scenes that conflict on date (more than 36h) or duration: they are different scenes sharing a title, so the match is ambiguous rather than merged. Scenes carrying different IDs for the same `ExternalIDs` source (e.g. `stashdb`) are always different; equal IDs always agree.
+
+**Thumbnails:** when merging, the first thumbnail whose signed URL has not expired wins over an expired one from an earlier site.
 
 **Performance:** The index uses a rarest-word inverted lookup — each title is filed under its least-frequent word — so the subset check runs against a small bucket rather than scanning all titles on every match.
 

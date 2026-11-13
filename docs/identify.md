@@ -163,7 +163,7 @@ If an `.nfo` file already exists for a video, the default behavior is to **warn 
 
 By default, `fss identify` writes `fss-report.txt` in the video directory listing:
 - **Unmatched** — video files with no FSS match
-- **Skipped** — video files where an `.nfo` already existed
+- **Skipped** — video files where an `.nfo` already existed, or whose NFO name is shared with an earlier video in the run (`scene.mp4` and `scene.mkv` both map to `scene.nfo`; only the first is written and the other is skipped as "same NFO name as ...", even with `--force`)
 
 The report is not written if all files matched successfully. Pass `--no-report` to disable.
 

@@ -102,12 +102,25 @@ func RunContext(ctx context.Context, videos []string, idx *match.SceneIndex, opt
 	var results []Result
 	client := httpx.NewClient(30 * time.Second)
 
+	claimed := map[string]string{}
 	for _, vpath := range videos {
 		if ctx.Err() != nil {
 			break
 		}
 		basename := filepath.Base(vpath)
 		nfoPath := nfoPathFor(vpath)
+
+		if first, dup := claimed[nfoPath]; dup {
+			results = append(results, Result{
+				VideoPath:  vpath,
+				NFOPath:    nfoPath,
+				Confidence: match.MatchNone,
+				Skipped:    true,
+				SkipReason: fmt.Sprintf("same NFO name as %s", filepath.Base(first)),
+			})
+			continue
+		}
+		claimed[nfoPath] = vpath
 
 		if !opts.Force {
 			if _, err := os.Stat(nfoPath); err == nil {

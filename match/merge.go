@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Anastylosis/FSS/internal/mediafetch"
 	"github.com/Anastylosis/FSS/models"
 )
 
@@ -138,6 +139,7 @@ var scalarFields = []string{"title", "description", "date", "studio", "thumbnail
 // entry, not two.
 func MergeScenes(scenes []models.Scene, existingDate time.Time) MergedScene {
 	m := MergedScene{}
+	now := time.Now()
 
 	urlSet := map[string]bool{}
 	tagSet := map[string]bool{}
@@ -186,7 +188,8 @@ func MergeScenes(scenes []models.Scene, existingDate time.Time) MergedScene {
 			m.Studio = studio
 		}
 
-		if m.Thumbnail == "" && s.Thumbnail != "" {
+		if s.Thumbnail != "" && (m.Thumbnail == "" ||
+			(mediafetch.Expired(m.Thumbnail, now) && !mediafetch.Expired(s.Thumbnail, now))) {
 			m.Thumbnail = s.Thumbnail
 		}
 
