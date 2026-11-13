@@ -232,7 +232,7 @@ For Up-Timely CMS platform sites (DAS!, Idea Pocket, Madonna, MOODYZ, S1 NO.1 ST
 All scrapers share a single HTTP transport (`MaxIdleConnsPerHost: 10`) for connection pooling across requests to the same host.
 
 `httpx.Do()` wraps requests with:
-- **Retry with backoff**: network errors, 429, 5xx are retried up to 3 times with `attempt * 2s` sleep
+- **Retry with backoff**: network errors, 429, 5xx are retried up to 3 times with `attempt * 2s` sleep. A POST/PATCH is replayed only when nothing reached the server (dial failure, 429) unless the call sets `Request.Idempotent` — the read-only listing POSTs scrapers make all do. A retry after a written request could apply a mutation twice
 - **Fail-fast**: non-retryable 4xx errors return immediately as `*StatusError`
 - **Centralized UA strings**: `UserAgentFirefox` and `UserAgentChrome` constants, versioned in one place. Overridable via `user_agent` config field (`"firefox"`, `"chrome"`, or a custom string); applied at startup by `httpx.SetDefaultUA()`
 
@@ -254,7 +254,7 @@ No validation or dynamic reload. The Stash API key can also come from `FSS_STASH
 
 Three-layer design:
 
-1. **Client**: [stash-go](https://github.com/Anastylosis/stash-go), the shared GraphQL client, with `FindScenes`, `UpdateScene`, `EnsureTag`, `EnsurePerformer`, `EnsureStudio`. `cmd/stash.go`'s `newStashClient` supplies fss's pooled, retrying HTTP client (`httpx.NewRetryClient`) so Stash calls retry like every other request fss makes. Cover images are fss's own: `internal/mediafetch` validates and encodes them, the client just carries the data URI.
+1. **Client**: [stash-go](https://github.com/Anastylosis/stash-go), the shared GraphQL client, with `FindScenes`, `UpdateScene`, `EnsureTag`, `EnsurePerformer`, `EnsureStudio`. `cmd/stash.go`'s `newStashClient` supplies fss's pooled, retrying HTTP client (`httpx.NewGraphQLRetryClient`, 120s per attempt) so Stash queries retry like every other request fss makes; a request whose body contains `mutation` is never replayed after it was written, since a create whose response was lost would otherwise apply twice. `stash import --apply` resolves each tag/performer/studio name once per run (`entityLookup`), and deletes entities it created for a scene whose update then fails. Cover images are fss's own: `internal/mediafetch` validates and encodes them, the client just carries the data URI.
 
 2. **Matcher** (`match.go`): builds a `SceneIndex` from previously-scraped scenes — loaded from JSON files *or* the SQLite store via the shared `loadFSSScenes` in `cmd/scenesource.go` — indexed by normalized title. Matches Stash filenames against the index with two passes (primary + sanitized/noise-stripped). Returns confidence levels: Exact, Substring, Ambiguous, None. Duration filtering rejects false positives.
 

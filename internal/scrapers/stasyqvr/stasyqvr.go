@@ -289,10 +289,11 @@ func fetch(ctx context.Context, client *http.Client, method, url string, body []
 		headers["Content-Type"] = "application/x-www-form-urlencoded"
 	}
 	resp, err := httpx.Do(ctx, client, httpx.Request{
-		Method:  method,
-		URL:     url,
-		Body:    body,
-		Headers: headers,
+		Method:     method,
+		URL:        url,
+		Body:       body,
+		Idempotent: true,
+		Headers:    headers,
 	})
 	if err != nil {
 		return nil, err

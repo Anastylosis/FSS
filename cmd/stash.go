@@ -28,14 +28,14 @@ func init() {
 
 // stashRequestTimeout bounds one GraphQL request. Retries get the full budget
 // each, since it is per attempt.
-const stashRequestTimeout = 30 * time.Second
+const stashRequestTimeout = 120 * time.Second
 
 // newStashClient builds the client every stash subcommand uses, on fss's
 // pooled, retrying transport rather than the library's plain default.
 func newStashClient(cmd *cobra.Command) *stash.Client {
 	return stash.NewClient(stashURL(cmd),
 		stash.WithAPIKey(stashAPIKey(cmd)),
-		stash.WithHTTPClient(httpx.NewRetryClient(stashRequestTimeout)),
+		stash.WithHTTPClient(httpx.NewGraphQLRetryClient(stashRequestTimeout)),
 	)
 }
 

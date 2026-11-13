@@ -205,9 +205,10 @@ func (s *Scraper) searchWithURL(ctx context.Context, url string, query map[strin
 	}
 
 	resp, err := httpx.Do(ctx, s.client, httpx.Request{
-		URL:    url,
-		Method: http.MethodPost,
-		Body:   body,
+		URL:        url,
+		Method:     http.MethodPost,
+		Body:       body,
+		Idempotent: true,
 		Headers: func() map[string]string {
 			h := httpx.BrowserHeaders(httpx.UserAgentFirefox)
 			h["Content-Type"] = "application/json"

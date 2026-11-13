@@ -228,9 +228,10 @@ func (s *Scraper) fetchPage(ctx context.Context, slug, pageToken string, cookies
 	}
 
 	resp, err := httpx.Do(ctx, s.client, httpx.Request{
-		URL:     s.base + "/api/v2/advanced-search?ngsw-bypass=true",
-		Body:    bodyJSON,
-		Headers: headers,
+		URL:        s.base + "/api/v2/advanced-search?ngsw-bypass=true",
+		Body:       bodyJSON,
+		Idempotent: true,
+		Headers:    headers,
 	})
 	if err != nil {
 		return nil, "", fmt.Errorf("loyalfans search page: %w", err)

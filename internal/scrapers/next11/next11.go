@@ -374,10 +374,11 @@ func (s *Scraper) fetchListing(ctx context.Context, page int) ([]byte, error) {
 	headers["Referer"] = s.siteBase + "/products/list.php"
 
 	resp, err := httpx.Do(ctx, s.client, httpx.Request{
-		Method:  http.MethodPost,
-		URL:     s.siteBase + "/products/list.php",
-		Body:    []byte(form.Encode()),
-		Headers: headers,
+		Method:     http.MethodPost,
+		URL:        s.siteBase + "/products/list.php",
+		Body:       []byte(form.Encode()),
+		Idempotent: true,
+		Headers:    headers,
 	})
 	if err != nil {
 		return nil, err

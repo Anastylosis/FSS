@@ -280,8 +280,9 @@ func (s *Scraper) fetchQuery(ctx context.Context, apiKey string, query AlgoliaQu
 	}
 
 	resp, err := httpx.Do(ctx, s.Client, httpx.Request{
-		URL:  fmt.Sprintf("%s/1/indexes/%s/query", s.AlgoliaHost, IndexName),
-		Body: body,
+		URL:        fmt.Sprintf("%s/1/indexes/%s/query", s.AlgoliaHost, IndexName),
+		Body:       body,
+		Idempotent: true,
 		Headers: map[string]string{
 			"x-algolia-application-id": AlgoliaAppID,
 			"x-algolia-api-key":        apiKey,

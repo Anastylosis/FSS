@@ -334,6 +334,10 @@ type Request struct {
 	Body        []byte
 	Headers     map[string]string
 	MaxAttempts int
+	// Idempotent lets a POST or PATCH be replayed after the request may have
+	// been processed. Without it such a request is retried only when nothing
+	// reached the server (dial failure, 429).
+	Idempotent bool
 	// Note: there is deliberately no per-request body limit here. Do returns
 	// the response without reading the body, so it could not enforce one;
 	// bounding the read is the caller's job via ReadBody/ReadBodyN or
@@ -507,10 +511,14 @@ func doInner(ctx context.Context, client *http.Client, r Request, classifyStatus
 			scraper.Debugf(2, "%s %s", method, redacted)
 		}
 
+		replayable := r.Idempotent || idempotentMethod(method)
 		resp, err := client.Do(req)
 		if err != nil {
 			scraper.Debugf(2, "  error: %v", err)
 			attemptErrs = append(attemptErrs, fmt.Errorf("attempt %d: %w", attempt+1, err))
+			if !replayable && !requestNotSent(err) {
+				return nil, errors.Join(attemptErrs...)
+			}
 			continue
 		}
 
@@ -526,6 +534,9 @@ func doInner(ctx context.Context, client *http.Client, r Request, classifyStatus
 		if resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500 {
 			drainAndClose(resp)
 			attemptErrs = append(attemptErrs, fmt.Errorf("attempt %d: %w", attempt+1, &StatusError{StatusCode: resp.StatusCode}))
+			if !replayable && resp.StatusCode != http.StatusTooManyRequests {
+				return nil, errors.Join(attemptErrs...)
+			}
 			continue
 		}
 		if resp.StatusCode >= 400 {
@@ -534,7 +545,7 @@ func doInner(ctx context.Context, client *http.Client, r Request, classifyStatus
 		}
 		if decodeInto != nil {
 			err := decodeBody(resp, decodeInto)
-			if err != nil && malformedJSON(err) {
+			if err != nil && malformedJSON(err) && replayable {
 				scraper.Debugf(2, "  malformed body, retrying: %v", err)
 				attemptErrs = append(attemptErrs, fmt.Errorf("attempt %d: %w", attempt+1, err))
 				continue

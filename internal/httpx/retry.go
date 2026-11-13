@@ -1,10 +1,12 @@
 package httpx
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"time"
 
@@ -18,6 +20,9 @@ import (
 // timeout bounds each attempt rather than the sequence, so a retried request
 // gets the full budget every time. Non-retryable responses, 4xx included, come
 // back untouched with their body intact.
+//
+// Only idempotent requests are replayed after the request was written: a POST
+// is retried only when nothing reached the server (a dial failure, or 429).
 func NewRetryClient(timeout time.Duration) *http.Client {
 	return &http.Client{
 		Transport: &retryTransport{
@@ -28,17 +33,73 @@ func NewRetryClient(timeout time.Duration) *http.Client {
 	}
 }
 
+// NewGraphQLRetryClient is NewRetryClient for a GraphQL endpoint: a POST whose
+// body is a query is replayed like a GET, one containing "mutation" is not.
+func NewGraphQLRetryClient(timeout time.Duration) *http.Client {
+	return &http.Client{
+		Transport: &retryTransport{
+			base:       sharedTransport,
+			attempts:   3,
+			timeout:    timeout,
+			idempotent: graphQLQuery,
+		},
+	}
+}
+
+func idempotentMethod(m string) bool {
+	switch m {
+	case "", http.MethodGet, http.MethodHead, http.MethodOptions, http.MethodPut, http.MethodDelete, http.MethodTrace:
+		return true
+	}
+	return false
+}
+
+// requestNotSent reports an error that proves the server never saw the request.
+func requestNotSent(err error) bool {
+	var op *net.OpError
+	return errors.As(err, &op) && op.Op == "dial"
+}
+
+// graphQLQuery reports whether req may be replayed: any non-POST, or a POST
+// whose body has no "mutation" (an unreadable body counts as a mutation).
+func graphQLQuery(req *http.Request) bool {
+	if idempotentMethod(req.Method) {
+		return true
+	}
+	if req.GetBody == nil {
+		return false
+	}
+	rc, err := req.GetBody()
+	if err != nil {
+		return false
+	}
+	defer func() { _ = rc.Close() }()
+	b, err := io.ReadAll(io.LimitReader(rc, 4<<20))
+	if err != nil {
+		return false
+	}
+	return !bytes.Contains(bytes.ToLower(b), []byte("mutation"))
+}
+
 type retryTransport struct {
 	base     http.RoundTripper
 	attempts int
 	timeout  time.Duration
-	sleep    func(ctx context.Context, d time.Duration) error // nil uses the default backoff
+	// idempotent decides whether a request may be replayed after it was
+	// written; nil falls back to the method.
+	idempotent func(*http.Request) bool
+	sleep      func(ctx context.Context, d time.Duration) error // nil uses the default backoff
 }
 
 func (t *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	sleep := t.sleep
 	if sleep == nil {
 		sleep = defaultBackoffSleep
+	}
+
+	replayable := idempotentMethod(req.Method)
+	if t.idempotent != nil {
+		replayable = t.idempotent(req)
 	}
 
 	var attemptErrs []error
@@ -63,10 +124,13 @@ func (t *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 			cancel()
 			scraper.Debugf(2, "  error: %v", err)
 			attemptErrs = append(attemptErrs, fmt.Errorf("attempt %d: %w", attempt+1, err))
+			if !replayable && !requestNotSent(err) {
+				return nil, errors.Join(attemptErrs...)
+			}
 			continue
 		}
 
-		last := attempt == t.attempts-1
+		last := attempt == t.attempts-1 || (!replayable && resp.StatusCode != http.StatusTooManyRequests)
 		if last || (resp.StatusCode != http.StatusTooManyRequests && resp.StatusCode < 500) {
 			resp.Body = &cancelOnClose{ReadCloser: resp.Body, cancel: cancel}
 			return resp, nil

@@ -754,6 +754,7 @@ type fakeStash struct {
 	// "already exists" branches can be exercised as well as the create ones.
 	existingTags map[string]string
 	existingPerf map[string]string
+	failUpdate   bool
 }
 
 func newFakeStash(t *testing.T) *fakeStash {
@@ -792,8 +793,18 @@ func newFakeStash(t *testing.T) *fakeStash {
 			op, resp = "findStudios", `{"findStudios":{"studios":[]}}`
 		case strings.Contains(q, "studioCreate"):
 			op, resp = "studioCreate", `{"studioCreate":{"id":"s1"}}`
+		case strings.Contains(q, "Destroy"):
+			op, resp = "destroy", `{"x":true}`
 		case strings.Contains(q, "sceneUpdate"):
 			op, resp = "sceneUpdate", `{"sceneUpdate":{"id":"1"}}`
+			if f.failUpdate {
+				f.mu.Lock()
+				f.ops = append(f.ops, op)
+				f.mu.Unlock()
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = fmt.Fprint(w, `{"errors":[{"message":"boom"}]}`)
+				return
+			}
 		}
 
 		f.mu.Lock()
@@ -870,6 +881,34 @@ func TestApplyScene_writesAllFieldsByDefault(t *testing.T) {
 		if !f.sawOp(op) {
 			t.Errorf("%s was not called", op)
 		}
+	}
+}
+
+// Entities created for a scene whose update then fails are removed again and
+// forgotten, so the next scene does not reuse a deleted ID.
+func TestApplyScene_failedUpdateRollsBackCreatedEntities(t *testing.T) {
+	f := newFakeStash(t)
+	f.failUpdate = true
+	ss := stash.Scene{ID: "1", Files: []stash.File{{Path: "/v/a.mp4"}}}
+	merged := match.MergedScene{Title: "T", Performers: []string{"P"}, Studio: "S"}
+	l := newEntityLookup(context.Background(), f.client())
+
+	if _, err := applyScene(context.Background(), l, ss, merged, []string{"tag-a"}, nil, "imp1", importOpts{apply: true}); err == nil {
+		t.Fatal("want the update error")
+	}
+	destroys := 0
+	f.mu.Lock()
+	for _, o := range f.ops {
+		if o == "destroy" {
+			destroys++
+		}
+	}
+	f.mu.Unlock()
+	if destroys != 3 {
+		t.Errorf("destroy mutations = %d, want 3 (tag, performer, studio)", destroys)
+	}
+	if len(l.created) != 0 || len(l.tags) != 0 || len(l.performers) != 0 || len(l.studios) != 0 {
+		t.Errorf("cache not cleared: %+v", l)
 	}
 }
 

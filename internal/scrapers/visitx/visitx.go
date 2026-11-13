@@ -204,9 +204,10 @@ func (s *Scraper) fetchVideos(ctx context.Context, token, modelName string, offs
 	}
 
 	resp, err := httpx.Do(ctx, s.client, httpx.Request{
-		Method: "POST",
-		URL:    s.base + "/vxql",
-		Body:   body,
+		Method:     "POST",
+		URL:        s.base + "/vxql",
+		Body:       body,
+		Idempotent: true,
 		Headers: func() map[string]string {
 			h := httpx.BrowserHeaders(httpx.UserAgentChrome)
 			h["Content-Type"] = "application/json"

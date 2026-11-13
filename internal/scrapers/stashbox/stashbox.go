@@ -371,10 +371,11 @@ func (s *Scraper) queryScenes(ctx context.Context, inst instance, input map[stri
 	}
 
 	resp, err := httpx.Do(ctx, s.client, httpx.Request{
-		Method:  http.MethodPost,
-		URL:     inst.graphqlURL,
-		Body:    body,
-		Headers: headers,
+		Method:     http.MethodPost,
+		URL:        inst.graphqlURL,
+		Body:       body,
+		Idempotent: true,
+		Headers:    headers,
 	})
 	if err != nil {
 		return gqlResponse{}, err

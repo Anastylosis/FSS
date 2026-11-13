@@ -173,7 +173,7 @@ func clean(s string) string {
 // fetch issues a GET, or a form POST when form is set.
 func (s *Scraper) fetch(ctx context.Context, method, u string, form url.Values) (string, error) {
 	h := httpx.BrowserHeaders(httpx.UserAgentFirefox)
-	req := httpx.Request{Method: method, URL: u, Headers: h}
+	req := httpx.Request{Method: method, URL: u, Headers: h, Idempotent: true}
 	if form != nil {
 		h["Content-Type"] = "application/x-www-form-urlencoded"
 		req.Body = []byte(form.Encode())

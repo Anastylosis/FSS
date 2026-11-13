@@ -387,9 +387,10 @@ func (a ajaxResponse) productsHTML() string {
 func fetchAjaxPage(ctx context.Context, sess *session, body string, headers map[string]string) (ajaxResponse, error) {
 	var ar ajaxResponse
 	resp, err := httpx.Do(ctx, sess.client, httpx.Request{
-		URL:     sess.base + "/product-category",
-		Body:    []byte(body),
-		Headers: headers,
+		URL:        sess.base + "/product-category",
+		Body:       []byte(body),
+		Idempotent: true,
+		Headers:    headers,
 	})
 	if err != nil {
 		return ar, err

@@ -160,3 +160,78 @@ func TestNewRetryClientHasNoOverallDeadline(t *testing.T) {
 		t.Errorf("Timeout = %v, want 0 — the budget is per attempt", c.Timeout)
 	}
 }
+
+// hijackAfterRead answers by reading the request and dropping the connection,
+// the way a server that processed a mutation but lost its response does.
+func hijackAfterRead(calls *atomic.Int32) *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.ReadAll(r.Body)
+		calls.Add(1)
+		conn, _, _ := w.(http.Hijacker).Hijack()
+		_ = conn.Close()
+	}))
+}
+
+func TestRetryClientDoesNotReplayWrittenPOST(t *testing.T) {
+	var calls atomic.Int32
+	srv := hijackAfterRead(&calls)
+	defer srv.Close()
+
+	resp, err := retryClient(3).Post(srv.URL, "application/json", strings.NewReader(`{}`))
+	if err == nil {
+		_ = resp.Body.Close()
+		t.Fatal("want an error")
+	}
+	if got := calls.Load(); got != 1 {
+		t.Errorf("server saw %d POSTs, want 1", got)
+	}
+}
+
+func TestGraphQLRetryClientQueryVsMutation(t *testing.T) {
+	for _, tc := range []struct {
+		name, body string
+		want       int32
+	}{
+		{"query", `{"query":"{ findTags { count } }"}`, 3},
+		{"mutation", `{"query":"mutation { tagCreate }"}`, 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var calls atomic.Int32
+			srv := hijackAfterRead(&calls)
+			defer srv.Close()
+			c := &http.Client{Transport: &retryTransport{
+				base: sharedTransport, attempts: 3, timeout: 5 * time.Second,
+				idempotent: graphQLQuery,
+				sleep:      func(context.Context, time.Duration) error { return nil },
+			}}
+			resp, err := c.Post(srv.URL, "application/json", strings.NewReader(tc.body))
+			if err == nil {
+				_ = resp.Body.Close()
+			}
+			if got := calls.Load(); got != tc.want {
+				t.Errorf("server saw %d requests, want %d", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestDoPOSTIdempotentOptIn(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		idempotent bool
+		want       int32
+	}{{"default", false, 1}, {"opt-in", true, 3}} {
+		t.Run(tc.name, func(t *testing.T) {
+			var calls atomic.Int32
+			srv := hijackAfterRead(&calls)
+			defer srv.Close()
+			_, _ = Do(context.Background(), srv.Client(), Request{
+				URL: srv.URL, Body: []byte(`x`), Idempotent: tc.idempotent,
+				BackoffSleep: func(context.Context, time.Duration) error { return nil },
+			})
+			if got := calls.Load(); got != tc.want {
+				t.Errorf("server saw %d requests, want %d", got, tc.want)
+			}
+		})
+	}
+}

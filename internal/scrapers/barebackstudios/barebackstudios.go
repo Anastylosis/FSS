@@ -231,8 +231,9 @@ func (s *Scraper) verifyAge(ctx context.Context) error {
 	// Non-2xx already returns *httpx.StatusError so callers can
 	// `errors.As` on it.
 	resp, err := httpx.Do(ctx, s.client, httpx.Request{
-		Method: http.MethodPost,
-		URL:    s.base + "/api/v1/site/verify_age/",
+		Method:     http.MethodPost,
+		Idempotent: true,
+		URL:        s.base + "/api/v1/site/verify_age/",
 		Headers: map[string]string{
 			"User-Agent":   httpx.UserAgentFirefox,
 			"Content-Type": "application/json",

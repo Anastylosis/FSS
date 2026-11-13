@@ -138,9 +138,10 @@ func (s *Scraper) fetchListing(ctx context.Context, page int) ([]byte, error) {
 	}
 
 	resp, err := httpx.Do(ctx, s.client, httpx.Request{
-		Method: http.MethodPost,
-		URL:    "https://www.portagloryhole.com/op/results/paginate",
-		Body:   []byte(form.Encode()),
+		Method:     http.MethodPost,
+		URL:        "https://www.portagloryhole.com/op/results/paginate",
+		Body:       []byte(form.Encode()),
+		Idempotent: true,
 		Headers: map[string]string{
 			"Content-Type":     "application/x-www-form-urlencoded",
 			"X-Requested-With": "XMLHttpRequest",

@@ -269,7 +269,7 @@ func (s *Scraper) fetch(ctx context.Context, pageURL string) (string, error) {
 
 func (s *Scraper) get(ctx context.Context, pageURL string, form []byte) (string, error) {
 	headers := httpx.BrowserHeaders(httpx.UserAgentChrome)
-	req := httpx.Request{URL: pageURL, Headers: headers}
+	req := httpx.Request{URL: pageURL, Headers: headers, Idempotent: true}
 	if form != nil {
 		req.Method = http.MethodPost
 		req.Body = form

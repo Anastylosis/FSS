@@ -294,8 +294,9 @@ func (s *Scraper) postSearch(ctx context.Context, keyword string, offset int) ([
 		searchURL += "&offset=" + strconv.Itoa(offset)
 	}
 	resp, err := httpx.Do(ctx, s.client, httpx.Request{
-		URL:  searchURL,
-		Body: []byte(form.Encode()),
+		URL:        searchURL,
+		Body:       []byte(form.Encode()),
+		Idempotent: true,
 		Headers: map[string]string{
 			"User-Agent":   httpx.UserAgentFirefox,
 			"Content-Type": "application/x-www-form-urlencoded",

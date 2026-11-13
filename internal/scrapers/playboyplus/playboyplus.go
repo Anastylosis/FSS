@@ -186,8 +186,9 @@ func (s *Scraper) resolveActorName(ctx context.Context, apiKey, actorID string) 
 	}
 
 	resp, err := httpx.Do(ctx, s.Client, httpx.Request{
-		URL:  fmt.Sprintf("%s/1/indexes/all_actors_latest_desc/query", s.algoliaHost),
-		Body: body,
+		URL:        fmt.Sprintf("%s/1/indexes/all_actors_latest_desc/query", s.algoliaHost),
+		Body:       body,
+		Idempotent: true,
 		Headers: map[string]string{
 			"x-algolia-application-id": algoliaAppID,
 			"x-algolia-api-key":        apiKey,
@@ -232,8 +233,9 @@ func (s *Scraper) fetchPage(ctx context.Context, apiKey string, page int, facetF
 
 	host := s.algoliaHost
 	resp, err := httpx.Do(ctx, s.Client, httpx.Request{
-		URL:  fmt.Sprintf("%s/1/indexes/%s/query", host, indexName),
-		Body: body,
+		URL:        fmt.Sprintf("%s/1/indexes/%s/query", host, indexName),
+		Body:       body,
+		Idempotent: true,
 		Headers: map[string]string{
 			"x-algolia-application-id": algoliaAppID,
 			"x-algolia-api-key":        apiKey,

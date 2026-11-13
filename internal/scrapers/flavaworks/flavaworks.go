@@ -194,10 +194,11 @@ func (s *Scraper) passAgeGate(ctx context.Context) error {
 	}
 	form := url.Values{"_token": {html.UnescapeString(m[1])}, "intended": {s.base}}
 	resp, err := httpx.Do(ctx, s.client, httpx.Request{
-		Method:  http.MethodPost,
-		URL:     s.base + "/age-gate/confirm",
-		Body:    []byte(form.Encode()),
-		Headers: gateHeaders(s.base),
+		Method:     http.MethodPost,
+		URL:        s.base + "/age-gate/confirm",
+		Body:       []byte(form.Encode()),
+		Idempotent: true,
+		Headers:    gateHeaders(s.base),
 	})
 	if err != nil {
 		return fmt.Errorf("age gate: %w", err)

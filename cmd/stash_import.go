@@ -251,6 +251,7 @@ func applyScene(ctx context.Context, l *entityLookup, ss stash.Scene, merged mat
 	client := l.client
 	filename := stashFilename(ss)
 	var res sceneResult
+	mark := len(l.created)
 	input := stash.SceneUpdate{ID: ss.ID}
 	var sceneFailures []importFailure
 	hasStashbox := ss.HasStashID()
@@ -334,6 +335,7 @@ func applyScene(ctx context.Context, l *entityLookup, ss stash.Scene, merged mat
 	}
 
 	if err := client.UpdateScene(ctx, input); err != nil {
+		l.rollbackCreated(mark)
 		return sceneResult{}, err
 	}
 	res.failures = sceneFailures
@@ -565,6 +567,41 @@ type entityLookup struct {
 	tagIDs    map[string]string
 	perfIDs   map[string]string
 	studioIDs map[string]string
+
+	created []createdEntity
+}
+
+// createdEntity records an entity ensureX created this run, so a scene whose
+// update then fails can take back what only it caused.
+type createdEntity struct {
+	kind, id, name string
+}
+
+// rollbackCreated deletes the entities created since mark and forgets them, so
+// a failed scene update leaves no orphaned tag, performer or studio behind.
+func (l *entityLookup) rollbackCreated(mark int) {
+	for i := len(l.created) - 1; i >= mark; i-- {
+		e := l.created[i]
+		var err error
+		switch e.kind {
+		case "tag":
+			err = l.client.DeleteTag(l.ctx, e.id)
+			delete(l.tags, e.name)
+			delete(l.tagIDs, e.name)
+		case "performer":
+			err = l.client.DeletePerformer(l.ctx, e.id)
+			delete(l.performers, e.name)
+			delete(l.perfIDs, e.name)
+		case "studio":
+			err = l.client.DeleteStudio(l.ctx, e.id)
+			delete(l.studios, e.name)
+			delete(l.studioIDs, e.name)
+		}
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "warning: could not remove %s %q created for a failed scene update: %v\n", e.kind, e.name, err)
+		}
+	}
+	l.created = l.created[:mark]
 }
 
 func newEntityLookup(ctx context.Context, c *stash.Client) *entityLookup {
@@ -665,6 +702,7 @@ func (l *entityLookup) ensureTag(name string) (string, error) {
 	id, err := l.client.CreateTag(l.ctx, name)
 	if err == nil {
 		l.tags[name], l.tagIDs[name] = true, id
+		l.created = append(l.created, createdEntity{"tag", id, name})
 	}
 	return id, err
 }
@@ -676,6 +714,7 @@ func (l *entityLookup) ensurePerformer(name string) (string, error) {
 	id, err := l.client.CreatePerformer(l.ctx, name)
 	if err == nil {
 		l.performers[name], l.perfIDs[name] = true, id
+		l.created = append(l.created, createdEntity{"performer", id, name})
 	}
 	return id, err
 }
@@ -687,6 +726,7 @@ func (l *entityLookup) ensureStudio(name string) (string, error) {
 	id, err := l.client.CreateStudio(l.ctx, name)
 	if err == nil {
 		l.studios[name], l.studioIDs[name] = true, id
+		l.created = append(l.created, createdEntity{"studio", id, name})
 	}
 	return id, err
 }

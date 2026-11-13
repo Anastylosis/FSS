@@ -179,8 +179,9 @@ func (s *Scraper) fetchPage(ctx context.Context, uid, page int, cookie, language
 	// HTTP 200, so it reads as a parse failure and would abort the whole walk.
 	// See docs/scrapers.md.
 	err = httpx.DoJSON(ctx, s.client, httpx.Request{
-		URL:  u,
-		Body: body,
+		URL:        u,
+		Body:       body,
+		Idempotent: true,
 		Headers: func() map[string]string {
 			h := httpx.XHRHeaders(httpx.UserAgentFirefox, s.contentBase)
 			h["Cookie"] = cookieHeader(cookie)

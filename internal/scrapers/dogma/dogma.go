@@ -198,10 +198,11 @@ func (s *Scraper) enter(ctx context.Context) error {
 		return nil
 	}
 	resp, err := httpx.Do(ctx, s.client, httpx.Request{
-		URL:     s.base + "/",
-		Method:  http.MethodPost,
-		Body:    []byte("chk=1"),
-		Headers: gateHeaders(),
+		URL:        s.base + "/",
+		Method:     http.MethodPost,
+		Body:       []byte("chk=1"),
+		Idempotent: true,
+		Headers:    gateHeaders(),
 	})
 	if err != nil {
 		return err

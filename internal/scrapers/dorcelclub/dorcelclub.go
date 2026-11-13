@@ -305,9 +305,10 @@ func (s *Scraper) fetchPage(ctx context.Context, pageURL, language string) (stri
 
 func (s *Scraper) fetchAJAX(ctx context.Context, ajaxURL, language string) (string, error) {
 	resp, err := httpx.Do(ctx, s.client, httpx.Request{
-		URL:     ajaxURL,
-		Headers: ajaxHeaders(language),
-		Method:  "POST",
+		URL:        ajaxURL,
+		Headers:    ajaxHeaders(language),
+		Method:     "POST",
+		Idempotent: true,
 	})
 	if err != nil {
 		return "", err

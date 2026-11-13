@@ -348,7 +348,7 @@ func (s *Scraper) fetchStream(ctx context.Context, kind string) ([]product, erro
 	u := s.dataBase + "/php/stream/gvop.php"
 	body, _ := json.Marshal(map[string]string{"st": kind})
 	scraper.Debugf(1, "%s: fetching %s stream", siteID, kind)
-	resp, err := httpx.Do(ctx, s.client, httpx.Request{Method: http.MethodPost, URL: u, Body: body, Headers: s.headers()})
+	resp, err := httpx.Do(ctx, s.client, httpx.Request{Method: http.MethodPost, URL: u, Body: body, Idempotent: true, Headers: s.headers()})
 	if err != nil {
 		return nil, err
 	}
@@ -394,7 +394,7 @@ func (s *Scraper) fetchStars(ctx context.Context, id, path string) ([]star, erro
 	u := s.dataBase + "/php/gsd_p.php"
 	body, _ := json.Marshal(map[string]string{"i": id, "p": path})
 	var rows []star
-	if err := httpx.DoJSON(ctx, s.client, httpx.Request{Method: http.MethodPost, URL: u, Body: body, Headers: s.headers()}, &rows); err != nil {
+	if err := httpx.DoJSON(ctx, s.client, httpx.Request{Method: http.MethodPost, URL: u, Body: body, Idempotent: true, Headers: s.headers()}, &rows); err != nil {
 		return nil, err
 	}
 	return rows, nil

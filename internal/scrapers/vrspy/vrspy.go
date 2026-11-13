@@ -129,10 +129,11 @@ func (s *Scraper) query(ctx context.Context, query string, vars map[string]any) 
 	}
 	var resp gqlResponse
 	err = httpx.DoJSON(ctx, s.client, httpx.Request{
-		Method:  http.MethodPost,
-		URL:     s.api,
-		Body:    body,
-		Headers: httpx.XHRHeaders(httpx.UserAgentFirefox, siteBase),
+		Method:     http.MethodPost,
+		URL:        s.api,
+		Body:       body,
+		Idempotent: true,
+		Headers:    httpx.XHRHeaders(httpx.UserAgentFirefox, siteBase),
 	}, &resp)
 	if err != nil {
 		return nil, err
