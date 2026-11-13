@@ -2,8 +2,11 @@ package cmd
 
 import (
 	"encoding/json"
+	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/Anastylosis/FSS/internal/selfupdate"
 )
 
 // The v-prefix handling is the reason this is worth pinning: the tags carry one
@@ -217,5 +220,44 @@ func TestSetVersionStampsTheChannel(t *testing.T) {
 	}
 	if rootCmd.Version != "v1.31.0 (abc1234, 2026-09-11, aur)" {
 		t.Errorf("--version prints %q", rootCmd.Version)
+	}
+}
+
+func TestUpdateLinesNewerBuildThanRelease(t *testing.T) {
+	lines := updateLines("v1.35.0-dev", "v1.34.0", "")
+	if len(lines) != 1 || !strings.Contains(lines[0], "newer build") {
+		t.Errorf("got %v", lines)
+	}
+}
+
+func TestCheckDowngrade(t *testing.T) {
+	if err := checkDowngrade("v1.32.0", "v1.31.0", false); err == nil || !strings.Contains(err.Error(), "--allow-downgrade") {
+		t.Errorf("downgrade not refused: %v", err)
+	}
+	if err := checkDowngrade("v1.32.0", "v1.31.0", true); err != nil {
+		t.Errorf("allowed downgrade refused: %v", err)
+	}
+	if err := checkDowngrade("v1.31.0", "v1.32.0", false); err != nil {
+		t.Errorf("upgrade refused: %v", err)
+	}
+}
+
+func TestIsSystemPackageOnlyWhenPackageManagerOwnsTheCopy(t *testing.T) {
+	linux := runtime.GOOS != "windows"
+	cases := []struct {
+		name string
+		env  selfupdate.Env
+		want bool
+	}{
+		{"deb in /usr/bin", selfupdate.Env{Path: "/usr/bin/fss", Channel: "deb"}, linux},
+		{"rpm in /usr/bin", selfupdate.Env{Path: "/usr/bin/fss", Channel: "rpm"}, linux},
+		{"deb copied to ~/bin updates in place", selfupdate.Env{Path: "/home/u/bin/fss", Channel: "deb"}, false},
+		{"rpm copied to ~/bin updates in place", selfupdate.Env{Path: "/home/u/bin/fss", Channel: "rpm"}, false},
+		{"homebrew", selfupdate.Env{Path: "/opt/homebrew/Cellar/fss/1/bin/fss", Channel: "release"}, false},
+	}
+	for _, c := range cases {
+		if got := isSystemPackage(selfupdate.Detect(c.env)); got != c.want {
+			t.Errorf("%s: isSystemPackage = %v, want %v", c.name, got, c.want)
+		}
 	}
 }

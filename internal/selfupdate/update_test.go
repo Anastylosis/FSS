@@ -226,7 +226,7 @@ func TestVerifyRunsRejectsSomethingThatIsNotAProgram(t *testing.T) {
 	if err := os.WriteFile(path, []byte("\x00\x01not a program"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := verifyRuns(path); err == nil {
+	if err := verifyRuns(context.Background(), path, "v1.32.0"); err == nil {
 		t.Error("verifyRuns accepted a file that cannot execute")
 	}
 }

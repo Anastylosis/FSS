@@ -13,7 +13,9 @@ func TestDetect(t *testing.T) {
 		wantManaged bool
 	}{
 		{"docker stamp", Env{Path: "/usr/local/bin/fss", Channel: "docker", Version: "v1.31.0"}, MethodDocker, true},
-		{"inside a container", Env{Path: "/usr/local/bin/fss", Channel: "release", Version: "v1.31.0", InDocker: true}, MethodDocker, true},
+		{"stamped release inside a container is not the image", Env{Path: "/home/u/.local/bin/fss", Channel: "release", Version: "v1.31.0", InDocker: true}, MethodRelease, false},
+		{"pre-stamp image", Env{Path: "/usr/local/bin/fss", Channel: "", Version: "v1.31.0", InDocker: true}, MethodDocker, true},
+		{"unstamped build in a devcontainer", Env{Path: "/home/u/bin/fss", Channel: "", Version: "v1.31.0", InDocker: true}, MethodUnknown, false},
 		{"homebrew cellar", Env{Path: "/opt/homebrew/Cellar/fss/1.31.0/bin/fss", Channel: "release", Version: "v1.31.0"}, MethodHomebrew, true},
 		{"linuxbrew cellar", Env{Path: "/home/linuxbrew/.linuxbrew/Cellar/fss/1.31.0/bin/fss", Channel: "", Version: "v1.31.0"}, MethodHomebrew, true},
 		{"release tarball", Env{Path: "/usr/local/bin/fss", Channel: "release", Version: "v1.31.0"}, MethodRelease, false},

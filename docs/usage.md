@@ -357,8 +357,20 @@ Updating /usr/local/bin/fss (release)
 The new binary is written beside the old one and renamed over it, so the swap is atomic and a
 failure anywhere before it leaves the installed fss untouched. Three things have to hold before
 the replacement happens: the download matches `SHA256SUMS` (a release without that asset is
-refused rather than trusted), the extracted binary actually runs, and the directory is writable —
-if it is not, fss says so instead of half-updating.
+refused rather than trusted), the extracted binary actually runs and reports the new version, and
+the directory is writable — if it is not, fss says so instead of half-updating. The installed
+file keeps its original mode (and owner, when run as root); leftover `.fss-update-*` temp files
+from an interrupted update are swept on the next one, and Ctrl+C cleans up after itself.
+
+**It never downgrades by accident.** If the running build is newer than the latest release (a
+withdrawn release, a pre-release build), `--update` refuses; `--allow-downgrade` overrides.
+Versions are compared by semver, so `v1.35.0-rc1` is older than `v1.35.0`.
+
+**Signature verification (not yet active).** The release will carry `SHA256SUMS.sig`, an Ed25519
+signature over `SHA256SUMS`. Builds do not embed the public key yet, so until they do `--update`
+prints `[notice] release signature verification is not enabled in this build` and relies on the
+checksum alone. Once a key is embedded, a missing signature warns for one release and then
+refuses; an invalid one always refuses. See [SECURITY.md](../SECURITY.md).
 
 **It refuses when something else owns the binary.** A package manager records the file it
 installed; replacing it underneath leaves that record wrong, and the next `brew upgrade` or
@@ -368,21 +380,30 @@ installed; replacing it underneath leaves that record wrong, and the next `brew 
 |---|---|
 | Release archive, or a binary you placed yourself | Updates in place |
 | Homebrew | `brew upgrade fss` |
-| `.deb` | `sudo apt update && sudo apt install --only-upgrade fss` |
-| `.rpm` | `sudo dnf upgrade fss` |
+| `.deb` | Downloads and verifies the package, prints `sudo apt install <path>` |
+| `.rpm` | Downloads and verifies the package, prints `sudo dnf install <path>` |
 | AUR | `yay -Syu fss` |
 | Docker | `docker pull ghcr.io/anastylosis/fss:latest` |
 | `go install` / dev build | `go install github.com/Anastylosis/FSS@latest` |
 
+**.deb and .rpm.** No apt or dnf repository exists — the packages are only release assets — so
+`apt upgrade` never sees a new version. `--update` therefore downloads the right package for this
+machine (`amd64`/`arm64`; the `.rpm` names them `x86_64`/`aarch64`), checks it against
+`SHA256SUMS`, saves it under `$XDG_CACHE_HOME/fss/updates/` (`~/.cache/fss/updates/`), and prints
+the exact install command (older packages in that directory are pruned). fss never runs `sudo`
+itself; run the printed command. On zypper-based systems, use `sudo zypper install` with the same path
+instead of the printed `dnf` command.
+
 Ownership is decided from two signals, because neither is enough alone: the build stamp says how
 the binary was *shipped*, and the path says whether this copy is still the one that package owns.
 Homebrew ships the release archive unchanged, so no stamp can name it — it is identified by its
-Cellar path. A `.deb` binary you copied into `~/bin` is no longer apt's business, so it updates
+Cellar path. Docker is recognised by the image's own `docker` stamp; merely running inside a
+container (a devcontainer, a distrobox) does not make a binary the image. A `.deb` binary you copied into `~/bin` is no longer apt's business, so it updates
 in place. `/usr/local/bin` is never treated as package-owned: that is where a hand-extracted
 tarball goes.
 
 On Windows a running `.exe` cannot be overwritten, so the old binary is moved to `fss.exe.old`
-and deleted on the next run.
+and deleted on the next update.
 The annotation is not repeated once you are running that release.
 
 The update check is best-effort and never fails the command: a network error prints

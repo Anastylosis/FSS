@@ -7,7 +7,7 @@ import (
 
 // replace swaps the new binary in on Windows, where a running .exe cannot be
 // overwritten: the current one is moved aside first, which is allowed, and the
-// leftover is deleted by the next run (see sweepLeftovers).
+// leftover is deleted by the next update (see sweepLeftovers).
 func replace(newPath, targetPath string) error {
 	old := targetPath + ".old"
 	_ = os.Remove(old)
@@ -26,8 +26,11 @@ func replace(newPath, targetPath string) error {
 }
 
 // sweepLeftovers removes the previous binary a past update moved aside. It can
-// only be deleted once it is no longer the running process, so the next run
+// only be deleted once it is no longer the running process, so the next update
 // does it.
 func sweepLeftovers(targetPath string) {
 	_ = os.Remove(targetPath + ".old")
+	sweepStaleTemps(targetPath)
 }
+
+func preserveOwner(string, os.FileInfo) {}

@@ -24,6 +24,7 @@ var versionCmd = &cobra.Command{
 
 func init() {
 	versionCmd.Flags().Bool("update", false, "download the latest release and replace this binary")
+	versionCmd.Flags().Bool("allow-downgrade", false, "with --update, install the latest release even if this build is newer")
 	rootCmd.AddCommand(versionCmd)
 }
 
@@ -56,7 +57,8 @@ func runVersion(cmd *cobra.Command, _ []string) error {
 	if !update {
 		return nil
 	}
-	return runSelfUpdate(cmd.Context(), latest)
+	allowDowngrade, _ := cmd.Flags().GetBool("allow-downgrade")
+	return runSelfUpdate(cmd.Context(), latest, allowDowngrade)
 }
 
 // updateLines renders the update notice comparing the built-in version against
@@ -87,11 +89,13 @@ func updateLines(current, latest, note string) []string {
 		return append(lines, noteLines(note)...)
 	case remote:
 		return []string{"You are running the latest version."}
-	default:
-		lines := []string{fmt.Sprintf("Update available: %s → %s", current, latest)}
-		lines = append(lines, noteLines(note)...)
-		return append(lines, "https://github.com/Anastylosis/FSS/releases/latest")
 	}
+	if c, ok := selfupdate.CompareVersions(latest, current); ok && c < 0 {
+		return []string{fmt.Sprintf("You are running a newer build (%s) than the latest release (%s).", current, latest)}
+	}
+	lines := []string{fmt.Sprintf("Update available: %s → %s", current, latest)}
+	lines = append(lines, noteLines(note)...)
+	return append(lines, "https://github.com/Anastylosis/FSS/releases/latest")
 }
 
 // noteLines renders a tag annotation as an indented block set off by blank

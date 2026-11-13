@@ -51,6 +51,33 @@ The implementation is `internal/mediafetch`: `ValidateURL` enforces the scheme a
 
 **Limitation**: the DNS lookup happens before the HTTP request. DNS rebinding attacks (where a hostname resolves to a public IP during validation but to a private IP during the actual fetch) are not mitigated. For the expected threat model — importing someone else's JSON dump — the attacker would also need to control DNS for a domain the user resolves, which is a low-probability scenario.
 
+## Release signing
+
+`fss version --update` verifies the download against the release's `SHA256SUMS`. That protects
+against corruption and a swapped archive, but whoever can upload release assets can also replace
+`SHA256SUMS`, so it is not authenticity. The fix is an Ed25519 signature over `SHA256SUMS`,
+published as `SHA256SUMS.sig`.
+
+**Status.** The verification code is in `internal/selfupdate` (`sign.go`). The key does not exist
+yet: `selfupdate.PublicKey` is an empty placeholder, and while empty verification is skipped with
+a one-line `[notice]`. What remains:
+
+1. Generate a key pair (`openssl genpkey -algorithm ed25519`, or any tool that emits raw Ed25519);
+   keep the private key out of every repository.
+2. Store the private key as a secret in the release environment of the shared workflows repo
+   (`Anastylosis/.github`).
+3. Add a step to the shared release workflow that signs `SHA256SUMS` and uploads
+   `SHA256SUMS.sig` (raw 64 bytes or base64).
+4. Set `PublicKey` to the base64 of the 32-byte public key and ship a release.
+5. One release later, flip `selfupdate.RequireSignature` to `true` so an unsigned release is refused
+   (until then a missing signature only warns; an invalid one always refuses).
+
+**Rotation.** A binary trusts only the key it was built with, so rotate in two steps: release a
+version that embeds the new public key but is still signed with the old private key; once users
+have had time to update, sign with the new key. Old binaries cannot verify releases signed only
+with the new key and will refuse them, so keep the overlap long. If the private key leaks, ship
+the new key immediately and say in the release notes that older builds must be updated manually.
+
 ## Reporting a vulnerability
 
 If you find a security issue, please report it privately through [GitHub's vulnerability reporting](https://github.com/Anastylosis/FSS/security/advisories/new) rather than a public issue. There is no bug bounty program.

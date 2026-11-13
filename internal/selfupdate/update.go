@@ -15,6 +15,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"time"
@@ -49,6 +50,12 @@ type Options struct {
 	// Verify runs the freshly extracted binary before it replaces anything.
 	// A download that cannot execute must not become the installed fss.
 	Verify func(path string) error
+	// CacheDir is where FetchPackage leaves a package; empty means
+	// $XDG_CACHE_HOME/fss/updates.
+	CacheDir string
+	// PublicKey and RequireSignature default to the package-level values.
+	PublicKey        *string
+	RequireSignature *bool
 }
 
 func (o *Options) applyDefaults() {
@@ -64,8 +71,12 @@ func (o *Options) applyDefaults() {
 	if o.Out == nil {
 		o.Out = io.Discard
 	}
-	if o.Verify == nil {
-		o.Verify = verifyRuns
+	if o.PublicKey == nil {
+		o.PublicKey = &PublicKey
+	}
+	if o.RequireSignature == nil {
+		req := RequireSignature
+		o.RequireSignature = &req
 	}
 }
 
@@ -87,10 +98,54 @@ func findAsset(assets []Asset, name string) (Asset, error) {
 	return Asset{}, fmt.Errorf("release has no asset %q", name)
 }
 
+// fetchVerified downloads the asset and checks it against the release's
+// SHA256SUMS, itself checked against SHA256SUMS.sig when a key is embedded.
+func fetchVerified(ctx context.Context, opts Options, asset Asset) ([]byte, error) {
+	sums, err := findAsset(opts.Assets, sumsAsset)
+	if err != nil {
+		return nil, fmt.Errorf("%w; refusing to install an unverified download", err)
+	}
+	_, _ = fmt.Fprintf(opts.Out, "  downloading %s\n", asset.Name)
+	blob, err := download(ctx, opts.Client, asset.URL)
+	if err != nil {
+		return nil, fmt.Errorf("downloading %s: %w", asset.Name, err)
+	}
+	sumList, err := download(ctx, opts.Client, sums.URL)
+	if err != nil {
+		return nil, fmt.Errorf("downloading %s: %w", sumsAsset, err)
+	}
+	var sig []byte
+	if sa, err := findAsset(opts.Assets, sigAsset); err == nil {
+		if sig, err = download(ctx, opts.Client, sa.URL); err != nil {
+			return nil, fmt.Errorf("downloading %s: %w", sigAsset, err)
+		}
+	}
+	if err := checkSignature(opts.Out, *opts.PublicKey, *opts.RequireSignature, sumList, sig); err != nil {
+		return nil, err
+	}
+
+	want, err := sumFor(string(sumList), asset.Name)
+	if err != nil {
+		return nil, err
+	}
+	got := sha256.Sum256(blob)
+	if hex.EncodeToString(got[:]) != want {
+		return nil, fmt.Errorf("checksum mismatch for %s: the download does not match the release's %s", asset.Name, sumsAsset)
+	}
+	_, _ = fmt.Fprintf(opts.Out, "  verified SHA-256 %s\n", want[:16])
+	return blob, nil
+}
+
 // Apply downloads the release archive for this platform, checks it against the
 // release's SHA256SUMS, and replaces the running binary with it.
 func Apply(ctx context.Context, opts Options) error {
 	opts.applyDefaults()
+	if opts.Verify == nil {
+		opts.Verify = func(p string) error { return verifyRuns(ctx, p, opts.Tag) }
+	}
+	if !ValidTag(opts.Tag) {
+		return fmt.Errorf("release tag %q is not a version", opts.Tag)
+	}
 	sweepLeftovers(opts.TargetPath)
 
 	name := ArchiveName(opts.BinaryName, opts.Tag, opts.GOOS, opts.GOARCH)
@@ -98,30 +153,10 @@ func Apply(ctx context.Context, opts Options) error {
 	if err != nil {
 		return fmt.Errorf("%w — this platform may not be published", err)
 	}
-	sums, err := findAsset(opts.Assets, sumsAsset)
-	if err != nil {
-		return fmt.Errorf("%w; refusing to install an unverified binary", err)
-	}
-
-	_, _ = fmt.Fprintf(opts.Out, "  downloading %s\n", name)
-	blob, err := download(ctx, opts.Client, archive.URL)
-	if err != nil {
-		return fmt.Errorf("downloading %s: %w", name, err)
-	}
-	sumList, err := download(ctx, opts.Client, sums.URL)
-	if err != nil {
-		return fmt.Errorf("downloading %s: %w", sumsAsset, err)
-	}
-
-	want, err := sumFor(string(sumList), name)
+	blob, err := fetchVerified(ctx, opts, archive)
 	if err != nil {
 		return err
 	}
-	got := sha256.Sum256(blob)
-	if hex.EncodeToString(got[:]) != want {
-		return fmt.Errorf("checksum mismatch for %s: the download does not match the release's %s", name, sumsAsset)
-	}
-	_, _ = fmt.Fprintf(opts.Out, "  verified SHA-256 %s\n", want[:16])
 
 	binary := opts.BinaryName
 	if opts.GOOS == "windows" {
@@ -140,7 +175,16 @@ func Apply(ctx context.Context, opts Options) error {
 // filesystems is not atomic, and /tmp is routinely a different one.
 func install(binary []byte, opts Options) error {
 	dir := filepath.Dir(opts.TargetPath)
-	tmp, err := os.CreateTemp(dir, ".fss-update-*")
+	pattern := ".fss-update-*"
+	if opts.GOOS == "windows" {
+		pattern += ".exe"
+	}
+	mode := os.FileMode(0o755)
+	info, statErr := os.Stat(opts.TargetPath)
+	if statErr == nil {
+		mode = info.Mode().Perm()
+	}
+	tmp, err := os.CreateTemp(dir, pattern)
 	if err != nil {
 		return fmt.Errorf("cannot write to %s: %w", dir, err)
 	}
@@ -154,25 +198,67 @@ func install(binary []byte, opts Options) error {
 	if err := tmp.Close(); err != nil {
 		return err
 	}
-	if err := os.Chmod(tmpName, 0o755); err != nil {
+	if err := os.Chmod(tmpName, mode); err != nil {
 		return err
+	}
+	if mode&0o100 == 0 {
+		// The check has to execute it; the original mode is restored below.
+		if err := os.Chmod(tmpName, mode|0o100); err != nil {
+			return err
+		}
 	}
 	if err := opts.Verify(tmpName); err != nil {
 		return fmt.Errorf("the downloaded binary does not run: %w", err)
+	}
+	if mode&0o100 == 0 {
+		if err := os.Chmod(tmpName, mode); err != nil {
+			return err
+		}
+	}
+	if statErr == nil {
+		preserveOwner(tmpName, info)
 	}
 	return replace(tmpName, opts.TargetPath)
 }
 
 // verifyRuns executes the candidate with --version, which prints and exits
-// without touching the network.
-func verifyRuns(path string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+// without touching the network, and requires the output to name the release
+// being installed: the checksum cannot catch a mispackaged archive.
+func verifyRuns(ctx context.Context, path, tag string) error {
+	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
 	out, err := exec.CommandContext(ctx, path, "--version").CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("%w: %s", err, strings.TrimSpace(string(out)))
 	}
+	if !mentionsTag(string(out), tag) {
+		return fmt.Errorf("it reports %q, not %s", strings.TrimSpace(string(out)), tag)
+	}
 	return nil
+}
+
+// mentionsTag matches the tag as a whole version token, so 1.32.0 is not
+// satisfied by 1.32.0-rc1 or 11.32.0.
+func mentionsTag(out, tag string) bool {
+	want := strings.TrimPrefix(tag, "v")
+	if want == "" {
+		return true
+	}
+	re := regexp.MustCompile(`(^|[^0-9A-Za-z.+-])v?` + regexp.QuoteMeta(want) + `($|[^0-9A-Za-z.+-])`)
+	return re.MatchString(out)
+}
+
+// staleTempAge is how old a .fss-update-* file must be before it is treated as
+// the orphan of an interrupted update rather than a concurrent one's.
+const staleTempAge = 10 * time.Minute
+
+func sweepStaleTemps(targetPath string) {
+	matches, _ := filepath.Glob(filepath.Join(filepath.Dir(targetPath), ".fss-update-*"))
+	for _, m := range matches {
+		if fi, err := os.Stat(m); err == nil && time.Since(fi.ModTime()) > staleTempAge {
+			_ = os.Remove(m)
+		}
+	}
 }
 
 func download(ctx context.Context, client *http.Client, url string) ([]byte, error) {

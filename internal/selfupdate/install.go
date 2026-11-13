@@ -35,7 +35,8 @@ type Env struct {
 	Channel string
 	// Version is the build version, "dev" for an unstamped local build.
 	Version string
-	// InDocker reports whether this process is running inside a container.
+	// InDocker reports whether this process is running inside a container. It
+	// only matters for a pre-stamp image; the channel stamp decides otherwise.
 	InDocker bool
 }
 
@@ -69,7 +70,7 @@ func Detect(env Env) Install {
 	channel := strings.ToLower(strings.TrimSpace(env.Channel))
 
 	switch {
-	case channel == string(MethodDocker) || env.InDocker:
+	case channel == string(MethodDocker) || (channel == "" && env.InDocker && path == "/usr/local/bin/fss"):
 		return Install{Method: MethodDocker, Path: path,
 			Advice: "docker pull ghcr.io/anastylosis/fss:latest"}
 
@@ -79,11 +80,11 @@ func Detect(env Env) Install {
 
 	case channel == string(MethodDeb) && systemOwned(path):
 		return Install{Method: MethodDeb, Path: path,
-			Advice: "sudo apt update && sudo apt install --only-upgrade fss"}
+			Advice: PackageInstallCommand(MethodDeb, "<downloaded .deb>")}
 
 	case channel == string(MethodRPM) && systemOwned(path):
 		return Install{Method: MethodRPM, Path: path,
-			Advice: "sudo dnf upgrade fss"}
+			Advice: PackageInstallCommand(MethodRPM, "<downloaded .rpm>")}
 
 	case channel == string(MethodAUR) && systemOwned(path):
 		return Install{Method: MethodAUR, Path: path,

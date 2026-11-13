@@ -116,6 +116,7 @@
   "tag for stashbox overrides (default from config)": "tag for stashbox overrides (default from config)",
   "version for %s": "version for %s",
   "version for this command": "version for this command",
+  "with --update, install the latest release even if this build is newer": "with --update, install the latest release even if this build is newer",
   "with --write, overwrite creator files that already exist": "with --write, overwrite creator files that already exist",
   "write the proposals into the creators directory instead of printing them": "write the proposals into the creators directory instead of printing them"
 }
