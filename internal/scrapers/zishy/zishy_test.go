@@ -310,3 +310,17 @@ func TestListingErrorIsReported(t *testing.T) {
 		t.Error("a listing failure produced no error result")
 	}
 }
+
+func TestParseListingSpanTitle(t *testing.T) {
+	items := parseListing([]byte(`<div class='albumcover' style='margin:15px'>
+<a href="albums/2785-rian-starber-took-my-photo-2"><img src="/uploads/t.jpg" /></a>
+<br>
+<span style='text-wrap:nowrap; line-height:24px'>Rian Starber Took My Photo 2</span>
+<br>
+<strong style='color:#888'>77 photos</strong>
+ | Oct 17, 2026
+</div>`))
+	if len(items) != 1 || items[0].title != "Rian Starber Took My Photo 2" || items[0].date.IsZero() {
+		t.Fatalf("got %+v", items)
+	}
+}

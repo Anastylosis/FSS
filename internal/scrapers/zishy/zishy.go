@@ -123,10 +123,10 @@ var (
 	// Album links are relative without a leading slash.
 	linkRe  = regexp.MustCompile(`<a href="albums/(\d+)-([^"]*)"`)
 	thumbRe = regexp.MustCompile(`<img[^>]*src="([^"]+)"`)
-	titleRe = regexp.MustCompile(`<strong>([^<]+)</strong>`)
+	titleRe = regexp.MustCompile(`<(?:strong|span)(?: style='text-wrap[^']*')?>([^<]+)</(?:strong|span)>`)
 	// "added Jun 20, 2026" on the card; the detail page splits the same value
 	// across newlines.
-	dateRe = regexp.MustCompile(`added\s+([A-Z][a-z]{2}\s+\d{1,2},\s+\d{4})`)
+	dateRe = regexp.MustCompile(`(?:added|\|)\s+([A-Z][a-z]{2}\s+\d{1,2},\s+\d{4})`)
 )
 
 type listItem struct {
@@ -154,7 +154,7 @@ func parseListing(body []byte) []listItem {
 			id:  m[1],
 			url: siteBase + "/albums/" + m[1] + "-" + m[2],
 		}
-		// The first <strong> is the title; the second is the photo count.
+		// Title is a bare <strong> (older markup) or a nowrap <span>; the styled <strong> is the photo count.
 		if tm := titleRe.FindStringSubmatch(card); tm != nil {
 			it.title = cleanText(tm[1])
 		}
