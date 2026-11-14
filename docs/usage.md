@@ -315,7 +315,9 @@ stamps them. A build that names none — every release up to v1.31.0, a local `g
 `go install` — prints the line exactly as it always did, with no channel.
 
 Homebrew installs the release tarball unchanged, so a brew binary reports that tarball's
-channel rather than `homebrew`; it is identified by its path in the Cellar instead.
+channel rather than `homebrew`; it is identified by its path in the Cellar instead. winget does the same with the Windows zip and is
+identified by a path under `Microsoft\WinGet\Packages` (or `Links`); `fss version --update` then
+prints `winget upgrade Anastylosis.FSS`.
 
 Quote this line in a bug report: which channel a binary came from is otherwise unanswerable,
 and it decides whether an update should come from `fss` itself or from a package manager.

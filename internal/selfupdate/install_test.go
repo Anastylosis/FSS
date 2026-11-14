@@ -18,6 +18,9 @@ func TestDetect(t *testing.T) {
 		{"unstamped build in a devcontainer", Env{Path: "/home/u/bin/fss", Channel: "", Version: "v1.31.0", InDocker: true}, MethodUnknown, false},
 		{"homebrew cellar", Env{Path: "/opt/homebrew/Cellar/fss/1.31.0/bin/fss", Channel: "release", Version: "v1.31.0"}, MethodHomebrew, true},
 		{"linuxbrew cellar", Env{Path: "/home/linuxbrew/.linuxbrew/Cellar/fss/1.31.0/bin/fss", Channel: "", Version: "v1.31.0"}, MethodHomebrew, true},
+		{"winget package", Env{Path: `C:\Users\u\AppData\Local\Microsoft\WinGet\Packages\Anastylosis.FSS_Microsoft.Winget.Source_8wekyb3d8bbwe\fss.exe`, Channel: "release", Version: "v1.31.0"}, MethodWinget, true},
+		{"winget link", Env{Path: `C:\Users\u\AppData\Local\microsoft\winget\links\fss.exe`, Channel: "release", Version: "v1.31.0"}, MethodWinget, true},
+		{"windows manual zip", Env{Path: `C:\tools\fss.exe`, Channel: "release", Version: "v1.31.0"}, MethodRelease, false},
 		{"release tarball", Env{Path: "/usr/local/bin/fss", Channel: "release", Version: "v1.31.0"}, MethodRelease, false},
 		{"unstamped build", Env{Path: "/home/u/bin/fss", Channel: "", Version: "v1.30.0"}, MethodUnknown, false},
 	}

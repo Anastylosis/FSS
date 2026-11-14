@@ -1,0 +1,36 @@
+name: Publish to winget
+
+# The release is published with GITHUB_TOKEN, which does not fire `release`
+# events in other workflows, so this follows the Release workflow instead.
+on:
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to submit (e.g. v1.34.0)
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  winget:
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && !contains(github.event.workflow_run.head_branch, '-'))
+    runs-on: ubuntu-latest
+    env:
+      WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+      TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.event.workflow_run.head_branch }}
+    steps:
+      - name: Skip when WINGET_TOKEN is not configured
+        if: env.WINGET_TOKEN == ''
+        run: echo "WINGET_TOKEN is not set; skipping winget submission."
+
+      - uses: vedantmgoyal9/winget-releaser@b7370d4d152efdce803a26cc6ca9eee58cb2ad54 # v2
+        if: env.WINGET_TOKEN != ''
+        with:
+          identifier: Anastylosis.FSS
+          release-tag: ${{ env.TAG }}
+          installers-regex: 'windows-amd64\.zip$'
+          token: ${{ secrets.WINGET_TOKEN }}

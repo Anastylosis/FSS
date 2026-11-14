@@ -1,0 +1,13 @@
+PackageIdentifier: Anastylosis.FSS
+PackageVersion: 1.34.0
+InstallerType: zip
+NestedInstallerType: portable
+NestedInstallerFiles:
+  - RelativeFilePath: fss.exe
+    PortableCommandAlias: fss
+Installers:
+  - Architecture: x64
+    InstallerUrl: https://github.com/Anastylosis/FSS/releases/download/v1.34.0/fss-v1.34.0-windows-amd64.zip
+    InstallerSha256: FEB8EB1814D7DADFBCF1F05F90C898C2F2579D909C16AC79A0FC814E411AA9ED
+ManifestType: installer
+ManifestVersion: 1.6.0

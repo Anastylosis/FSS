@@ -1,0 +1,12 @@
+PackageIdentifier: Anastylosis.FSS
+PackageVersion: 1.34.0
+PackageLocale: en-US
+Publisher: Anastylosis
+PackageName: FSS
+PackageUrl: https://github.com/Anastylosis/FSS
+License: GPL-3.0-only
+LicenseUrl: https://github.com/Anastylosis/FSS/blob/master/LICENSE
+ShortDescription: Scrape studio and performer sites into local metadata, with Stash integration.
+Moniker: fss
+ManifestType: defaultLocale
+ManifestVersion: 1.6.0

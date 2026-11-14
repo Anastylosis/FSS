@@ -19,6 +19,28 @@ release re-renders the formula in
 where the tap's own CI runs `brew audit`, `brew install` and `brew test` on
 both platforms before you ever see it.
 
+## winget (Windows)
+
+```powershell
+winget install Anastylosis.FSS
+winget upgrade Anastylosis.FSS
+```
+
+winget installs the release zip's `fss.exe` as a portable package and puts an `fss` alias on
+your `PATH`. `fss version --update` leaves such a copy alone and prints the `winget upgrade`
+command instead.
+
+Maintainer setup (once):
+
+1. Submit the first version by hand, following [`packaging/winget/README.md`](../packaging/winget/README.md).
+   The automation can only update a package that already exists in `microsoft/winget-pkgs`.
+2. Fork [`microsoft/winget-pkgs`](https://github.com/microsoft/winget-pkgs) to the account that owns the token.
+3. Create a classic personal access token with the `public_repo` scope.
+4. Add it to this repository as the `WINGET_TOKEN` secret.
+
+After that, `.github/workflows/winget.yml` opens a winget-pkgs pull request for every published
+(non-prerelease) release. Without the secret it does nothing.
+
 ## Pre-built binary
 
 Download the archive for your platform from the [latest release](https://github.com/Anastylosis/FSS/releases/latest), extract, and put the binary on your `PATH`. All binaries are static (no runtime dependencies).

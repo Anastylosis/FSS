@@ -21,6 +21,7 @@ const (
 	MethodAUR      Method = "aur"
 	MethodDocker   Method = "docker"
 	MethodHomebrew Method = "homebrew"
+	MethodWinget   Method = "winget"
 	MethodUnknown  Method = "unknown"
 )
 
@@ -78,6 +79,10 @@ func Detect(env Env) Install {
 		return Install{Method: MethodHomebrew, Path: path,
 			Advice: "brew upgrade fss"}
 
+	case inWingetPackages(path):
+		return Install{Method: MethodWinget, Path: path,
+			Advice: "winget upgrade " + WingetIdentifier}
+
 	case channel == string(MethodDeb) && systemOwned(path):
 		return Install{Method: MethodDeb, Path: path,
 			Advice: PackageInstallCommand(MethodDeb, "<downloaded .deb>")}
@@ -109,6 +114,16 @@ func inHomebrewCellar(path string) bool {
 		}
 	}
 	return false
+}
+
+// WingetIdentifier is the package's id in the winget-pkgs repository.
+const WingetIdentifier = "Anastylosis.FSS"
+
+// inWingetPackages reports whether the path lies under winget's portable
+// package directory. The zip is installed unchanged, so only the path can say.
+func inWingetPackages(path string) bool {
+	p := strings.ToLower(strings.ReplaceAll(path, `\`, "/"))
+	return strings.Contains(p, "/microsoft/winget/packages/") || strings.Contains(p, "/microsoft/winget/links/")
 }
 
 // systemOwned reports whether the path is where a Linux package manager puts a
