@@ -237,11 +237,13 @@ func runScrape(cmd *cobra.Command, args []string) error {
 			worst = c
 		}
 	}
+	run := scrapeRun{name: name, dbPath: dbPath, outDir: outDir, formats: formats, full: full, refresh: refresh,
+		force: force, preserve: !noPreserve, workers: workers, sites: sites, ov: overrides}
 	for i, tgt := range targets {
 		if i > 0 {
 			fmt.Println()
 		}
-		if err := scrapeOne(ctx, st, tgt, name, dbPath, outDir, formats, full, refresh, force, !noPreserve, workers, sites, overrides); err != nil {
+		if err := run.one(ctx, st, tgt); err != nil {
 			if !isReported(err) {
 				fmt.Fprintf(os.Stderr, "error scraping %s: %v\n", tgt.url, err)
 			}
@@ -270,7 +272,25 @@ type siteSettings struct {
 	languages       map[string]string
 }
 
+// scrapeRun is the per-invocation configuration shared by every target.
+type scrapeRun struct {
+	name, dbPath, outDir string
+	formats              []string
+	full, refresh        bool
+	force, preserve      bool
+	workers              int
+	sites                siteSettings
+	ov                   sceneOverrides
+}
+
 func scrapeOne(ctx context.Context, st store.Store, tgt scrapeTarget, name, dbPath, outDir string, formats []string, full, refresh, force, preserve bool, workers int, sites siteSettings, ov sceneOverrides) error {
+	return scrapeRun{name, dbPath, outDir, formats, full, refresh, force, preserve, workers, sites, ov}.one(ctx, st, tgt)
+}
+
+func (r scrapeRun) one(ctx context.Context, st store.Store, tgt scrapeTarget) error {
+	name, dbPath, outDir, formats := r.name, r.dbPath, r.outDir, r.formats
+	full, refresh, force, preserve := r.full, r.refresh, r.force, r.preserve
+	workers, sites, ov := r.workers, r.sites, r.ov
 	start := time.Now()
 	studioURL := tgt.url
 
@@ -343,20 +363,11 @@ func scrapeOne(ctx context.Context, st store.Store, tgt scrapeTarget, name, dbPa
 	// studio. Refuse the destructive Save when the studio already has data,
 	// unless --force is given. (Incremental merges, so it is never destructive.)
 	if cov.fresh == 0 && !cov.incomplete && (full || refresh) && !force {
-		existing, lerr := st.Load(studioURL)
-		if lerr != nil {
-			return fmt.Errorf("checking stored scenes before a destructive save: %w", lerr)
-		}
 		// --full hard-deletes every stored scene, deleted ones included;
 		// --refresh only soft-deletes, so only live scenes are at stake.
-		at := len(existing)
+		at := cov.storedAll
 		if !full {
-			at = 0
-			for _, s := range existing {
-				if s.DeletedAt == nil {
-					at++
-				}
-			}
+			at = cov.stored
 		}
 		if at > 0 {
 			fmt.Fprintf(os.Stderr,
@@ -420,241 +431,62 @@ func scrapeOne(ctx context.Context, st store.Store, tgt scrapeTarget, name, dbPa
 	return nil
 }
 
-// scrapeAll does a full traversal — no KnownIDs early-stop hint — but still
-// carries forward existing price history so the historical pricing record is
-// preserved across --full re-scrapes. Unlike --refresh, scenes that no longer
-// appear on the site are dropped rather than soft-deleted.
-// sceneKey identifies a scene within a studio. A studio URL can hold scenes
-// from more than one site_id (aggregators, multi-brand scrapers), so merge and
-// dedup must key on (id, site_id) — id alone collides across sites.
-type sceneKey struct{ id, siteID string }
-
-func keyOf(s models.Scene) sceneKey { return sceneKey{id: s.ID, siteID: s.SiteID} }
-
-// traversal reports how a scrape ended, beyond the scenes it produced.
-type traversal struct {
-	incomplete   bool // fetch errors cost scenes, or the run was cancelled
-	stoppedEarly bool // the KnownIDs early-stop fired
-}
-
-// coverage measures a scrape against what the store already holds. A scraper
-// that still works but no longer reaches most of the catalogue — a site that
-// drops its pagination, or a parser that only matches one of two card
-// templates — looks like a clean success to every other check here.
-type coverage struct {
-	stored  int // live (not soft-deleted) scenes already in the store
-	seen    int // live stored scenes this scrape re-collected
-	dropped int // stored scenes, live or deleted, this scrape did not re-collect
-	fresh   int // distinct scenes this scrape collected, before any carry-forward
-	traversal
-}
-
-const (
-	// coverageCollapseRatio is the share of the stored catalogue a completed
-	// traversal must re-see. Below it, a site change is likelier than the
-	// catalogue genuinely shrinking that far.
-	coverageCollapseRatio = 0.5
-	// minStoredForCoverageCheck keeps the ratio off small studios, where one
-	// or two scenes swing it past any threshold.
-	minStoredForCoverageCheck = 10
-)
-
-func coverageOf(existing map[sceneKey]models.Scene, seen map[sceneKey]bool, tr traversal) coverage {
-	cov := coverage{fresh: len(seen), traversal: tr}
-	for k, s := range existing {
-		if !seen[k] {
-			cov.dropped++
-		}
-		if s.DeletedAt != nil {
-			continue
-		}
-		cov.stored++
-		if seen[k] {
-			cov.seen++
-		}
-	}
-	return cov
-}
-
-// collapsed reports a coverage drop worth interrupting for. An incomplete
-// traversal or an early stop both explain a small fresh set on their own and
-// have their own handling, so neither counts.
-func (c coverage) collapsed() bool {
-	if c.stored < minStoredForCoverageCheck || c.incomplete || c.stoppedEarly {
-		return false
-	}
-	return float64(c.seen)/float64(c.stored) < coverageCollapseRatio
-}
-
-func (c coverage) percent() int {
-	if c.stored == 0 {
-		return 0
-	}
-	return int(float64(c.seen) / float64(c.stored) * 100)
-}
-
+// scrapeAll does a full traversal — no KnownIDs early-stop hint. Scenes that no
+// longer appear are dropped, unless the traversal was incomplete.
 func scrapeAll(ctx context.Context, sc scraper.StudioScraper, st store.Store, studioURL string, opts scraper.ListOpts, preserve bool, ov sceneOverrides) ([]models.Scene, coverage, error) {
+	return scrapeMode(ctx, sc, st, studioURL, opts, preserve, ov, absentDrop)
+}
+
+// scrapeIncremental passes stored IDs to the scraper as an early-stop hint
+// (date-sorted sites), then merges fresh over existing.
+func scrapeIncremental(ctx context.Context, sc scraper.StudioScraper, st store.Store, studioURL string, opts scraper.ListOpts, preserve bool, ov sceneOverrides) ([]models.Scene, coverage, error) {
+	return scrapeMode(ctx, sc, st, studioURL, opts, preserve, ov, absentKeep)
+}
+
+// scrapeRefresh re-fetches everything and soft-deletes scenes that disappeared.
+func scrapeRefresh(ctx context.Context, sc scraper.StudioScraper, st store.Store, studioURL string, opts scraper.ListOpts, preserve bool, ov sceneOverrides) ([]models.Scene, coverage, error) {
+	return scrapeMode(ctx, sc, st, studioURL, opts, preserve, ov, absentSoftDelete)
+}
+
+func scrapeMode(ctx context.Context, sc scraper.StudioScraper, st store.Store, studioURL string, opts scraper.ListOpts, preserve bool, ov sceneOverrides, policy absentPolicy) ([]models.Scene, coverage, error) {
 	existing, err := st.Load(studioURL)
 	if err != nil {
 		return nil, coverage{}, fmt.Errorf("loading existing scenes: %w", err)
 	}
-	existingByKey := make(map[sceneKey]models.Scene, len(existing))
-	for _, s := range existing {
-		existingByKey[keyOf(s)] = s
-	}
 
-	fresh, tr, err := collectScenes(ctx, sc, studioURL, opts, ov)
-	if err != nil {
-		return nil, coverage{}, err
-	}
-
-	result := make([]models.Scene, 0, len(fresh))
-	seen := make(map[sceneKey]bool, len(fresh))
-	for _, s := range fresh {
-		k := keyOf(s)
-		if seen[k] {
-			continue // drop duplicate (id, site_id) from pagination overlap
-		}
-		seen[k] = true
-		if prev, ok := existingByKey[k]; ok {
-			s = carryOver(s, prev, preserve)
-		}
-		result = append(result, s)
-	}
-
-	// A1: an incomplete traversal (fetch errors / interrupted) must not let the
-	// authoritative Save hard-delete scenes that simply weren't reached. Fall
-	// back to merge semantics — carry forward existing scenes not re-collected.
-	if tr.incomplete {
-		carried := 0
+	if policy == absentKeep {
+		knownIDs := make(map[string]bool, len(existing))
 		for _, s := range existing {
-			if !seen[keyOf(s)] {
-				result = append(result, s)
-				carried++
+			if s.DeletedAt == nil {
+				knownIDs[s.ID] = true
 			}
 		}
-		fmt.Fprintf(os.Stderr, "warning: traversal incomplete — preserving %d existing scene(s) and skipping destructive --full delete\n", carried)
-	}
-	return result, coverageOf(existingByKey, seen, tr), nil
-}
-
-// scrapeIncremental loads existing scene IDs, passes them to the scraper as a
-// hint for early-stop optimisation (date-sorted sites), then merges results.
-//
-// Scrapers that cannot use early-stop (e.g. recommended-sorted sites) may emit
-// known scenes in correct site order. In that case fresh takes priority and
-// price history is carried forward so no history is lost.
-func scrapeIncremental(ctx context.Context, sc scraper.StudioScraper, st store.Store, studioURL string, opts scraper.ListOpts, preserve bool, ov sceneOverrides) ([]models.Scene, coverage, error) {
-	existing, err := st.Load(studioURL)
-	if err != nil {
-		return nil, coverage{}, fmt.Errorf("loading existing scenes: %w", err)
+		opts.KnownIDs = knownIDs
 	}
 
-	knownIDs := make(map[string]bool, len(existing))
-	existingByKey := make(map[sceneKey]models.Scene, len(existing))
-	for _, s := range existing {
-		if s.DeletedAt == nil {
-			knownIDs[s.ID] = true
-		}
-		existingByKey[keyOf(s)] = s
-	}
-
-	// Incremental already merges fresh with existing, so a partial traversal is
-	// inherently non-destructive — the incomplete flag needs no special handling.
-	opts.KnownIDs = knownIDs
 	fresh, tr, err := collectScenes(ctx, sc, studioURL, opts, ov)
 	if err != nil {
 		return nil, coverage{}, err
 	}
 
-	// Merge: emit fresh scenes first (preserving scraper order); carry price
-	// history when a fresh scene was already stored (happens when a scraper
-	// re-emits known IDs rather than skipping them). Append any existing scenes
-	// that were not re-emitted (older entries on date-sorted sites).
-	freshKeys := make(map[sceneKey]bool, len(fresh))
-	result := make([]models.Scene, 0, len(fresh)+len(existing))
-	newCount := 0
-	for _, s := range fresh {
-		k := keyOf(s)
-		if freshKeys[k] {
-			continue // drop duplicate (id, site_id) from pagination overlap
+	out := mergeRun(existing, fresh, tr, policy, preserve, time.Now().UTC())
+	switch policy {
+	case absentDrop:
+		if tr.incomplete {
+			fmt.Fprintf(os.Stderr, "warning: traversal incomplete — preserving %d existing scene(s) and skipping destructive --full delete\n", out.carried)
 		}
-		freshKeys[k] = true
-		if prev, ok := existingByKey[k]; ok {
-			s = carryOver(s, prev, preserve)
-		} else {
-			newCount++
+	case absentKeep:
+		fmt.Printf("  %d new, %d existing → %d total\n", out.newCount, len(existing), len(out.scenes))
+	case absentSoftDelete:
+		if tr.incomplete {
+			fmt.Fprintln(os.Stderr, "warning: traversal incomplete — skipping --refresh soft-delete of unreached scenes")
 		}
-		result = append(result, s)
-	}
-	for _, s := range existing {
-		if !freshKeys[keyOf(s)] {
-			result = append(result, s)
+		if out.newlyDeleted > 0 {
+			fmt.Printf("  %d scenes no longer found, marked deleted\n", out.newlyDeleted)
 		}
+		fmt.Printf("  %d scraped, %d total\n", len(fresh), len(out.scenes))
 	}
-
-	fmt.Printf("  %d new, %d existing → %d total\n", newCount, len(existing), len(result))
-	return result, coverageOf(existingByKey, freshKeys, tr), nil
-}
-
-// scrapeRefresh re-fetches all scenes and soft-deletes any that have disappeared.
-// Price history from prior scrapes is carried forward onto each re-fetched scene.
-func scrapeRefresh(ctx context.Context, sc scraper.StudioScraper, st store.Store, studioURL string, opts scraper.ListOpts, preserve bool, ov sceneOverrides) ([]models.Scene, coverage, error) {
-	existing, err := st.Load(studioURL)
-	if err != nil {
-		return nil, coverage{}, fmt.Errorf("loading existing scenes: %w", err)
-	}
-	existingByKey := make(map[sceneKey]models.Scene, len(existing))
-	for _, s := range existing {
-		existingByKey[keyOf(s)] = s
-	}
-
-	// Full traversal — no KnownIDs
-	fresh, tr, err := collectScenes(ctx, sc, studioURL, opts, ov)
-	if err != nil {
-		return nil, coverage{}, err
-	}
-
-	// Build result: fresh scenes with accumulated price history.
-	scrapedKeys := make(map[sceneKey]bool, len(fresh))
-	result := make([]models.Scene, 0, len(existing))
-	for _, s := range fresh {
-		k := keyOf(s)
-		if scrapedKeys[k] {
-			continue // drop duplicate (id, site_id) from pagination overlap
-		}
-		scrapedKeys[k] = true
-		if prev, ok := existingByKey[k]; ok {
-			s = carryOver(s, prev, preserve)
-		}
-		result = append(result, s)
-	}
-
-	// Carry forward previously-deleted scenes; mark newly-missing ones as
-	// deleted. A1: when the traversal was incomplete, an unreached scene may
-	// simply not have been fetched, so do NOT soft-delete on a partial run —
-	// carry every existing scene forward with its current DeletedAt intact.
-	now := time.Now().UTC()
-	newlyDeleted := 0
-	for _, s := range existing {
-		if scrapedKeys[keyOf(s)] {
-			continue
-		}
-		if !tr.incomplete && s.DeletedAt == nil {
-			s.DeletedAt = &now
-			newlyDeleted++
-		}
-		result = append(result, s)
-	}
-	if tr.incomplete {
-		fmt.Fprintln(os.Stderr, "warning: traversal incomplete — skipping --refresh soft-delete of unreached scenes")
-	}
-
-	if newlyDeleted > 0 {
-		fmt.Printf("  %d scenes no longer found, marked deleted\n", newlyDeleted)
-	}
-	fmt.Printf("  %d scraped, %d total\n", len(fresh), len(result))
-	return result, coverageOf(existingByKey, scrapedKeys, tr), nil
+	return out.scenes, out.cov, nil
 }
 
 // collectScenes drains the scraper channel, printing a live count and warnings.
@@ -752,112 +584,6 @@ func summarizeFailures(byKind map[scraper.FailureKind]int) string {
 		}
 	}
 	return strings.Join(parts, ", ")
-}
-
-// carryOver folds a stored scene into the freshly-scraped one that replaces it:
-// price history is always replayed, and unless the operator opted out, fields
-// the fresh scrape returned empty fall back to the stored value.
-func carryOver(fresh, existing models.Scene, preserve bool) models.Scene {
-	if preserve {
-		fresh = preserveEnrichment(fresh, existing)
-	}
-	return carryOverPriceHistory(fresh, existing)
-}
-
-// preserveEnrichment restores fields that the fresh scrape left empty from the
-// stored scene.
-//
-// Save is authoritative, so without this a parser that breaks on a site redesign
-// and starts returning blank tags, performers or descriptions silently replaces
-// good stored metadata with nothing on the next --refresh. Price history had
-// this protection; nothing else did.
-//
-// The trade is deliberate: a field the site genuinely emptied stays populated
-// here. Losing a whole catalogue's metadata to a parser regression is the worse
-// failure, and `--no-preserve` exists for a real rebuild. Only wholly-empty
-// fields are restored — a scrape returning 2 of 3 tags still wins outright.
-func preserveEnrichment(fresh, existing models.Scene) models.Scene {
-	keepStr := func(f, e string) string {
-		if f == "" {
-			return e
-		}
-		return f
-	}
-	keepInt := func(f, e int) int {
-		if f == 0 {
-			return e
-		}
-		return f
-	}
-	keepSlice := func(f, e []string) []string {
-		if len(f) == 0 {
-			return e
-		}
-		return f
-	}
-
-	fresh.Title = keepStr(fresh.Title, existing.Title)
-	fresh.URL = keepStr(fresh.URL, existing.URL)
-	fresh.Description = keepStr(fresh.Description, existing.Description)
-	fresh.Thumbnail = keepStr(fresh.Thumbnail, existing.Thumbnail)
-	fresh.Preview = keepStr(fresh.Preview, existing.Preview)
-	fresh.Director = keepStr(fresh.Director, existing.Director)
-	fresh.Studio = keepStr(fresh.Studio, existing.Studio)
-	fresh.Series = keepStr(fresh.Series, existing.Series)
-	fresh.Resolution = keepStr(fresh.Resolution, existing.Resolution)
-	fresh.Format = keepStr(fresh.Format, existing.Format)
-
-	fresh.SeriesPart = keepInt(fresh.SeriesPart, existing.SeriesPart)
-	fresh.Duration = keepInt(fresh.Duration, existing.Duration)
-	fresh.Width = keepInt(fresh.Width, existing.Width)
-	fresh.Height = keepInt(fresh.Height, existing.Height)
-	fresh.Views = keepInt(fresh.Views, existing.Views)
-	fresh.Likes = keepInt(fresh.Likes, existing.Likes)
-	fresh.Comments = keepInt(fresh.Comments, existing.Comments)
-
-	fresh.Performers = keepSlice(fresh.Performers, existing.Performers)
-	fresh.Tags = keepSlice(fresh.Tags, existing.Tags)
-	fresh.Categories = keepSlice(fresh.Categories, existing.Categories)
-
-	if fresh.Date.IsZero() {
-		fresh.Date = existing.Date
-	}
-
-	// External IDs accumulate across scrapes — different sources learn the
-	// scene at different times — so union rather than replace.
-	for source, id := range existing.ExternalIDs {
-		if fresh.ExternalIDs == nil {
-			fresh.ExternalIDs = map[string]string{}
-		}
-		if _, ok := fresh.ExternalIDs[source]; !ok {
-			fresh.ExternalIDs[source] = id
-		}
-	}
-
-	return fresh
-}
-
-// carryOverPriceHistory replays the existing scene's price history plus every
-// fresh snapshot through AddPrice so LowestPrice is recomputed correctly.
-// When the fresh scene has no price data (e.g. site stopped returning pricing),
-// existing history is preserved so no data is lost.
-//
-// Each scraper today emits at most one snapshot per scrape, but the function
-// must not bake that assumption in — if a scraper starts emitting multiple
-// snapshots (backfill, multi-tier pricing, batched updates), every one of them
-// should land in the carried-over history.
-func carryOverPriceHistory(fresh, existing models.Scene) models.Scene {
-	freshSnaps := fresh.PriceHistory
-	fresh.PriceHistory = nil
-	fresh.LowestPrice = 0
-	fresh.LowestPriceDate = nil
-	for _, snap := range existing.PriceHistory {
-		fresh.AddPrice(snap)
-	}
-	for _, snap := range freshSnaps {
-		fresh.AddPrice(snap)
-	}
-	return fresh
 }
 
 // parseFormats splits "json,csv" into ["json","csv"], trimming spaces and deduplicating.

@@ -144,6 +144,12 @@ Two properties make that correct:
   loaded back (second precision), and nothing would ever be skipped.
 - `ScrapedAt` and `FirstSeenAt` are excluded — the first changes on every scrape
   by definition, and the second is store-owned and never changes once set.
+- Performer, tag and category lists are hashed with blank and repeated names
+  dropped, as `syncRelation` stores them. A scene scraped with `["a","a",""]`
+  loads back as `["a"]`; hashing the raw list meant it never matched and took
+  the full write path on every run. Hashes of already-clean scenes are unchanged.
+- Price history loads ordered by `(date, id)` in Go rather than by SQL, so two
+  snapshots recorded in the same second keep their insertion order.
 
 > **Invariant:** anything writing scene state outside `upsertScene` must
 > invalidate `content_hash`. `MarkDeleted` sets it to `''` for exactly this

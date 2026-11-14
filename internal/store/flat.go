@@ -27,6 +27,11 @@ type Flat struct {
 	// blocks on itself forever. See Lock.
 	mu   sync.Mutex
 	held map[string]*reentrantLock
+
+	// noVariant remembers studios whose directory scan found no variant file,
+	// so Load and the Save that follows do not each read the whole library.
+	// Cleared when Save writes the studio.
+	noVariant map[string]bool
 }
 
 func NewFlat(dir string, formats []string) *Flat {
@@ -280,6 +285,12 @@ func (f *Flat) migrateLegacy(studioURL, newPath string) (bool, error) {
 // left in place rather than deleted; merging their scenes is `fss import`'s job,
 // and silently discarding a file would be worse than leaving it.
 func (f *Flat) migrateURLVariant(studioURL, newPath string) (bool, error) {
+	f.mu.Lock()
+	known := f.noVariant[studioURL]
+	f.mu.Unlock()
+	if known {
+		return false, nil
+	}
 	entries, err := os.ReadDir(f.dir)
 	if err != nil {
 		return false, nil // no directory yet: nothing to migrate
@@ -299,7 +310,10 @@ func (f *Flat) migrateURLVariant(studioURL, newPath string) (bool, error) {
 		if rErr != nil {
 			continue
 		}
-		var sf models.StudioFile
+		var sf struct {
+			StudioURL string    `json:"studioUrl"`
+			ScrapedAt time.Time `json:"scrapedAt"`
+		}
 		if json.Unmarshal(data, &sf) != nil || sf.StudioURL == "" {
 			continue
 		}
@@ -311,6 +325,12 @@ func (f *Flat) migrateURLVariant(studioURL, newPath string) (bool, error) {
 		}
 	}
 	if bestPath == "" {
+		f.mu.Lock()
+		if f.noVariant == nil {
+			f.noVariant = map[string]bool{}
+		}
+		f.noVariant[studioURL] = true
+		f.mu.Unlock()
 		return false, nil
 	}
 	if err := os.Rename(bestPath, newPath); err != nil {
@@ -344,6 +364,9 @@ func (f *Flat) Save(studioURL string, scenes []models.Scene) error {
 	if err := WriteJSON(sf, f.jsonPath(studioURL)); err != nil {
 		return err
 	}
+	f.mu.Lock()
+	delete(f.noVariant, studioURL)
+	f.mu.Unlock()
 	for _, format := range f.formats {
 		if format == "csv" {
 			if err := WriteCSV(scenes, f.csvPath(studioURL)); err != nil {

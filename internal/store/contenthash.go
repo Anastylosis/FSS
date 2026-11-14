@@ -42,9 +42,20 @@ func sceneContentHash(sc models.Scene) string {
 			_, _ = fmt.Fprintf(h, "%d|", n)
 		}
 	}
+	// Blank and repeated names are dropped, as syncRelation does, so a scene
+	// that loads back deduplicated still hashes the same.
 	wList := func(items []string) {
-		wn(len(items))
-		w(items...)
+		kept := make([]string, 0, len(items))
+		seen := make(map[string]struct{}, len(items))
+		for _, it := range items {
+			if _, dup := seen[it]; it == "" || dup {
+				continue
+			}
+			seen[it] = struct{}{}
+			kept = append(kept, it)
+		}
+		wn(len(kept))
+		w(kept...)
 	}
 
 	w(sc.ID, sc.SiteID, sc.StudioURL, sc.Title, sc.URL, timeStr(sc.Date), sc.Description)
