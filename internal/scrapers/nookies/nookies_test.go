@@ -753,3 +753,10 @@ func TestRunNewCMSStopsOnTheLastPagerPage(t *testing.T) {
 		t.Errorf("fetched listing pages %v, want just 1 and 2", listingPages)
 	}
 }
+
+func TestParseCardSluglessURL(t *testing.T) {
+	it, ok := parseCard([]byte(`<div class="video-card"><a href="/video/3514" class="v-thumb"><img src="x.jpg" alt="T" class="main-video-img "></a><a href="/site/clubtug"></a><span class="date">2026-09-30</span></div>`))
+	if !ok || it.id != "3514" || it.url != "/video/3514" || it.subSite != "clubtug" {
+		t.Fatalf("got %+v ok=%v", it, ok)
+	}
+}

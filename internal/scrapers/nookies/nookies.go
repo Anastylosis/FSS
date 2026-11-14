@@ -74,7 +74,7 @@ func (s *Scraper) ListScenes(ctx context.Context, studioURL string, opts scraper
 
 var (
 	cardRe      = regexp.MustCompile(`(?s)<div class="video-card">.*?<!-- End video-card-->`)
-	cardURLRe   = regexp.MustCompile(`<a href="/video/(\d+)/([^"]+)"`)
+	cardURLRe   = regexp.MustCompile(`<a href="/video/(\d+)(?:/([^"]*))?"`)
 	cardThumbRe = regexp.MustCompile(`<img src="([^"]+)" alt="([^"]*)"[^>]*class="main-video-img`)
 	cardPerfRe  = regexp.MustCompile(`<a href="/model/[^"]*" class="tag-btn">([^<]+)</a>`)
 	cardDateRe  = regexp.MustCompile(`<span class="date">(\d{4}-\d{2}-\d{2})</span>`)
@@ -128,7 +128,7 @@ func parseCard(card []byte) (listItem, bool) {
 
 	it := listItem{
 		id:  string(m[1]),
-		url: "/video/" + string(m[1]) + "/" + string(m[2]),
+		url: strings.TrimRight("/video/"+string(m[1])+"/"+string(m[2]), "/"),
 	}
 
 	if mThumb := cardThumbRe.FindSubmatch(card); mThumb != nil {
