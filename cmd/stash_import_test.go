@@ -1178,3 +1178,30 @@ func TestOrganizedEndToEnd(t *testing.T) {
 		t.Error("organized was written although --fields did not list it")
 	}
 }
+
+// A scene linked to a stash-box keeps the studio it already has: storefront
+// data names the selling account ("Tara Tainton TV"), not the studio.
+func TestBuildChanges_stashboxSceneKeepsStudio(t *testing.T) {
+	ss := stash.Scene{ID: "1", Studio: &stash.Studio{Name: "Tara Tainton"},
+		StashIDs: []stash.StashID{{Endpoint: "https://stashdb.org/graphql", ID: "x"}}}
+	merged := match.MergedScene{Studio: "Tara Tainton TV"}
+	if _, ok := buildChanges(ss, merged, nil, nil, false, false)["studio"]; ok {
+		t.Error("studio change proposed for a stash-box scene that already has a studio")
+	}
+	if !keepStashboxStudio(ss) {
+		t.Error("keepStashboxStudio = false, want true")
+	}
+}
+
+// Without a stash-box link, or without a studio yet, fss may still set it.
+func TestBuildChanges_studioStillSetOtherwise(t *testing.T) {
+	merged := match.MergedScene{Studio: "Tara Tainton"}
+	noLink := stash.Scene{ID: "1", Studio: &stash.Studio{Name: "Old"}}
+	if d, ok := buildChanges(noLink, merged, nil, nil, false, false)["studio"]; !ok || d.To != "Tara Tainton" {
+		t.Errorf("unlinked scene: studio change = %+v, %v", d, ok)
+	}
+	linkedNoStudio := stash.Scene{ID: "2", StashIDs: []stash.StashID{{Endpoint: "e", ID: "x"}}}
+	if _, ok := buildChanges(linkedNoStudio, merged, nil, nil, false, false)["studio"]; !ok {
+		t.Error("stash-box scene with no studio: expected a studio change")
+	}
+}

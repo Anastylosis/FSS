@@ -452,3 +452,33 @@ func TestMergeScenesProvenanceExistingDateWins(t *testing.T) {
 		t.Errorf("date discarded = %v, want the site's losing value", src.Discarded)
 	}
 }
+
+// The studio most listings agree on wins, not whichever listing came first.
+// Regression: Tara Tainton's LoyalFans account is "Tara Tainton TV"; her other
+// stores say "Tara Tainton", and a first-come pick moved scenes to a studio
+// that exists nowhere else.
+func TestMergeScenesStudioMajorityBeatsFirst(t *testing.T) {
+	scenes := []models.Scene{
+		{ID: "1", SiteID: "loyalfans", URL: "https://lf/1", Studio: "Tara Tainton TV"},
+		{ID: "2", SiteID: "clips4sale", URL: "https://c4s/2", Studio: "Tara Tainton"},
+		{ID: "3", SiteID: "manyvids", URL: "https://mv/3", Studio: "tara tainton "},
+	}
+	m := MergeScenes(scenes, time.Time{})
+	if m.Studio != "Tara Tainton" {
+		t.Errorf("Studio = %q, want %q", m.Studio, "Tara Tainton")
+	}
+	if src := m.Sources["studio"]; src.Site != "clips4sale" {
+		t.Errorf("studio source = %+v, want clips4sale", src)
+	}
+}
+
+// A tie has no better evidence than order, so the first listing still wins.
+func TestMergeScenesStudioTieKeepsFirst(t *testing.T) {
+	scenes := []models.Scene{
+		{ID: "1", SiteID: "sitea", URL: "https://a/1", Studio: "Alpha"},
+		{ID: "2", SiteID: "siteb", URL: "https://b/2", Studio: "Beta"},
+	}
+	if m := MergeScenes(scenes, time.Time{}); m.Studio != "Alpha" {
+		t.Errorf("Studio = %q, want %q", m.Studio, "Alpha")
+	}
+}

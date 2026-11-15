@@ -310,7 +310,7 @@ func applyScene(ctx context.Context, l *entityLookup, ss stash.Scene, merged mat
 		input.PerformerIDs = dedup(perfIDs)
 		res.addedPerfIDs = subtractIDs(input.PerformerIDs, extractPerfIDs(ss.Performers))
 	}
-	if fieldAllowed(o.allowedFields, "studio") && merged.Studio != "" {
+	if fieldAllowed(o.allowedFields, "studio") && merged.Studio != "" && !keepStashboxStudio(ss) {
 		sid, studioErr := l.ensureStudio(merged.Studio)
 		if studioErr != nil {
 			sceneFailures = append(sceneFailures, importFailure{
@@ -718,7 +718,7 @@ func buildChanges(ss stash.Scene, merged match.MergedScene, mergedURLs []string,
 		changes["performers"] = changelogFieldDiff{Added: addedPerfs}
 	}
 
-	if merged.Studio != "" {
+	if merged.Studio != "" && !keepStashboxStudio(ss) {
 		existingStudio, existingStudioID := "", ""
 		if ss.Studio != nil {
 			existingStudio, existingStudioID = ss.Studio.Name, ss.Studio.ID
@@ -729,6 +729,16 @@ func buildChanges(ss stash.Scene, merged match.MergedScene, mergedURLs []string,
 	}
 
 	return changes
+}
+
+// keepStashboxStudio reports whether a scene's studio must be left alone: it is
+// linked to a stash-box, which is the authority on which studio a scene
+// belongs to, and it already has one. Storefront data only names the selling
+// account - a creator's LoyalFans account "Tara Tainton TV" is not a studio -
+// so --include-stashbox may add titles, URLs and tags but must not move the
+// scene out of the studio StashDB put it in.
+func keepStashboxStudio(ss stash.Scene) bool {
+	return len(ss.StashIDs) > 0 && ss.Studio != nil && ss.Studio.Name != ""
 }
 
 // reconcileChanges returns the changelog diff that reflects what was actually

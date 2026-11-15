@@ -213,6 +213,8 @@ func MergeScenes(scenes []models.Scene, existingDate time.Time) MergedScene {
 		m.Date = existingDate
 	}
 
+	m.Studio = majorityStudio(offers["studio"], m.Studio)
+
 	m.Sources = resolveSources(offers, map[string]string{
 		"title":       m.Title,
 		"description": m.Description,
@@ -224,6 +226,36 @@ func MergeScenes(scenes []models.Scene, existingDate time.Time) MergedScene {
 	})
 
 	return m
+}
+
+// majorityStudio picks the studio most listings agree on, so one storefront's
+// account name cannot decide it for everyone. A creator's LoyalFans account is
+// "Tara Tainton TV" while her other three stores say "Tara Tainton"; taking
+// whichever listing happened to come first put 11 scenes under a studio that
+// exists nowhere else. Names are compared by normName. A tie keeps first, the
+// previous behaviour, because there is no better evidence to break it with.
+func majorityStudio(candidates []offer, first string) string {
+	counts := map[string]int{}
+	var order []string
+	value := map[string]string{}
+	for _, c := range candidates {
+		k := normName(c.value)
+		if _, seen := counts[k]; !seen {
+			order = append(order, k)
+			value[k] = c.value
+		}
+		counts[k]++
+	}
+	best, bestN := normName(first), counts[normName(first)]
+	for _, k := range order {
+		if counts[k] > bestN {
+			best, bestN = k, counts[k]
+		}
+	}
+	if v, ok := value[best]; ok {
+		return v
+	}
+	return first
 }
 
 // offer is one site's candidate value for a scalar field.
