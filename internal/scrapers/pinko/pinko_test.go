@@ -181,6 +181,13 @@ func TestParseListingClub(t *testing.T) {
 	}
 }
 
+func TestParseListingClubLocalePrefix(t *testing.T) {
+	cards := pcScraper().parseListing([]byte(`<article class="card"><a href="/en/video-porno-italiani/7914-the-best-man.php"><img src="https://img.pinkocdn.com/image/SC598/912-16_9.jpg"><h3 class="card__title">The Best Man</h3></a></article>`))
+	if len(cards) != 1 || cards[0].id != "7914" {
+		t.Fatalf("got %+v", cards)
+	}
+}
+
 func TestParseDetailTGirls(t *testing.T) {
 	d := parseDetailLegacy([]byte(tgDetailFixture))
 	if d.title != "Amanda Gets Filmed While Getting Pounded and Loving It" {

@@ -220,7 +220,7 @@ var listingCardRe = regexp.MustCompile(`<a class="link-photo-home" href="([^"]+)
 // modernCardIDRe extracts the numeric scene ID from a modern-template href,
 // regardless of which sub-brand "line" path segment precedes it
 // (/video-porno-italiani/, /frameleaks/, /xtime/, /pinkocomics/, …).
-var modernCardIDRe = regexp.MustCompile(`^/[a-z0-9-]+/(\d+)-`)
+var modernCardIDRe = regexp.MustCompile(`^(?:/[a-z]{2})?/[a-z0-9-]+/(\d+)-`)
 
 // modernArticleRe isolates one listing card block.
 var modernArticleRe = regexp.MustCompile(`(?s)<article class="card">(.*?)</article>`)
