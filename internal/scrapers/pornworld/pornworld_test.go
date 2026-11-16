@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/Anastylosis/FSS/parseutil"
@@ -127,6 +128,14 @@ func TestParseListing(t *testing.T) {
 	}
 	if len(e2.performers) != 1 || e2.performers[0] != "Lisa Ann" {
 		t.Errorf("entry[1].performers = %v", e2.performers)
+	}
+}
+
+func TestParseListingRelativeHref(t *testing.T) {
+	rel := strings.ReplaceAll(fixtureListing, "//pornworld.com/watch/", "/watch/")
+	entries := parseListing([]byte(rel))
+	if len(entries) != 2 || entries[0].id != "4625222-44821" {
+		t.Fatalf("got %+v", entries)
 	}
 }
 

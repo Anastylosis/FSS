@@ -176,7 +176,7 @@ func (s *Scraper) runPaginated(ctx context.Context, opts scraper.ListOpts, work 
 
 var (
 	cardRe      = regexp.MustCompile(`(?s)<article class="card scene">.*?</article>`)
-	cardHrefRe  = regexp.MustCompile(`href="(?:https?:)?//pornworld\.com(/watch/(\d+-\d+)/[^"]+)"`)
+	cardHrefRe  = regexp.MustCompile(`href="(?:(?:https?:)?//pornworld\.com)?(/watch/(\d+-\d+)/[^"]+)"`)
 	cardTitleRe = regexp.MustCompile(`<p class="card-title[^"]*">\s*<a[^>]*title="([^"]*)"`)
 	cardDateRe  = regexp.MustCompile(`<div class="release-date">([^<]+)</div>`)
 	cardDurRe   = regexp.MustCompile(`(?s)<span class="video-duration">.*?</i>\s*([^<]+)</span>`)
