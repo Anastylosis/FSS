@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Anastylosis/FSS/scraper"
 )
@@ -20,31 +21,40 @@ func fixture(t *testing.T, name string) string {
 	return string(b)
 }
 
-func TestParseCards(t *testing.T) {
-	cards := parseCards(fixture(t, "page1.html"))
-	if len(cards) != 3 {
-		t.Fatalf("got %d cards, want 3", len(cards))
+func TestParsePage(t *testing.T) {
+	items, total, perPage, err := parsePage(fixture(t, "page1.html"))
+	if err != nil {
+		t.Fatal(err)
 	}
-	c := cards[0]
-	if c.id != "bb100_robbiehart_camdenchristianson" || c.title != "From Sit-Ups to Cocks Up" {
-		t.Errorf("card = %+v", c)
+	if len(items) != 3 || total != 4 || perPage != 3 {
+		t.Fatalf("items=%d total=%d perPage=%d", len(items), total, perPage)
 	}
-	if c.thumb != "https://cloud.nexpectation.com/bb/bigthumbs/bb100_robbiehart_camdenchristianson.jpg" {
-		t.Errorf("thumb = %q", c.thumb)
+	sc := items[0].toScene("https://www.beddableboys.com", "https://www.beddableboys.com/", time.Now())
+	if sc.ID != "bb198_blairmason_mikeclarkson" || sc.Title != "Blair & Mike Have Fun with a Dildo" {
+		t.Errorf("scene = %+v", sc)
 	}
-	if !strings.Contains(c.url, "scene=bb100_robbiehart_camdenchristianson") || strings.Contains(c.url, "&amp;") || strings.Contains(c.url, "#") {
-		t.Errorf("url = %q", c.url)
+	if !strings.HasPrefix(sc.Thumbnail, "https://cloud-nexpectation.secure.yppcdn.com/") {
+		t.Errorf("thumb = %q", sc.Thumbnail)
+	}
+	if sc.URL != "https://www.beddableboys.com/videos/blair-mike-have-fun-with-a-dildo?scene_code=bb198_blairmason_mikeclarkson" {
+		t.Errorf("url = %q", sc.URL)
+	}
+	if sc.Date.Format("2006-01-02") != "2026-11-19" || sc.Duration != 1423 || len(sc.Performers) != 2 || len(sc.Tags) == 0 {
+		t.Errorf("scene = %+v", sc)
 	}
 }
 
 func TestListScenes(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		pages := map[string]string{
-			listPath + "1": "page1.html",
-			listPath + "2": "page2.html",
-			listPath + "3": "empty.html",
+			"1": "page1.html",
+			"2": "page2.html",
+			"3": "empty.html",
 		}
-		name, ok := pages[r.URL.Path]
+		name, ok := pages[r.URL.Query().Get("page")]
+		if r.URL.Path != "/videos" {
+			ok = false
+		}
 		if !ok {
 			http.NotFound(w, r)
 			return
@@ -68,7 +78,7 @@ func TestListScenes(t *testing.T) {
 			if r.Scene.StudioURL != studioURL || r.Scene.SiteID != siteID || r.Scene.Studio != studioName {
 				t.Errorf("scene = %+v", r.Scene)
 			}
-			if r.Scene.ID == "bb154_damientelrue_radmatthews" && r.Scene.Title != "Hot Twink Shows Friend How to Pack Fudge" {
+			if r.Scene.ID == "bb188_torymason" && r.Scene.Title != "Tory Mason Jacks Off in a Tent" {
 				t.Errorf("title = %q", r.Scene.Title)
 			}
 		case scraper.KindError:
@@ -82,7 +92,7 @@ func TestListScenes(t *testing.T) {
 
 func TestMatchesURL(t *testing.T) {
 	s := New()
-	for _, u := range []string{"https://www.beddableboys.com/", "http://beddableboys.com", "https://www.beddableboys.com/beddable-gay-twink-boys-bc/2"} {
+	for _, u := range []string{"https://www.beddableboys.com/", "http://beddableboys.com", "https://www.beddableboys.com/videos?page=2"} {
 		if !s.MatchesURL(u) {
 			t.Errorf("MatchesURL(%q) = false", u)
 		}

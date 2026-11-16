@@ -1,14 +1,15 @@
-// Package beddableboys scrapes beddableboys.com's public tour listing, a
-// legacy NATS landing page that shows title and thumbnail only. See
+// Package beddableboys scrapes beddableboys.com's public tour, a Next.js site
+// whose listing pages embed the scene data as __NEXT_DATA__ JSON. See
 // docs/scrapers.md.
 package beddableboys
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"html"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -20,16 +21,13 @@ import (
 const (
 	siteID     = "beddableboys"
 	studioName = "Beddable Boys"
-	listPath   = "/beddable-gay-twink-boys-bc/"
+	listPath   = "/videos?page="
 )
 
 var (
 	matchRe = regexp.MustCompile(`^https?://(?:www\.)?beddableboys\.com(?:/|$)`)
 
-	cardRe  = regexp.MustCompile(`(?s)<div class="thumb"[^>]*>.*?</div>`)
-	linkRe  = regexp.MustCompile(`href="([^"]*[?&;]scene=([a-z0-9_]+)[^"#]*)`)
-	thumbRe = regexp.MustCompile(`<img src="([^"]+)"`)
-	titleRe = regexp.MustCompile(`<h3>(.*?)</h3>`)
+	nextDataRe = regexp.MustCompile(`(?s)<script id="__NEXT_DATA__"[^>]*>(.*?)</script>`)
 )
 
 // Scraper implements scraper.StudioScraper for beddableboys.com.
@@ -50,7 +48,7 @@ var _ scraper.StudioScraper = (*Scraper)(nil)
 func (s *Scraper) ID() string { return siteID }
 
 func (s *Scraper) Patterns() []string {
-	return []string{"beddableboys.com", "beddableboys.com" + strings.TrimSuffix(listPath, "/") + "/{page}"}
+	return []string{"beddableboys.com", "beddableboys.com/videos?page={page}"}
 }
 
 func (s *Scraper) MatchesURL(u string) bool { return matchRe.MatchString(u) }
@@ -67,53 +65,94 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 	seen := map[string]bool{}
 
 	scraper.Paginate(ctx, opts, siteID, out, func(ctx context.Context, page int) (scraper.PageResult, error) {
-		pageURL := fmt.Sprintf("%s%s%d", s.base, listPath, page)
+		pageURL := s.base + listPath + strconv.Itoa(page)
 		body, err := s.fetch(ctx, pageURL)
 		if err != nil {
 			return scraper.PageResult{}, err
 		}
-		cards := parseCards(body)
-		if page == 1 && len(cards) == 0 {
-			return scraper.PageResult{}, scraper.ParseError(pageURL, fmt.Errorf("no scene cards on the first page"))
+		items, total, perPage, err := parsePage(body)
+		if err != nil {
+			return scraper.PageResult{}, scraper.ParseError(pageURL, err)
+		}
+		if page == 1 && len(items) == 0 {
+			return scraper.PageResult{}, scraper.ParseError(pageURL, fmt.Errorf("no scenes on the first page"))
 		}
 		var scenes []models.Scene
-		for _, c := range cards {
-			if seen[c.id] {
+		for _, it := range items {
+			if seen[it.SceneCode] {
 				continue
 			}
-			seen[c.id] = true
-			scenes = append(scenes, models.Scene{
-				ID:        c.id,
-				SiteID:    siteID,
-				StudioURL: studioURL,
-				Title:     c.title,
-				URL:       c.url,
-				Thumbnail: c.thumb,
-				Studio:    studioName,
-				ScrapedAt: now,
-			})
+			seen[it.SceneCode] = true
+			scenes = append(scenes, it.toScene(s.base, studioURL, now))
 		}
-		return scraper.PageResult{Scenes: scenes, Done: len(scenes) == 0}, nil
+		return scraper.PageResult{Scenes: scenes, Total: total, Done: len(items) == 0 || len(items) < perPage}, nil
 	})
 }
 
-type card struct{ id, title, url, thumb string }
+type item struct {
+	Title     string   `json:"title"`
+	Slug      string   `json:"slug"`
+	SceneCode string   `json:"scene_code"`
+	Date      string   `json:"publish_date"`
+	Desc      string   `json:"description"`
+	Thumb     string   `json:"thumbnail"`
+	Duration  string   `json:"videos_duration"`
+	Views     int      `json:"views"`
+	Likes     int      `json:"likes"`
+	Tags      []string `json:"tags"`
+	Models    []string `json:"models"`
+}
 
-func parseCards(body string) []card {
-	var cards []card
-	for _, block := range cardRe.FindAllString(body, -1) {
-		link := linkRe.FindStringSubmatch(block)
-		title := titleRe.FindStringSubmatch(block)
-		if link == nil || title == nil {
-			continue
-		}
-		c := card{id: link[2], url: html.UnescapeString(link[1]), title: strings.TrimSpace(html.UnescapeString(title[1]))}
-		if m := thumbRe.FindStringSubmatch(block); m != nil {
-			c.thumb = m[1]
-		}
-		cards = append(cards, c)
+func (it item) toScene(base, studioURL string, now time.Time) models.Scene {
+	sc := models.Scene{
+		ID:          it.SceneCode,
+		SiteID:      siteID,
+		StudioURL:   studioURL,
+		Title:       strings.TrimSpace(it.Title),
+		URL:         base + "/videos/" + it.Slug + "?scene_code=" + it.SceneCode,
+		Description: strings.TrimSpace(it.Desc),
+		Performers:  it.Models,
+		Tags:        it.Tags,
+		Views:       it.Views,
+		Likes:       it.Likes,
+		Studio:      studioName,
+		ScrapedAt:   now,
 	}
-	return cards
+	if strings.HasPrefix(it.Thumb, "//") {
+		sc.Thumbnail = "https:" + it.Thumb
+	} else {
+		sc.Thumbnail = it.Thumb
+	}
+	if d, err := time.Parse("2006/01/02 15:04:05", it.Date); err == nil {
+		sc.Date = d.UTC()
+	}
+	if f, err := strconv.ParseFloat(it.Duration, 64); err == nil {
+		sc.Duration = int(f)
+	}
+	return sc
+}
+
+func parsePage(body string) (items []item, total, perPage int, err error) {
+	m := nextDataRe.FindStringSubmatch(body)
+	if m == nil {
+		return nil, 0, 0, fmt.Errorf("no __NEXT_DATA__ block")
+	}
+	var nd struct {
+		Props struct {
+			PageProps struct {
+				Contents struct {
+					Data    []item `json:"data"`
+					Total   int    `json:"total"`
+					PerPage int    `json:"per_page"`
+				} `json:"contents"`
+			} `json:"pageProps"`
+		} `json:"props"`
+	}
+	if err := json.Unmarshal([]byte(m[1]), &nd); err != nil {
+		return nil, 0, 0, err
+	}
+	c := nd.Props.PageProps.Contents
+	return c.Data, c.Total, c.PerPage, nil
 }
 
 func (s *Scraper) fetch(ctx context.Context, pageURL string) (string, error) {
