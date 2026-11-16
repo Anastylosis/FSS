@@ -13,5 +13,5 @@ func TestLive(t *testing.T) {
 }
 
 func TestLiveCategory(t *testing.T) {
-	testutil.RunLiveScrape(t, New(), "https://www.rawhole.com/bareback/free-videos.html", 3)
+	testutil.RunLiveScrape(t, New(), "https://www.rawhole.com/badpuppy/free-videos.html", 3)
 }
