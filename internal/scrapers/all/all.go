@@ -460,7 +460,6 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/sexbabesvr"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/sexlikereal"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/sexmexpro"
-	_ "github.com/Anastylosis/FSS/internal/scrapers/sexunderwater"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/sexysaffron"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/sheerandlace"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/shemaleclub"
