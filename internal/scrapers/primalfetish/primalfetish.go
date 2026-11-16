@@ -1,14 +1,14 @@
 // Package primalfetish scrapes the Primal Fetish Network paysites
-// (primalfetishnetwork.com), a custom PHP CMS hosting several fetish paysites
-// that all share one listing template. Every scene's metadata (title,
-// performers, date, duration, thumbnail) is published on the listing cards, so
-// the scraper is listing-only — no per-scene detail fetch is required.
+// (primalfetishnetwork.com), a WordPress site hosting several fetish paysites
+// that share one listing template. Every scene's metadata (title, performers,
+// date, thumbnail) is published on the listing cards, so the scraper is
+// listing-only.
 //
 // Each paysite is registered as its own FSS scraper (its own SiteID). The
-// per-paysite listing lives at /paysites/{id}/{slug}/videos/ (page 1) and
-// /paysites/{id}/{slug}/videos/page{N}.html (page N >= 2). Listings are
-// server-side filtered to the paysite and sorted newest-first, so KnownIDs
-// early-stop by scene ID works.
+// per-paysite listing lives at /paysite/{slug}/ (page 1) and
+// /paysite/{slug}/page/{N}/ (page N >= 2), newest first, so KnownIDs
+// early-stop works. The site was rebuilt in 2026; the old
+// /paysites/{id}/{slug}/videos/ URLs still match so stored studios resolve.
 package primalfetish
 
 import (
@@ -31,17 +31,17 @@ const siteBase = "https://primalfetishnetwork.com"
 // SiteConfig describes one Primal Fetish paysite.
 type SiteConfig struct {
 	SiteID     string // FSS site identifier, e.g. "primalstaboofamily"
-	PaysiteID  int    // numeric CMS paysite id, e.g. 14
-	Slug       string // cosmetic URL slug, e.g. "primals-taboo-relations"
+	PaysiteID  int    // numeric id of the retired CMS, kept so old studio URLs still match
+	Slug       string // paysite slug, e.g. "primals-taboo-relations"
 	StudioName string // human-readable studio name
 }
 
 var sites = []SiteConfig{
 	{SiteID: "primalstaboofamily", PaysiteID: 14, Slug: "primals-taboo-relations", StudioName: "Primal's Taboo Family Relations"},
-	{SiteID: "primalscosplay", PaysiteID: 32, Slug: "primals-cosplay", StudioName: "Primal's Cosplay"},
-	{SiteID: "primalsfootfantasies", PaysiteID: 25, Slug: "primals-foot-fantasies", StudioName: "Primal's FOOT FANTASIES"},
-	{SiteID: "primalsfootjobs", PaysiteID: 4, Slug: "primals-footjobs", StudioName: "Primal's FOOTJOBS"},
-	{SiteID: "primalshandjobs", PaysiteID: 23, Slug: "primals-handjobs", StudioName: "Primal's HANDJOBS"},
+	{SiteID: "primalscosplay", PaysiteID: 32, Slug: "cosplay", StudioName: "Primal's Cosplay"},
+	{SiteID: "primalsfootfantasies", PaysiteID: 25, Slug: "foot-fantasies-by-primal", StudioName: "Primal's FOOT FANTASIES"},
+	{SiteID: "primalsfootjobs", PaysiteID: 4, Slug: "primals-footjob-fantasies", StudioName: "Primal's FOOTJOBS"},
+	{SiteID: "primalshandjobs", PaysiteID: 23, Slug: "primals-handjob-fantasies", StudioName: "Primal's HANDJOBS"},
 	{SiteID: "primalspovfamilylust", PaysiteID: 12, Slug: "primals-pov-family-lust", StudioName: "Primal's POV Family Lust"},
 	{SiteID: "primalswrestlingsex", PaysiteID: 16, Slug: "primals-wrestling-sex", StudioName: "Primals Wrestling Sex"},
 	{SiteID: "primaleroticmassage", PaysiteID: 1, Slug: "erotic-massage-master", StudioName: "Erotic Massage Institute"},
@@ -66,10 +66,10 @@ var _ scraper.StudioScraper = (*Scraper)(nil)
 func New(cfg SiteConfig) *Scraper {
 	return &Scraper{
 		cfg: cfg,
-		// Match the paysite by its numeric id in the URL path, or by its slug.
+		// New-style /paysite/{slug}, or the retired /paysites/{id}/ form.
 		matchRe: regexp.MustCompile(fmt.Sprintf(
-			`primalfetishnetwork\.com/paysites/%d/|primalfetishnetwork\.com/paysites/\d+/%s\b`,
-			cfg.PaysiteID, regexp.QuoteMeta(cfg.Slug))),
+			`primalfetishnetwork\.com/paysite/%s(?:/|$|\?)|primalfetishnetwork\.com/paysites/%d/`,
+			regexp.QuoteMeta(cfg.Slug), cfg.PaysiteID)),
 		Client: httpx.NewClient(30 * time.Second),
 	}
 }
@@ -78,7 +78,7 @@ func (s *Scraper) ID() string { return s.cfg.SiteID }
 
 func (s *Scraper) Patterns() []string {
 	return []string{
-		fmt.Sprintf("primalfetishnetwork.com/paysites/%d/%s/videos/", s.cfg.PaysiteID, s.cfg.Slug),
+		fmt.Sprintf("primalfetishnetwork.com/paysite/%s/", s.cfg.Slug),
 	}
 }
 
@@ -93,7 +93,7 @@ func (s *Scraper) ListScenes(ctx context.Context, studioURL string, opts scraper
 func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
 	defer close(out)
 
-	scraper.Debugf(1, "primalfetish: scraping paysite %d (%s) %s", s.cfg.PaysiteID, s.cfg.SiteID, s.cfg.Slug)
+	scraper.Debugf(1, "primalfetish: scraping paysite %s (%s)", s.cfg.Slug, s.cfg.SiteID)
 
 	scraper.Paginate(ctx, opts, s.cfg.SiteID, out, func(ctx context.Context, page int) (scraper.PageResult, error) {
 		body, err := s.fetchPage(ctx, s.pageURL(page))
@@ -101,31 +101,32 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 			return scraper.PageResult{}, err
 		}
 		scenes := s.parseListing(body, studioURL)
-		// An empty page (no real video cards) signals the end of the listing.
+		// WordPress answers 404 past the last page, so stop on the missing "next" link.
 		return scraper.PageResult{
 			Scenes: scenes,
-			Done:   len(scenes) == 0,
+			Done:   len(scenes) == 0 || !nextRe.Match(body),
 		}, nil
 	})
 }
 
 // pageURL builds the listing URL for a 1-based page number.
 func (s *Scraper) pageURL(page int) string {
-	base := fmt.Sprintf("%s/paysites/%d/%s/videos/", siteBase, s.cfg.PaysiteID, s.cfg.Slug)
+	base := fmt.Sprintf("%s/paysite/%s/", siteBase, s.cfg.Slug)
 	if page <= 1 {
 		return base
 	}
-	return fmt.Sprintf("%spage%d.html", base, page)
+	return fmt.Sprintf("%spage/%d/", base, page)
 }
 
 var (
-	cardRe     = regexp.MustCompile(`<div class="main__videoElement`)
-	titleRe    = regexp.MustCompile(`(?s)<a href="(https://primalfetishnetwork\.com/video/[^"]*?-(\d+)\.html)"[^>]*class="main__videoTitle"[^>]*>\s*(.*?)\s*</a>`)
-	modelRe    = regexp.MustCompile(`<a class="video__listModel" title="([^"]*)"`)
+	cardRe     = regexp.MustCompile(`<article class="main__videoElement`)
+	titleRe    = regexp.MustCompile(`(?s)<a href="(https://primalfetishnetwork\.com/videos/[^"]+)"[^>]*class="main__videoTitle"[^>]*>\s*(.*?)\s*</a>`)
+	idRe       = regexp.MustCompile(`name="video-id" value="(\d+)"`)
+	modelRe    = regexp.MustCompile(`<a class="video__listModel[^"]*" title="([^"]*)"`)
 	dateRe     = regexp.MustCompile(`(?s)<div class="date">\s*Date:\s*(.*?)\s*</div>`)
-	timeRe     = regexp.MustCompile(`(?s)<div class="time">\s*Time:\s*(.*?)\s*</div>`)
-	thumbRe    = regexp.MustCompile(`<img[^>]*src="(https://cdn\.primalfetishnetwork\.com/thumbs/[^"]+)"`)
-	dateLayout = "2 Jan 2006"
+	thumbRe    = regexp.MustCompile(`<img[^>]*src="([^"]+)"`)
+	nextRe     = regexp.MustCompile(`class="next page-numbers"`)
+	dateLayout = "January 2, 2006"
 )
 
 // parseListing extracts every scene card from a listing page.
@@ -144,16 +145,16 @@ func (s *Scraper) parseListing(body []byte, studioURL string) []models.Scene {
 		block := page[loc[0]:end]
 
 		tm := titleRe.FindStringSubmatch(block)
-		if tm == nil {
-			// JS template / placeholder card (href="#") — not a real scene.
+		im := idRe.FindStringSubmatch(block)
+		if tm == nil || im == nil {
 			continue
 		}
 		scene := models.Scene{
-			ID:        tm[2],
+			ID:        im[1],
 			SiteID:    s.cfg.SiteID,
 			StudioURL: studioURL,
 			Studio:    s.cfg.StudioName,
-			Title:     strings.TrimSpace(html.UnescapeString(tm[3])),
+			Title:     strings.TrimSpace(html.UnescapeString(tm[2])),
 			URL:       tm[1],
 			ScrapedAt: now,
 		}
@@ -172,12 +173,8 @@ func (s *Scraper) parseListing(body []byte, studioURL string) []models.Scene {
 			}
 		}
 
-		if m := timeRe.FindStringSubmatch(block); m != nil {
-			scene.Duration = parseutil.ParseDurationColon(strings.TrimSpace(m[1]))
-		}
-
 		if m := thumbRe.FindStringSubmatch(block); m != nil {
-			scene.Thumbnail = m[1]
+			scene.Thumbnail = html.UnescapeString(m[1])
 		}
 
 		scenes = append(scenes, scene)

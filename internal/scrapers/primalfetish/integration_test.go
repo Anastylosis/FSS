@@ -15,10 +15,10 @@ func TestLiveScrape(t *testing.T) {
 		url        string
 		wantSiteID string
 	}{
-		{"taboo", "https://primalfetishnetwork.com/paysites/14/primals-taboo-relations/videos/", "primalstaboofamily"},
-		{"cosplay", "https://primalfetishnetwork.com/paysites/32/primals-cosplay/videos/", "primalscosplay"},
-		{"wrestling", "https://primalfetishnetwork.com/paysites/16/primals-wrestling-sex/videos/", "primalswrestlingsex"},
-		{"eroticmassage", "https://primalfetishnetwork.com/paysites/1/erotic-massage-master/videos/", "primaleroticmassage"},
+		{"taboo", "https://primalfetishnetwork.com/paysite/primals-taboo-relations/", "primalstaboofamily"},
+		{"cosplay", "https://primalfetishnetwork.com/paysite/cosplay/", "primalscosplay"},
+		{"wrestling", "https://primalfetishnetwork.com/paysite/primals-wrestling-sex/", "primalswrestlingsex"},
+		{"eroticmassage", "https://primalfetishnetwork.com/paysite/erotic-massage-master/", "primaleroticmassage"},
 	}
 
 	for _, tc := range cases {
