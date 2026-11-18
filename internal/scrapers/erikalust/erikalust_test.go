@@ -306,6 +306,38 @@ func TestListScenesEndToEnd(t *testing.T) {
 	}
 }
 
+// A sitemap that lists no scenes (xconfessions.com, 2026-11) falls back to the
+// paginated listing, which ends at the first page adding nothing new.
+func TestListScenesListingFallback(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/sitemap.xml", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = fmt.Fprint(w, `<urlset><url><loc>https://xconfessions.com</loc></url></urlset>`)
+	})
+	mux.HandleFunc("/film", func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Query().Get("page") {
+		case "1":
+			_, _ = fmt.Fprint(w, `<a href="/film/my-pregnant-desire">x</a><a href="/film/my-pregnant-desire/watch/t/1">t</a><a href="/categories/romance">c</a>`)
+		case "2":
+			_, _ = fmt.Fprint(w, `<a href="/film/bike-smut">x</a><a href="/film/my-pregnant-desire">x</a>`)
+		default:
+			_, _ = fmt.Fprint(w, `<a href="/film/bike-smut">x</a>`)
+		}
+	})
+	mux.HandleFunc("/film/my-pregnant-desire", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = fmt.Fprint(w, filmPage)
+	})
+	mux.HandleFunc("/film/bike-smut", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = fmt.Fprint(w, strings.ReplaceAll(filmPage, "My Pregnant Desire", "Bike Smut"))
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	scenes, errs := collect(t, newTestScraper(t, "xconfessions", srv), srv.URL+"/", scraper.ListOpts{Workers: 2})
+	if len(errs) != 0 || len(scenes) != 2 {
+		t.Fatalf("got %d scenes, errors %v; want 2 scenes", len(scenes), errs)
+	}
+}
+
 // Pointing at one scene must not read the sitemaps at all.
 func TestListScenesSingleScene(t *testing.T) {
 	srv := newTestSite(t)

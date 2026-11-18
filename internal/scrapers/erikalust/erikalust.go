@@ -119,6 +119,8 @@ func (s *Scraper) base(studioURL string) string {
 	return "https://" + s.cfg.Domain
 }
 
+var hrefRe = regexp.MustCompile(`href="([^"]+)"`)
+
 var locRe = regexp.MustCompile(`<loc>\s*([^<\s]+)\s*</loc>`)
 
 func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOpts, out chan<- scraper.SceneResult) {
@@ -142,6 +144,18 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 	if err != nil {
 		send(ctx, out, scraper.Error(err))
 		return
+	}
+	if len(paths) == 0 {
+		scraper.Debugf(1, "%s: sitemaps list no scenes, walking /%s?page=N", s.cfg.SiteID, s.cfg.ScenePrefix)
+		paths, err = s.crawlListing(ctx, base, opts)
+		if err != nil {
+			// Scenes found before a failed page are still worth fetching; the
+			// error keeps the run from counting as a complete traversal.
+			send(ctx, out, scraper.Error(err))
+			if len(paths) == 0 {
+				return
+			}
+		}
 	}
 	if len(paths) == 0 {
 		send(ctx, out, scraper.Error(scraper.ParseError(base+"/sitemap.xml",
@@ -195,6 +209,44 @@ func (s *Scraper) discover(ctx context.Context, base string, opts scraper.ListOp
 			}
 			seen[p] = true
 			paths = append(paths, p)
+		}
+	}
+	return paths, nil
+}
+
+// crawlListing walks the paginated listing for a site whose sitemaps no longer
+// enumerate scenes, stopping at the first page that adds none.
+func (s *Scraper) crawlListing(ctx context.Context, base string, opts scraper.ListOpts) ([]string, error) {
+	const maxPages = 200
+	seen := make(map[string]bool)
+	var paths []string
+	for page := 1; page <= maxPages; page++ {
+		if ctx.Err() != nil {
+			return paths, ctx.Err()
+		}
+		if page > 1 && !sleep(ctx, opts.Delay) {
+			return paths, ctx.Err()
+		}
+		listURL := fmt.Sprintf("%s/%s?page=%d", base, s.cfg.ScenePrefix, page)
+		body, err := s.fetch(ctx, listURL)
+		if err != nil {
+			if len(paths) > 0 {
+				return paths, scraper.TransportError(listURL, err)
+			}
+			return nil, err
+		}
+		added := 0
+		for _, m := range hrefRe.FindAllStringSubmatch(string(body), -1) {
+			p, ok := s.scenePath(html.UnescapeString(m[1]))
+			if !ok || seen[p] {
+				continue
+			}
+			seen[p] = true
+			paths = append(paths, p)
+			added++
+		}
+		if added == 0 {
+			break
 		}
 	}
 	return paths, nil
