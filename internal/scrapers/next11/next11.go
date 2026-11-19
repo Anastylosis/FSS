@@ -2,9 +2,10 @@ package next11
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"html"
 	"net/http"
-	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -20,9 +21,9 @@ const (
 	siteID      = "next11"
 	defaultBase = "https://next11.co.jp"
 	studioName  = "NEXT"
-	// pageSize is the largest value the site's own disp_number selector offers
-	// (20/50/100). At 100 the ~6.7k catalogue is 68 pages instead of 338.
-	pageSize = 100
+	// pageSize is what the listing serves per page; the 2026-11 rebuild dropped
+	// the disp_number selector that once raised it to 100.
+	pageSize = 30
 )
 
 var matchRe = regexp.MustCompile(`^https?://(?:www\.)?next11\.co\.jp(?:/|$)`)
@@ -61,127 +62,112 @@ type listingItem struct {
 }
 
 var (
-	totalRe     = regexp.MustCompile(`<span class="pagenumber">(\d+)</span>`)
+	totalRe     = regexp.MustCompile(`<span class="pagenumber">([\d,]+)</span>`)
 	listBlockRe = regexp.MustCompile(`(?s)<div class="listphoto">(.*?)</li>`)
 	pidRe       = regexp.MustCompile(`product_id=(\d+)`)
-	codeRe      = regexp.MustCompile(`商品：</td>\s*<td class="center">([^<]+)</td>`)
+	codeRe      = regexp.MustCompile(`<dt>商品：</dt>\s*<dd>([^<]+)</dd>`)
 )
 
 func parseListingPage(body []byte) (items []listingItem, total int) {
 	if m := totalRe.FindSubmatch(body); m != nil {
-		total, _ = strconv.Atoi(string(m[1]))
+		total, _ = strconv.Atoi(strings.ReplaceAll(string(m[1]), ",", ""))
 	}
 
-	blocks := listBlockRe.FindAllSubmatch(body, -1)
-	for _, b := range blocks {
-		block := b[1]
-		pm := pidRe.FindSubmatch(block)
-		if pm == nil {
+	for _, b := range listBlockRe.FindAllSubmatch(body, -1) {
+		pm := pidRe.FindSubmatch(b[1])
+		cm := codeRe.FindSubmatch(b[0])
+		if pm == nil || cm == nil {
 			continue
 		}
-		pid := string(pm[1])
-
-		var code string
-		// Code is in the listrightblock after the listphoto, so search the full <li> block
-		if cm := codeRe.FindSubmatch(b[0]); cm != nil {
-			code = strings.TrimSpace(string(cm[1]))
-		}
-
-		if code != "" {
-			items = append(items, listingItem{productID: pid, code: code})
+		if code := strings.TrimSpace(string(cm[1])); code != "" {
+			items = append(items, listingItem{productID: string(pm[1]), code: code})
 		}
 	}
 	return items, total
 }
 
 var (
-	titleRe     = regexp.MustCompile(`(?s)<span itemprop="name">([^<]+)</span>`)
-	pidCodeRe   = regexp.MustCompile(`<span itemprop="productID" content="([^"]+)">`)
-	dateRe      = regexp.MustCompile(`<dt>発売日：</dt>\s*<dd>(\d{4}-\d{2}-\d{2})</dd>`)
-	durationRe  = regexp.MustCompile(`<dt>収録時間：</dt>\s*<dd>(\d+)分</dd>`)
-	performerRe = regexp.MustCompile(`(?s)<dt>出演：</dt>\s*<dd>(.*?)</dd>`)
+	titleRe     = regexp.MustCompile(`<dt>タイトル</dt>\s*<dd>([^<]+)</dd>`)
+	codeDetRe   = regexp.MustCompile(`<dt>品番</dt>\s*<dd>([^<]+)</dd>`)
+	dateRe      = regexp.MustCompile(`<dt>発売日</dt>\s*<dd>(?:<time[^>]*>)?(\d{4}-\d{2}-\d{2})`)
+	durationRe  = regexp.MustCompile(`<dt>収録時間</dt>\s*<dd>(\d+)分</dd>`)
+	performerRe = regexp.MustCompile(`(?s)<dt>出演</dt>\s*<dd>(.*?)</dd>`)
 	actorLinkRe = regexp.MustCompile(`<a[^>]*>([^<]+)</a>`)
-	genreRe     = regexp.MustCompile(`(?s)<dt>ジャンル：</dt>\s*<dd>(.*?)</dd>`)
-	labelRe     = regexp.MustCompile(`(?s)<dt>レーベル：</dt>\s*<dd>(.*?)</dd>`)
-	seriesRe    = regexp.MustCompile(`(?s)<dt>シリーズ：</dt>\s*<dd>(.*?)</dd>`)
-	thumbRe     = regexp.MustCompile(`<div id="detail1">\s*<img src="([^"]+)"`)
-	priceRe     = regexp.MustCompile(`(?s)itemprop="price">\s*([\d,]+)\s*\n?\s*円`)
+	genreRe     = regexp.MustCompile(`(?s)<dt>ジャンル</dt>\s*<dd>(.*?)</dd>`)
+	labelRe     = regexp.MustCompile(`(?s)<dt>レーベル</dt>\s*<dd>(.*?)</dd>`)
+	seriesRe    = regexp.MustCompile(`(?s)<dt>シリーズ</dt>\s*<dd>(.*?)</dd>`)
+	thumbRe     = regexp.MustCompile(`<div class="detail1">\s*<a href="([^"]+)"`)
+	ldJSONRe    = regexp.MustCompile(`(?s)<script type="application/ld\+json">(.*?)</script>`)
 )
 
 type detailData struct {
-	title      string
-	code       string
-	date       time.Time
-	duration   int
-	performers []string
-	tags       []string
-	label      string
-	series     string
-	thumbnail  string
-	price      int
+	title       string
+	code        string
+	description string
+	date        time.Time
+	duration    int
+	performers  []string
+	tags        []string
+	label       string
+	series      string
+	thumbnail   string
+}
+
+func linkTexts(re *regexp.Regexp, body []byte) []string {
+	m := re.FindSubmatch(body)
+	if m == nil {
+		return nil
+	}
+	var out []string
+	for _, am := range actorLinkRe.FindAllSubmatch(m[1], -1) {
+		if name := strings.TrimSpace(string(am[1])); name != "" {
+			out = append(out, name)
+		}
+	}
+	return out
 }
 
 func parseDetailPage(body []byte) detailData {
 	var d detailData
 
 	if m := titleRe.FindSubmatch(body); m != nil {
-		d.title = strings.TrimSpace(string(m[1]))
+		d.title = html.UnescapeString(strings.TrimSpace(string(m[1])))
 	}
-
-	if m := pidCodeRe.FindSubmatch(body); m != nil {
+	if m := codeDetRe.FindSubmatch(body); m != nil {
 		d.code = strings.TrimSpace(string(m[1]))
 	}
-
 	if m := dateRe.FindSubmatch(body); m != nil {
 		if t, err := time.Parse("2006-01-02", string(m[1])); err == nil {
 			d.date = t.UTC()
 		}
 	}
-
 	if m := durationRe.FindSubmatch(body); m != nil {
 		mins, _ := strconv.Atoi(string(m[1]))
 		d.duration = mins * 60
 	}
-
-	if m := performerRe.FindSubmatch(body); m != nil {
-		for _, am := range actorLinkRe.FindAllSubmatch(m[1], -1) {
-			name := strings.TrimSpace(string(am[1]))
-			if name != "" {
-				d.performers = append(d.performers, name)
-			}
-		}
+	d.performers = linkTexts(performerRe, body)
+	d.tags = linkTexts(genreRe, body)
+	if l := linkTexts(labelRe, body); len(l) > 0 {
+		d.label = l[0]
 	}
-
-	if m := genreRe.FindSubmatch(body); m != nil {
-		for _, gm := range actorLinkRe.FindAllSubmatch(m[1], -1) {
-			tag := strings.TrimSpace(string(gm[1]))
-			if tag != "" {
-				d.tags = append(d.tags, tag)
-			}
-		}
+	if l := linkTexts(seriesRe, body); len(l) > 0 {
+		d.series = l[0]
 	}
-
-	if m := labelRe.FindSubmatch(body); m != nil {
-		if lm := actorLinkRe.FindSubmatch(m[1]); lm != nil {
-			d.label = strings.TrimSpace(string(lm[1]))
-		}
-	}
-
-	if m := seriesRe.FindSubmatch(body); m != nil {
-		if sm := actorLinkRe.FindSubmatch(m[1]); sm != nil {
-			d.series = strings.TrimSpace(string(sm[1]))
-		}
-	}
-
 	if m := thumbRe.FindSubmatch(body); m != nil {
 		d.thumbnail = string(m[1])
 	}
 
-	if m := priceRe.FindSubmatch(body); m != nil {
-		ps := strings.ReplaceAll(string(m[1]), ",", "")
-		d.price, _ = strconv.Atoi(ps)
+	// The synopsis exists only in the schema.org Movie block.
+	for _, m := range ldJSONRe.FindAllSubmatch(body, -1) {
+		var ld struct {
+			Type        string `json:"@type"`
+			Description string `json:"description"`
+		}
+		if json.Unmarshal(m[1], &ld) == nil && ld.Type == "Movie" {
+			d.description = strings.TrimSpace(ld.Description)
+			break
+		}
 	}
-
 	return d
 }
 
@@ -201,6 +187,10 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 	items, total := parseListingPage(body)
 	scraper.Debugf(1, "%s: total %d items", siteID, total)
 	if total == 0 || len(items) == 0 {
+		select {
+		case out <- scraper.Error(scraper.ParseError(s.siteBase+"/products/list.php", fmt.Errorf("no products on the first listing page"))):
+		case <-ctx.Done():
+		}
 		return
 	}
 
@@ -321,7 +311,8 @@ func (s *Scraper) fetchDetail(ctx context.Context, studioURL string, item listin
 
 	thumb := d.thumbnail
 	if thumb != "" && !strings.HasPrefix(thumb, "http") {
-		thumb = s.siteBase + thumb
+		// The page sets <base href="/">, so a bare path is rooted.
+		thumb = s.siteBase + "/" + strings.TrimPrefix(thumb, "/")
 	}
 
 	now := time.Now().UTC()
@@ -336,55 +327,21 @@ func (s *Scraper) fetchDetail(ctx context.Context, studioURL string, item listin
 		Duration:    d.duration,
 		Performers:  d.performers,
 		Tags:        d.tags,
-		Description: "",
+		Description: d.description,
 		Studio:      studioName,
 		ScrapedAt:   now,
-	}
-
-	if d.price > 0 {
-		scene.AddPrice(models.PriceSnapshot{
-			Date:    now,
-			Regular: float64(d.price),
-		})
 	}
 
 	return scene, nil
 }
 
-// fetchListing requests one page of the product listing.
+// fetchListing requests one page of the product listing, newest release first.
 //
-// The listing paginates by POSTing the page's own form1 — the `?pageno=N` query
-// parameter is *ignored* by the site, so every GET returns page 1. The scraper
-// used to walk `ceil(total/20)` GETs and receive the same 20 products every
-// time; because the store is keyed on (id, site_id) those duplicates collapsed
-// at Save, so a --full run reported thousands of scenes and stored 20.
-//
-// disp_number is the site's own per-page selector; 100 is the largest option it
-// offers.
+// Until 2026-11 the listing paginated by POSTing its form1 and ignored the
+// `?pageno=N` query, so a GET walk received page one every time. The rebuilt
+// site is the reverse: GET honours `pageno` and a POST body is ignored.
 func (s *Scraper) fetchListing(ctx context.Context, page int) ([]byte, error) {
-	form := url.Values{
-		"pageno":      {strconv.Itoa(page)},
-		"mode":        {""},
-		"orderby":     {"date"},
-		"disp_number": {strconv.Itoa(pageSize)},
-	}
-	headers := httpx.BrowserHeaders(httpx.UserAgentChrome)
-	headers["Cookie"] = "adult_check=1"
-	headers["Content-Type"] = "application/x-www-form-urlencoded"
-	headers["Referer"] = s.siteBase + "/products/list.php"
-
-	resp, err := httpx.Do(ctx, s.client, httpx.Request{
-		Method:     http.MethodPost,
-		URL:        s.siteBase + "/products/list.php",
-		Body:       []byte(form.Encode()),
-		Idempotent: true,
-		Headers:    headers,
-	})
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = resp.Body.Close() }()
-	return httpx.ReadBody(resp.Body)
+	return s.fetchPage(ctx, fmt.Sprintf("%s/products/list.php?pageno=%d", s.siteBase, page))
 }
 
 func (s *Scraper) fetchPage(ctx context.Context, pageURL string) ([]byte, error) {

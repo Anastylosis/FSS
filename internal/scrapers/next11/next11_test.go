@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -32,29 +33,29 @@ func TestMatchesURL(t *testing.T) {
 }
 
 func TestParseListingPage(t *testing.T) {
-	body := []byte(`<span class="pagenumber">42</span>件の商品がございます。
-<div class="listphoto">
-<a href="/products/detail.php?product_id=100" class="over"><img src="/upload/save_image/jacket/m_ABC-001.jpg" alt="Title One" class="picture" /></a>
-</div>
+	body := []byte(`<p class="pagenumber_count"><span class="pagenumber">6,788</span>件の商品がございます。</p>
+<ul class="listarea">
+<li>
+<div class="listphoto"><a href="products/detail.php?product_id=100"><img src="x.jpg"></a></div>
 <div class="listrightblock">
-<table class="listproducts">
-<tr><td>商品：</td><td class="center">ABC-001</td></tr>
-</table>
+<dl class="listproducts">
+<div><dt>商品：</dt><dd>ABC-001</dd></div>
+</dl>
 </div>
 </li>
-<div class="listphoto">
-<a href="/products/detail.php?product_id=200" class="over"><img src="/upload/save_image/jacket/m_DEF-002.jpg" alt="Title Two" class="picture" /></a>
-</div>
+<li>
+<div class="listphoto"><a href="products/detail.php?product_id=200"><img src="y.jpg"></a></div>
 <div class="listrightblock">
-<table class="listproducts">
-<tr><td>商品：</td><td class="center">DEF-002</td></tr>
-</table>
+<dl class="listproducts">
+<div><dt>女優：</dt><dd><a href="products/list.php?category_id=1">Someone</a></dd></div>
+<div><dt>商品：</dt><dd>DEF-002</dd></div>
+</dl>
 </div>
 </li>`)
 
 	items, total := parseListingPage(body)
-	if total != 42 {
-		t.Errorf("total = %d, want 42", total)
+	if total != 6788 {
+		t.Errorf("total = %d, want 6788 (thousands separator)", total)
 	}
 	if len(items) != 2 {
 		t.Fatalf("got %d items, want 2", len(items))
@@ -67,35 +68,52 @@ func TestParseListingPage(t *testing.T) {
 	}
 }
 
-const detailHTML = `<div id="listtitle"><h2>[<span itemprop="productID" content="DOKI-033">DOKI-033</span>] <span itemprop="name">Test Title</span></h2></div>
-<div id="detail1">
-<img src="/upload/save_image/jacket/DOKI-033.jpg" width="794" alt="Test Title" class="picture">
-</div>
-<dl>
-<dt>出演：</dt>
-<dd><a href="/products/list.php?category_id=4504">Performer One</a><a href="/products/list.php?category_id=4615">Performer Two</a></dd>
-<dt>監督：</dt>
-<dd>&nbsp;</dd>
-<dt>ジャンル：</dt>
-<dd>
-<span itemprop="category" content="Genre1Genre2">
-<a href="/products/list.php?category_id=14">Genre1</a><a href="/products/list.php?category_id=53">Genre2</a></span>
-</dd>
-<dt>レーベル：</dt>
-<dd><a href="/products/list.php?category_id=4357">DOKI!</a></dd>
-<dt>シリーズ：</dt>
-<dd><a href="/products/list.php?category_id=1234">Test Series</a></dd>
-<dt>収録時間：</dt>
-<dd>130分</dd>
-<dt>発売日：</dt>
-<dd>2026-03-20</dd>
-<dt>品番：</dt>
-<dd>DOKI-033</dd>
-</dl>
-<div class="price" style="display:none;">販売価格(税込)：
-<span style="font-size:120%;" itemprop="price">
-		2,604
-	円</span></div>`
+func TestParseLiveListing(t *testing.T) {
+	b, err := os.ReadFile("testdata/listing.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	items, total := parseListingPage(b)
+	if total != 6788 || len(items) != 3 || items[0].productID != "13827" || items[0].code != "COU-024" {
+		t.Errorf("total = %d, items = %+v", total, items)
+	}
+}
+
+func TestParseLiveDetail(t *testing.T) {
+	b, err := os.ReadFile("testdata/detail.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := parseDetailPage(b)
+	if d.code != "EMBM-056" || !strings.HasPrefix(d.title, "ド素人応募妻") || strings.HasPrefix(d.title, "[") {
+		t.Errorf("code = %q, title = %q", d.code, d.title)
+	}
+	if d.date.Format("2006-01-02") != "2026-10-20" || d.duration != 126*60 {
+		t.Errorf("date = %v, duration = %d", d.date, d.duration)
+	}
+	if len(d.performers) != 1 || d.performers[0] != "葉月英里" || len(d.tags) != 7 || d.label != "エンブレム" || d.series != "ド素人応募妻" {
+		t.Errorf("detail = %+v", d)
+	}
+	if !strings.HasPrefix(d.description, "非日常体験に興奮する") {
+		t.Errorf("description = %q (comes from the JSON-LD Movie block)", d.description)
+	}
+	if d.thumbnail != "upload/save_image/jacket/EMBM-056.jpg" {
+		t.Errorf("thumbnail = %q", d.thumbnail)
+	}
+}
+
+const detailHTML = `<script type="application/ld+json">{"@type":"Movie","description":"A synopsis."}</script>
+<div class="detail1"><a href="upload/save_image/jacket/DOKI-033.jpg"><img src="x"></a></div>
+<dl class="detail2">
+<dt>タイトル</dt><dd>Test Title</dd>
+<dt>出演</dt><dd><a href="products/list.php?category_id=4504">Performer One</a><a href="products/list.php?category_id=4615">Performer Two</a></dd>
+<dt>ジャンル</dt><dd><a href="products/list.php?category_id=14">Genre1</a><a href="products/list.php?category_id=53">Genre2</a></dd>
+<dt>レーベル</dt><dd><a href="products/list.php?category_id=4357">DOKI!</a></dd>
+<dt>シリーズ</dt><dd><a href="products/list.php?category_id=1234">Test Series</a></dd>
+<dt>収録時間</dt><dd>130分</dd>
+<dt>発売日</dt><dd><time datetime="2026-03-20">2026-03-20</time></dd>
+<dt>品番</dt><dd>DOKI-033</dd>
+</dl>`
 
 func TestParseDetailPage(t *testing.T) {
 	d := parseDetailPage([]byte(detailHTML))
@@ -105,6 +123,9 @@ func TestParseDetailPage(t *testing.T) {
 	}
 	if d.code != "DOKI-033" {
 		t.Errorf("code = %q", d.code)
+	}
+	if d.description != "A synopsis." {
+		t.Errorf("description = %q", d.description)
 	}
 	if d.date.Format("2006-01-02") != "2026-03-20" {
 		t.Errorf("date = %v", d.date)
@@ -124,16 +145,13 @@ func TestParseDetailPage(t *testing.T) {
 	if d.series != "Test Series" {
 		t.Errorf("series = %q", d.series)
 	}
-	if d.thumbnail != "/upload/save_image/jacket/DOKI-033.jpg" {
+	if d.thumbnail != "upload/save_image/jacket/DOKI-033.jpg" {
 		t.Errorf("thumbnail = %q", d.thumbnail)
-	}
-	if d.price != 2604 {
-		t.Errorf("price = %d", d.price)
 	}
 }
 
 func TestParseDetailPageMissingFields(t *testing.T) {
-	body := []byte(`<span itemprop="name">Title Only</span>`)
+	body := []byte(`<dt>タイトル</dt><dd>Title Only</dd>`)
 	d := parseDetailPage(body)
 	if d.title != "Title Only" {
 		t.Errorf("title = %q", d.title)
@@ -146,10 +164,10 @@ func TestParseDetailPageMissingFields(t *testing.T) {
 	}
 }
 
-// newTestServer serves the product listing, paginating `pages` the way the real
-// site does: by the POSTed form1 fields, NOT by the query string. A server that
-// ignored pageno could not tell a working scraper from the broken one this
-// replaced, which walked every page and got page 1 back each time.
+// newTestServer serves the product listing, paginating `pages` by the `pageno`
+// query parameter the way the rebuilt site does. A POSTed pageno is ignored
+// and answers page one, as on the real site, so a regression to the old POST
+// walk would return duplicates and fail.
 func newTestServer(pages [][]listingItem) *httptest.Server {
 	total := 0
 	for _, p := range pages {
@@ -160,16 +178,12 @@ func newTestServer(pages [][]listingItem) *httptest.Server {
 
 		switch r.URL.Path {
 		case "/products/list.php":
-			if r.Method != http.MethodPost {
-				// The real site ignores ?pageno= on GET and always returns page
-				// one; refuse outright so a regression to GET fails loudly.
-				http.Error(w, "listing must be POSTed", http.StatusMethodNotAllowed)
-				return
-			}
-			_ = r.ParseForm()
-			page, _ := strconv.Atoi(r.PostFormValue("pageno"))
-			if page < 1 {
-				page = 1
+			page := 1
+			if r.Method == http.MethodGet {
+				page, _ = strconv.Atoi(r.URL.Query().Get("pageno"))
+				if page < 1 {
+					page = 1
+				}
 			}
 			var items []listingItem
 			if page <= len(pages) {
@@ -177,15 +191,12 @@ func newTestServer(pages [][]listingItem) *httptest.Server {
 			}
 			var listing string
 			for _, item := range items {
-				listing += fmt.Sprintf(`<div class="listphoto">
-<a href="/products/detail.php?product_id=%s"><img/></a>
-</div>
-<div class="listrightblock">
-<table><tr><td>商品：</td><td class="center">%s</td></tr></table>
-</div>
+				listing += fmt.Sprintf(`<li>
+<div class="listphoto"><a href="products/detail.php?product_id=%s"><img/></a></div>
+<div class="listrightblock"><dl><div><dt>商品：</dt><dd>%s</dd></div></dl></div>
 </li>`, item.productID, item.code)
 			}
-			_, _ = fmt.Fprintf(w, `<span class="pagenumber">%d</span>件%s`, total, listing)
+			_, _ = fmt.Fprintf(w, `<p><span class="pagenumber">%d</span>件</p>%s`, total, listing)
 		default:
 			// Serve a detail page whose product code matches the requested
 			// product. A single shared fixture would give every scene the same
@@ -319,13 +330,12 @@ func TestRunWalksAllPages(t *testing.T) {
 	}
 }
 
-// A GET to the listing must not be how pages are fetched: the real site ignores
-// the query string there, which is what made the old walk silently useless.
-func TestListingIsFetchedByPost(t *testing.T) {
-	var methods []string
+// The listing is paged by GET `pageno`; a POST is ignored by the site.
+func TestListingIsFetchedByGet(t *testing.T) {
+	var queries []string
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/products/list.php" {
-			methods = append(methods, r.Method)
+			queries = append(queries, r.Method+" "+r.URL.RawQuery)
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_, _ = fmt.Fprint(w, `<span class="pagenumber">0</span>件`)
@@ -340,12 +350,29 @@ func TestListingIsFetchedByPost(t *testing.T) {
 	for range ch {
 	}
 
-	if len(methods) == 0 {
-		t.Fatal("listing was never fetched")
+	if len(queries) != 1 || queries[0] != "GET pageno=1" {
+		t.Errorf("listing requests = %v, want one GET with pageno=1", queries)
 	}
-	for _, m := range methods {
-		if m != http.MethodPost {
-			t.Errorf("listing fetched with %s, want POST", m)
+}
+
+// An empty first page means the template changed, which must not read as an
+// empty catalogue.
+func TestEmptyFirstPageIsAParseError(t *testing.T) {
+	ts := newTestServer(nil)
+	defer ts.Close()
+
+	s := &Scraper{client: ts.Client(), siteBase: ts.URL}
+	ch, err := s.ListScenes(context.Background(), ts.URL, scraper.ListOpts{Workers: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var errs []error
+	for r := range ch {
+		if r.Kind == scraper.KindError {
+			errs = append(errs, r.Err)
 		}
+	}
+	if len(errs) != 1 || scraper.Classify(errs[0]) != scraper.FailureParse {
+		t.Errorf("errors = %v, want one parse failure", errs)
 	}
 }
