@@ -6,6 +6,7 @@ package kinkacademy
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"html"
 	"net/http"
@@ -84,12 +85,8 @@ type wpPost struct {
 			SourceURL string `json:"source_url"`
 		} `json:"wp:featuredmedia"`
 		// wp:term is an array of term groups (categories, tags, series, …),
-		// each group an array of terms.
-		Terms [][]struct {
-			Taxonomy string `json:"taxonomy"`
-			Name     string `json:"name"`
-			Slug     string `json:"slug"`
-		} `json:"wp:term"`
+		// each group normally an array of terms but occasionally an object.
+		Terms []json.RawMessage `json:"wp:term"`
 	} `json:"_embedded"`
 }
 
@@ -183,7 +180,15 @@ func (s *Scraper) toScene(p wpPost, studioURL string, now time.Time) models.Scen
 
 	// Topics: post_tag terms. Categories: the non-Video category terms.
 	seenTag := make(map[string]bool)
-	for _, group := range p.Embedded.Terms {
+	for _, raw := range p.Embedded.Terms {
+		var group []struct {
+			Taxonomy string `json:"taxonomy"`
+			Name     string `json:"name"`
+		}
+		// WordPress emits some term groups as an object rather than an array.
+		if json.Unmarshal(raw, &group) != nil {
+			continue
+		}
 		for _, t := range group {
 			name := cleanText(t.Name)
 			if name == "" {
