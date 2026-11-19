@@ -443,6 +443,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/riggsfilmsvip"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/rippeddigital"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/rocketinc"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/rocksboys"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/romeromultimedia"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/rubberpassion"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/rubyav"
