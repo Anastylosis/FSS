@@ -448,6 +448,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/rubberpassion"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/rubyav"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/sadisticvillage"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/salierixxx"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/sapphix"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/sarahgregoryspanking"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/scissorgoddess"
