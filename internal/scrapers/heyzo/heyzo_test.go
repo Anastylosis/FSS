@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -16,61 +17,37 @@ import (
 	"github.com/Anastylosis/FSS/scraper"
 )
 
-// card reproduces one listing tile, including the awkward parts: the class
-// attribute is split across lines, the title lives on the <img> rather than in
-// a heading, and the release date sits inside a <p class="release">.
+// card reproduces one listing tile of the Next.js site: the title sits in an
+// `a.title`, the date is a Japanese 2026年8月11日 string, and the thumbnail is
+// wrapped in the `/_next/image` optimiser URL.
 func card(id, title, performer, date string) string {
-	return fmt.Sprintf(`<div
- class="movie movie358 ppv-available"
-    data-movie-id="%s"
-  >
-    <a href="/moviepages/%s/index.html">
-      <img class="lazy" src="/images/common/parts/ajax-loader.gif"
-        data-original="/contents/3000/%s/images/player_thumbnail_358.jpg"
-        alt="%s"
-        title="%s"
-      />
-    </a>
-    <span list class="actor-type-mature icon">
-      Mature <p class="release">Released: %s</p>
-    </span>
-    <a href="/listpages/actor_293_1.html?sort=pop" class="actor" title="">%s</a>
-  </div>`, id, id, id, performer, title, date, performer)
+	t, _ := time.Parse("2006-01-02", date)
+	ja := fmt.Sprintf("%d年%d月%d日", t.Year(), int(t.Month()), t.Day())
+	return fmt.Sprintf(`<div class="MuiPaper-root MuiCard-root css-8wfd2x"><a class="MuiButton-root" tabindex="0" href="/movie/%s"><span><img alt="Thumbnail" loading="lazy" srcSet="/_next/image?url=x 1x" src="/_next/image?url=https%%3A%%2F%%2Fwww.heyzo.com%%2Fcontents%%2F3000%%2F%s%%2Fimages%%2Fplayer_thumbnail.jpg&amp;w=1920&amp;q=75"/></span></a><div class="MuiCardContent-root"><a class="title" href="/movie/%s"><div class="MuiTypography-root">%s</div></a><p class="MuiTypography-body2">%s</p><a class="MuiButton-root name css-2y8ajh" tabindex="0" href="/listpages/actor_293_1">%s</a></div></div>`,
+		id, id, id, title, ja, performer)
 }
 
-// detailHTML carries both metadata sources: the schema.org Movie JSON-LD and
-// the movieInfo table. The <script> block deliberately mentions the row class
-// names, the way the live page's jQuery does — the parser has to strip scripts
-// before it looks for the table, or it finds the selectors instead.
-func detailHTML(title, desc, dur, date, actor string, cats, tags []string, series string) string {
-	catCells := ""
+// detailHTML reproduces a movie page: the heading, category chips, the
+// synopsis paragraph and the labelled item rows. Class names carry the
+// CSS-module hash the live site appends.
+func detailHTML(title, desc, date, actor string, cats, tags []string, series string) string {
+	var chips, tagLinks strings.Builder
 	for _, c := range cats {
-		catCells += fmt.Sprintf(`<span><a href="/listpages/category_22_1.html?sort=pop">%s</a></span>`, c)
+		fmt.Fprintf(&chips, `<a class="MuiButton-root" tabindex="0" href="/listpages/category_20_1"><p class="MuiTypography-root">%s</p></a>`, c)
 	}
-	tagCells := ""
 	for _, tg := range tags {
-		tagCells += fmt.Sprintf(`<li><a href="/search/%s/1.html?sort=pop">%s</a></li>`, tg, tg)
+		fmt.Fprintf(&tagLinks, `<a href="/listpages/category_7_1">%s</a>`, tg)
 	}
-	return fmt.Sprintf(`<html><head>
-<script type="application/ld+json">
-{"@context":"http://schema.org","@type":"Movie","name":%q,
- "image":"//www.heyzo.com/contents/3000/3400/images/player_thumbnail.jpg",
- "actor":{"@type":"Person","name":%q},
- "description":%q,"duration":%q,"dateCreated":%q,
- "video":{"@type":"VideoObject","name":"IGNORED INNER NAME","description":"IGNORED INNER DESC","duration":"PT9H9M9S"}}
-</script>
-<script>$('.table-tag-keyword-small').css('display','none'); $('.table-series').hide();</script>
-</head><body>
-<table class="movieInfo"><tbody>
-<tr class="table-release-day"><td>Released</td><td>%s</td></tr>
-<tr class="table-actor"><td>Cast</td><td><a href="/listpages/actor_293_1.html?sort=pop"><span>%s</span></a></td></tr>
-<tr class="table-series"><td>Series</td><td>%s</td></tr>
-<tr class="table-actor-type"><td>Type</td><td>%s</td></tr>
-<tr class="table-tag-keyword-small"><td colspan="2">Tag keywords</td></tr>
-<tr class="table-tag-keyword-small"><td colspan="2"><ul class="tag-keyword-list">%s</ul></td></tr>
-<tr class="table-memo"><td colspan="2"><p class="memo">The site's own synopsis.</p></td></tr>
-</tbody></table>
-</body></html>`, title, actor, desc, dur, date, date, actor, series, catCells, tagCells)
+	memo := ""
+	if desc != "" {
+		memo = `<p class="Movie_memo__Oq_R5">` + desc + `</p>`
+	}
+	seriesRow := ""
+	if series != "" {
+		seriesRow = `<div class="Movie_item__5i6St"><span>シリーズ</span>` + series + `</div>`
+	}
+	return fmt.Sprintf(`<html><head><title>%s | HEYZO</title></head><body><main><div><h1>%s</h1></div><div class="MuiBox-root">%s</div>%s<div class="Movie_disclaimer__H6muq">All performers are adults.<br/>Fiction.</div><div class="Movie_item__5i6St"><span>出演</span><span><a href="/listpages/actor_99_1">%s</a></span></div><div class="Movie_item__5i6St"><span>配信日</span>%s</div>%s<div class="Movie_item__5i6St"><span>タグ</span><div class="Movie_tags__5D_UT">%s</div></div><div class="Movie_item__5i6St"><span>評価</span><span>4</span></div></main></body></html>`,
+		title, title, chips.String(), memo, actor, date, seriesRow, tagLinks.String())
 }
 
 type stubSite struct {
@@ -103,7 +80,7 @@ func catalogueServer(t *testing.T, pages, perPage int) *stubSite {
 		site.hit(r.URL.Path)
 		switch {
 		case strings.HasPrefix(r.URL.Path, "/listpages/"):
-			name := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/listpages/"), ".html")
+			name := strings.TrimPrefix(r.URL.Path, "/listpages/")
 			i := strings.LastIndex(name, "_")
 			page, _ := strconv.Atoi(name[i+1:])
 			if page < 1 || page > pages {
@@ -118,11 +95,11 @@ func catalogueServer(t *testing.T, pages, perPage int) *stubSite {
 			}
 			sb.WriteString(`</div></body></html>`)
 			_, _ = fmt.Fprint(w, sb.String())
-		case strings.HasPrefix(r.URL.Path, "/moviepages/"):
-			id := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/moviepages/"), "/index.html")
+		case strings.HasPrefix(r.URL.Path, "/movie/"):
+			id := strings.TrimPrefix(r.URL.Path, "/movie/")
 			_, _ = fmt.Fprint(w, detailHTML(
-				"Detail Title "+id, "A description.", "PT0H58M54S", "2024-08-17", "Jane Eyre",
-				[]string{"Mature", "Slim"}, []string{"69", "Toys", "69"}, "-----"))
+				"Detail Title "+id, "A description.", "2024年8月17日", "Jane Eyre",
+				[]string{"Mature", "Slim"}, []string{"69", "Toys", "69"}, ""))
 		default:
 			http.NotFound(w, r)
 		}
@@ -182,13 +159,13 @@ func TestWalksEveryListingPage(t *testing.T) {
 		seen[sc.ID] = true
 	}
 	// Page 4 is the empty grid that ends the walk.
-	if got := site.count("/listpages/all_4.html"); got != 1 {
+	if got := site.count("/listpages/all_4"); got != 1 {
 		t.Errorf("fetched the past-end page %d times, want 1", got)
 	}
 }
 
-// The detail page supplies what the card cannot: description, duration, tags
-// and categories. Its title and performer win too, being the fuller form.
+// The detail page supplies what the card cannot: description, tags and
+// categories. Its title and performer win too, being the fuller form.
 func TestDetailSuppliesTheRicherFields(t *testing.T) {
 	site := catalogueServer(t, 1, 1)
 	defer site.Close()
@@ -206,14 +183,8 @@ func TestDetailSuppliesTheRicherFields(t *testing.T) {
 	if got.Title != "Detail Title 1000" {
 		t.Errorf("Title = %q", got.Title)
 	}
-	// The `memo` row is the site's own synopsis and wins over the JSON-LD
-	// description, because it is the one present on every page.
-	if got.Description != "The site's own synopsis." {
+	if got.Description != "A description." {
 		t.Errorf("Description = %q", got.Description)
-	}
-	// PT0H58M54S — and NOT the 9h9m9s on the nested video object.
-	if got.Duration != 3534 {
-		t.Errorf("Duration = %d, want 3534", got.Duration)
 	}
 	if got.Date.Format("2006-01-02") != "2024-08-17" {
 		t.Errorf("Date = %v", got.Date)
@@ -228,81 +199,87 @@ func TestDetailSuppliesTheRicherFields(t *testing.T) {
 	if strings.Join(got.Tags, ",") != "69,Toys" {
 		t.Errorf("Tags = %v", got.Tags)
 	}
-	// A series rendered as dashes means "none".
 	if got.Series != "" {
 		t.Errorf("Series = %q, want empty", got.Series)
 	}
 	if got.Studio != studioName || got.SiteID != siteID {
 		t.Errorf("Studio/SiteID = %q/%q", got.Studio, got.SiteID)
 	}
-	if !strings.HasPrefix(got.URL, site.URL+"/moviepages/") {
+	if !strings.HasPrefix(got.URL, site.URL+"/movie/") {
 		t.Errorf("URL = %q", got.URL)
 	}
-	if !strings.HasPrefix(got.Thumbnail, site.URL+"/contents/") {
-		t.Errorf("Thumbnail = %q", got.Thumbnail)
+	if got.Thumbnail != "https://www.heyzo.com/contents/3000/1000/images/player_thumbnail.jpg" {
+		t.Errorf("Thumbnail = %q, want the original asset behind the optimiser URL", got.Thumbnail)
 	}
 }
 
-// The newer pages ship no JSON-LD at all. Everything the table holds must
-// still be read, and the page must not be reported as unparseable.
-func TestPageWithoutJSONLDStillParses(t *testing.T) {
-	full := detailHTML("Outer", "Outer Desc", "PT1H0M0S", "2026-01-02", "Hester Prynne",
-		[]string{"Mature"}, []string{"Toys"}, "-----")
-	i := strings.Index(full, `<script type="application/ld+json">`)
-	j := strings.Index(full, "</script>") + len("</script>")
-	noLD := full[:i] + full[j:]
-
-	d := parseDetail(noLD)
-	if d.empty() {
-		t.Fatal("a page with a movieInfo table but no JSON-LD read as unparseable")
+// Real pages captured from the live site.
+func TestParseLiveListing(t *testing.T) {
+	b, err := os.ReadFile("testdata/listing.html")
+	if err != nil {
+		t.Fatal(err)
 	}
-	if d.description != "The site's own synopsis." {
+	cards := parseCards(string(b))
+	if len(cards) != 3 {
+		t.Fatalf("got %d cards, want 3", len(cards))
+	}
+	c := cards[0]
+	if c.id != "3983" || c.path != "/movie/3983" || c.title != "ディルドでオナっちゃう女たち～ボーナススペシャルVol.21～" || c.performer != "沢田美波" {
+		t.Errorf("card = %+v", c)
+	}
+	if c.date.Format("2006-01-02") != "2026-11-20" {
+		t.Errorf("date = %v", c.date)
+	}
+	if c.thumb != "https://www.heyzo.com/contents/3000/3983/images/player_thumbnail.jpg" {
+		t.Errorf("thumb = %q", c.thumb)
+	}
+}
+
+func TestParseLiveDetail(t *testing.T) {
+	b, err := os.ReadFile("testdata/detail.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := parseDetail(string(b))
+	if d.empty() || d.title != "浴衣deデート～夏のデートは刺激的に～" {
+		t.Fatalf("detail = %+v", d)
+	}
+	if !strings.HasPrefix(d.description, "夏休みも終わってしまいましたが") || strings.ContainsAny(d.description, "<>") {
 		t.Errorf("description = %q", d.description)
 	}
-	if len(d.performers) != 1 || d.performers[0] != "Hester Prynne" {
-		t.Errorf("performers = %v", d.performers)
+	if strings.Join(d.categories, ",") != "AV女優" {
+		t.Errorf("categories = %v", d.categories)
 	}
-	if strings.Join(d.tags, ",") != "Toys" {
+	if len(d.performers) != 1 || d.performers[0] != "星崎アンリ" || d.date.Format("2006-01-02") != "2012-08-31" {
+		t.Errorf("performers = %v, date = %v", d.performers, d.date)
+	}
+	if len(d.tags) != 14 || d.tags[0] != "中出し" || d.tags[13] != "ローター" {
 		t.Errorf("tags = %v", d.tags)
 	}
-	// Duration only exists in the JSON-LD, so it is legitimately absent here.
-	if d.duration != 0 {
-		t.Errorf("duration = %d, want 0", d.duration)
+}
+
+// Newer bonus movies publish no synopsis; that must not read as a parse
+// failure, and the chips under the heading are still categories.
+func TestDetailWithoutSynopsisStillParses(t *testing.T) {
+	b, err := os.ReadFile("testdata/detail_bonus.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := parseDetail(string(b))
+	if d.empty() || d.description != "" {
+		t.Fatalf("detail = %+v", d)
+	}
+	if strings.Join(d.categories, ",") != "素人,ボーナス動画" {
+		t.Errorf("categories = %v", d.categories)
+	}
+	if len(d.performers) != 1 || d.performers[0] != "根岸由香" {
+		t.Errorf("performers = %v", d.performers)
 	}
 }
 
-// The JSON-LD nests the same keys under the Movie and under its video object.
-// The outer copy comes first and is the one that must win.
-func TestJSONLDPrefersTheOuterMovieFields(t *testing.T) {
-	d := parseDetail(detailHTML("Outer Name", "Outer Desc", "PT1H0M0S", "2026-01-02", "Hester Prynne", nil, nil, ""))
-	if d.title != "Outer Name" {
-		t.Errorf("title = %q", d.title)
-	}
-	// PT1H0M0S, not the nested video object's PT9H9M9S.
-	if d.duration != 3600 {
-		t.Errorf("duration = %d, want 3600", d.duration)
-	}
-
-	// And the outer description is what the JSON-LD contributes — visible once
-	// the memo row, which otherwise wins, is taken away.
-	noMemo := strings.Replace(detailHTML("Outer Name", "Outer Desc", "PT1H0M0S", "2026-01-02", "Hester Prynne", nil, nil, ""),
-		`<tr class="table-memo"><td colspan="2"><p class="memo">The site's own synopsis.</p></td></tr>`, "", 1)
-	if got := parseDetail(noMemo).description; got != "Outer Desc" {
-		t.Errorf("description = %q, want the outer JSON-LD value", got)
-	}
-}
-
-// A card gives the performer twice — as the thumbnail's alt text and as the
-// actor link. The link wins; alt is the fallback for a card without one.
-func TestCardPerformerFallsBackToTheThumbnailAlt(t *testing.T) {
-	withLink := parseCards(card("77", "T", "Hester Prynne", "2026-05-06"))
-	if len(withLink) != 1 || withLink[0].performer != "Hester Prynne" {
-		t.Fatalf("got %+v", withLink)
-	}
-	noLink := parseCards(strings.Replace(card("78", "T", "Jane Eyre", "2026-05-06"),
-		`<a href="/listpages/actor_293_1.html?sort=pop" class="actor" title="">Jane Eyre</a>`, "", 1))
-	if len(noLink) != 1 || noLink[0].performer != "Jane Eyre" {
-		t.Fatalf("alt fallback failed: %+v", noLink)
+func TestDetailWithoutHeadingIsEmpty(t *testing.T) {
+	if !parseDetail(`<html><body><p>Not Found</p></body></html>`).empty() {
+		t.Error("a page with no movie heading read as parsed")
 	}
 }
 
@@ -313,17 +290,17 @@ func TestFilteredListingWalksItsOwnStem(t *testing.T) {
 	defer site.Close()
 
 	s := newTestScraper(site.Server)
-	scenes, errs, _, _ := collect(t, s, "https://www.heyzo.com/listpages/actor_293_1.html", scraper.ListOpts{Workers: 1})
+	scenes, errs, _, _ := collect(t, s, "https://www.heyzo.com/listpages/actor_293_1", scraper.ListOpts{Workers: 1})
 	if len(errs) != 0 {
 		t.Fatalf("unexpected errors: %v", errs)
 	}
 	if len(scenes) != 4 {
 		t.Fatalf("got %d scenes, want 4", len(scenes))
 	}
-	if site.count("/listpages/actor_293_2.html") == 0 {
+	if site.count("/listpages/actor_293_2") == 0 {
 		t.Error("the filtered walk never reached page 2")
 	}
-	if site.count("/listpages/all_1.html") != 0 {
+	if site.count("/listpages/all_1") != 0 {
 		t.Error("a filtered URL also walked the full catalogue")
 	}
 }
@@ -343,7 +320,7 @@ func TestKnownIDStopsTheWalkEarly(t *testing.T) {
 	if len(scenes) != 2 {
 		t.Fatalf("got %d scenes, want the 2 before the known id", len(scenes))
 	}
-	if site.count("/listpages/all_2.html") != 0 {
+	if site.count("/listpages/all_2") != 0 {
 		t.Error("the walk continued past the known id")
 	}
 }
@@ -384,11 +361,11 @@ func TestEmptyFirstPageIsAParseErrorButALaterOneIsNot(t *testing.T) {
 // id, title, date, performer and thumbnail. The failure is still reported.
 func TestDetailFailureKeepsTheCardOnlyScene(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasPrefix(r.URL.Path, "/moviepages/") {
+		if strings.HasPrefix(r.URL.Path, "/movie/") {
 			http.Error(w, "gone", http.StatusInternalServerError)
 			return
 		}
-		if strings.HasSuffix(r.URL.Path, "all_1.html") {
+		if strings.HasSuffix(r.URL.Path, "all_1") {
 			_, _ = fmt.Fprint(w, `<html><body>`+card("1000", "Card Title", "Hester Prynne", "2026-08-11")+`</body></html>`)
 			return
 		}
@@ -414,8 +391,8 @@ func TestMatchesURL(t *testing.T) {
 	for _, u := range []string{
 		"https://heyzo.com",
 		"https://www.heyzo.com/",
-		"https://en.heyzo.com/moviepages/3400/index.html",
-		"http://www.heyzo.com/listpages/all_2.html",
+		"https://en.heyzo.com/movie/3400",
+		"http://www.heyzo.com/listpages/all_2",
 	} {
 		if !s.MatchesURL(u) {
 			t.Errorf("MatchesURL(%q) = false, want true", u)

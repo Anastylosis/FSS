@@ -1,18 +1,19 @@
-// Package heyzo scrapes heyzo.com, a static Japanese uncensored-video site.
+// Package heyzo scrapes heyzo.com, a Japanese uncensored-video site.
 //
 // Despite the D2Pass billing link on every page it is not a D2Pass "bifrost"
 // site: the JSON endpoints d2passutil drives (`/dyn/phpauto/movie_lists/…`)
-// answer 404 here. What it has instead is plain HTML — `/listpages/all_{N}.html`
-// pages of 30 cards, and a `/moviepages/{id}/index.html` per movie.
+// answer 404 here. The site was rebuilt in 2026-11 as a server-rendered
+// Next.js app: `/listpages/all_{N}` pages of 30 cards and a `/movie/{id}` page
+// per movie (the old `.html` and `/moviepages/` URLs redirect or 404).
 //
 // Discovery walks the listing; the cards already carry id, title, thumbnail,
 // performer and release date. The detail page is fetched for what they do not
-// carry: a schema.org `Movie` JSON-LD block with the description and an ISO
-// duration, plus a `movieInfo` table holding the series and the tag keywords.
+// carry: the synopsis, the category chips and the tag list. It publishes no
+// duration.
 //
-// Filtered views work as listings too — `/listpages/actor_{id}_{N}.html` for
-// one performer and `/listpages/category_{id}_{N}.html` for a category — so a
-// URL naming either scrapes that slice with the same walk.
+// Filtered views work as listings too — `/listpages/actor_{id}_{N}` for one
+// performer and `/listpages/category_{id}_{N}` for a category — so a URL
+// naming either scrapes that slice with the same walk.
 package heyzo
 
 import (
@@ -28,7 +29,6 @@ import (
 
 	"github.com/Anastylosis/FSS/internal/httpx"
 	"github.com/Anastylosis/FSS/models"
-	"github.com/Anastylosis/FSS/parseutil"
 	"github.com/Anastylosis/FSS/scraper"
 )
 
@@ -53,10 +53,10 @@ func init() { scraper.Register(New()) }
 
 var (
 	matchRe = regexp.MustCompile(`^https?://(?:www\.|en\.)?heyzo\.com(?:/|$)`)
-	// A filtered listing names its own stem: `actor_293_1.html` walks one
+	// A filtered listing names its own stem: `actor_293_1` walks one
 	// performer, `category_22_1.html` one category. The trailing number is the
 	// page, so it is dropped and rebuilt.
-	filterRe = regexp.MustCompile(`/listpages/((?:actor|category|series)_\d+)_\d+\.html`)
+	filterRe = regexp.MustCompile(`/listpages/((?:actor|category|series)_\d+)_\d+`)
 )
 
 func (s *Scraper) ID() string { return siteID }
@@ -64,9 +64,9 @@ func (s *Scraper) ID() string { return siteID }
 func (s *Scraper) Patterns() []string {
 	return []string{
 		domain,
-		domain + "/listpages/all_{N}.html",
-		domain + "/listpages/actor_{id}_{N}.html",
-		domain + "/listpages/category_{id}_{N}.html",
+		domain + "/listpages/all_{N}",
+		domain + "/listpages/actor_{id}_{N}",
+		domain + "/listpages/category_{id}_{N}",
 	}
 }
 
@@ -149,7 +149,7 @@ func (s *Scraper) discover(ctx context.Context, base, stem string, opts scraper.
 			return sent
 		}
 
-		pageURL := fmt.Sprintf("%s/listpages/%s_%d.html", base, stem, page)
+		pageURL := fmt.Sprintf("%s/listpages/%s_%d", base, stem, page)
 		scraper.Debugf(1, "%s: fetching listing page %d", siteID, page)
 		body, err := s.fetch(ctx, pageURL)
 		if err != nil {
@@ -245,9 +245,6 @@ func (s *Scraper) buildScene(ctx context.Context, studioURL, base string, e list
 	if d.description != "" {
 		scene.Description = d.description
 	}
-	if d.duration > 0 {
-		scene.Duration = d.duration
-	}
 	if !d.date.IsZero() {
 		scene.Date = d.date
 	}
@@ -285,14 +282,12 @@ type listEntry struct {
 }
 
 var (
-	cardSplitRe = regexp.MustCompile(`<div\s+class="movie movie\d+`)
-	movieIDRe   = regexp.MustCompile(`data-movie-id="(\d+)"`)
-	cardPathRe  = regexp.MustCompile(`href="(/moviepages/\d+/index\.html)"`)
-	cardTitleRe = regexp.MustCompile(`title="([^"]*)"\s*/?>`)
-	cardThumbRe = regexp.MustCompile(`data-original="([^"]+)"`)
-	cardActorRe = regexp.MustCompile(`(?s)class="actor"[^>]*>(.*?)</a>`)
-	cardAltRe   = regexp.MustCompile(`alt="([^"]*)"`)
-	cardDateRe  = regexp.MustCompile(`(?s)class="release">.*?(\d{4}-\d{2}-\d{2})`)
+	cardSplitRe = regexp.MustCompile(`MuiCard-root`)
+	cardPathRe  = regexp.MustCompile(`href="(/movie/(\d+))"`)
+	cardTitleRe = regexp.MustCompile(`(?s)<a class="title"[^>]*>.*?<div[^>]*>(.*?)</div>`)
+	cardThumbRe = regexp.MustCompile(`<img alt="Thumbnail"[^>]* src="([^"]+)"`)
+	cardActorRe = regexp.MustCompile(`(?s)href="/listpages/actor_\d+_\d+"[^>]*>(.*?)</a>`)
+	jaDateRe    = regexp.MustCompile(`(\d{4})年(\d{1,2})月(\d{1,2})日`)
 )
 
 func parseCards(body string) []listEntry {
@@ -302,24 +297,18 @@ func parseCards(body string) []listEntry {
 		if i == 0 {
 			continue // preamble before the first card
 		}
-		id := firstSubmatch(movieIDRe, chunk)
-		path := firstSubmatch(cardPathRe, chunk)
-		if id == "" || path == "" {
+		m := cardPathRe.FindStringSubmatch(chunk)
+		if m == nil {
 			continue
 		}
 		e := listEntry{
-			id:        id,
-			path:      path,
+			id:        m[2],
+			path:      m[1],
 			title:     cleanText(firstSubmatch(cardTitleRe, chunk)),
-			thumb:     firstSubmatch(cardThumbRe, chunk),
+			thumb:     imageSource(html.UnescapeString(firstSubmatch(cardThumbRe, chunk))),
 			performer: cleanText(firstSubmatch(cardActorRe, chunk)),
 		}
-		// The thumbnail's alt text is the performer; it is the fallback for a
-		// card whose actor link is missing.
-		if e.performer == "" {
-			e.performer = cleanText(firstSubmatch(cardAltRe, chunk))
-		}
-		if d, ok := parseDate(firstSubmatch(cardDateRe, chunk)); ok {
+		if d, ok := parseJapaneseDate(chunk); ok {
 			e.date = d
 		}
 		out = append(out, e)
@@ -327,132 +316,94 @@ func parseCards(body string) []listEntry {
 	return out
 }
 
+// imageSource unwraps a `/_next/image?url=…` optimiser URL to the original
+// asset, which is what a stored thumbnail should point at.
+func imageSource(src string) string {
+	if u, err := url.Parse(src); err == nil && strings.HasPrefix(u.Path, "/_next/image") {
+		if orig := u.Query().Get("url"); orig != "" {
+			return orig
+		}
+	}
+	return src
+}
+
 // ---- detail page ----
 
 type detail struct {
 	title       string
 	description string
-	duration    int
 	date        time.Time
 	performers  []string
 	tags        []string
 	categories  []string
 	series      string
-	// foundTable records that the movieInfo table was located, which is the
-	// signal that the page parsed at all. The JSON-LD block is absent on the
-	// newer pages, so its absence alone says nothing.
-	foundTable bool
+	found       bool
 }
 
-func (d detail) empty() bool {
-	return !d.foundTable && d.title == "" && d.description == "" && d.duration == 0
-}
-
-// cellRe matches one table cell. A movieInfo row is a label cell followed by a
-// value cell, so only the last match carries data.
-var cellRe = regexp.MustCompile(`(?s)<td[^>]*>(.*?)</td>`)
-
-func valueCell(row string) string {
-	cells := cellRe.FindAllStringSubmatch(row, -1)
-	if len(cells) == 0 {
-		return ""
-	}
-	return cells[len(cells)-1][1]
-}
+func (d detail) empty() bool { return !d.found }
 
 var (
-	ldJSONRe     = regexp.MustCompile(`(?s)<script type="application/ld\+json">(.*?)</script>`)
-	scriptRe     = regexp.MustCompile(`(?s)<script.*?</script>`)
-	infoTableRe  = regexp.MustCompile(`(?s)<table class="movieInfo">(.*?)</table>`)
-	rowRe        = regexp.MustCompile(`(?s)<tr class="([^"]*)">(.*?)</tr>`)
+	h1Re         = regexp.MustCompile(`(?s)<h1[^>]*>(.*?)</h1>`)
+	memoRe       = regexp.MustCompile(`(?s)<p class="Movie_memo[^"]*">(.*?)</p>`)
+	itemSplitRe  = regexp.MustCompile(`<div class="Movie_item[^"]*">`)
+	itemLabelRe  = regexp.MustCompile(`(?s)^<span>(.*?)</span>(.*)$`)
+	headEndRe    = regexp.MustCompile(`Movie_memo__|Movie_disclaimer__|Movie_item__`)
+	categoryRe   = regexp.MustCompile(`(?s)<a [^>]*href="/listpages/category_\d+_\d+"[^>]*>(.*?)</a>`)
 	anchorTextRe = regexp.MustCompile(`(?s)<a[^>]*>(.*?)</a>`)
 )
 
 func parseDetail(body string) detail {
 	var d detail
-
-	if m := ldJSONRe.FindStringSubmatch(body); m != nil {
-		ld := parseMovieLD(m[1])
-		d.title = ld.title
-		d.description = ld.description
-		d.duration = ld.duration
-		d.date = ld.date
-		if ld.actor != "" {
-			d.performers = []string{ld.actor}
-		}
-	}
-
-	// Scripts carry jQuery selectors naming the very row classes below, so
-	// they are stripped before the table is located.
-	table := firstSubmatch(infoTableRe, scriptRe.ReplaceAllString(body, ""))
-	if table == "" {
+	loc := h1Re.FindStringSubmatchIndex(body)
+	if loc == nil {
 		return d
 	}
-	d.foundTable = true
-	for _, row := range rowRe.FindAllStringSubmatch(table, -1) {
-		class, cells := row[1], row[2]
-		switch {
-		case strings.Contains(class, "table-actor-type"):
-			d.categories = anchorTexts(cells)
-		case strings.Contains(class, "table-tag-keyword"):
-			d.tags = append(d.tags, anchorTexts(cells)...)
-		case strings.Contains(class, "table-series"):
-			// The row is label cell then value cell, so only the last one is
-			// the series. An absent series is rendered as a run of dashes.
-			if v := cleanText(valueCell(cells)); v != "" && strings.Trim(v, "-") != "" {
+	d.found = true
+	d.title = cleanText(body[loc[2]:loc[3]])
+	rest := body[loc[1]:]
+
+	// The category chips sit between the heading and the synopsis.
+	head := rest
+	if m := headEndRe.FindStringIndex(rest); m != nil {
+		head = rest[:m[0]]
+	}
+	d.categories = dedupe(texts(categoryRe, head))
+	d.description = cleanText(firstSubmatch(memoRe, rest))
+
+	// Each labelled row runs to the next one; the value keeps any trailing
+	// markup, which the extractors below ignore.
+	for _, chunk := range itemSplitRe.Split(rest, -1)[1:] {
+		it := itemLabelRe.FindStringSubmatch(chunk)
+		if it == nil {
+			continue
+		}
+		label, value := cleanText(it[1]), it[2]
+		switch label {
+		case "出演":
+			d.performers = anchorTexts(value)
+		case "配信日":
+			if t, ok := parseJapaneseDate(value); ok {
+				d.date = t
+			}
+		case "タグ":
+			d.tags = anchorTexts(value)
+		case "シリーズ":
+			if v := cleanText(value); v != "" {
 				d.series = v
-			}
-		case strings.Contains(class, "table-actor"):
-			if names := anchorTexts(cells); len(names) > 0 {
-				d.performers = names
-			}
-		case strings.Contains(class, "table-memo"):
-			// The `memo` paragraph is the site's own synopsis and is present
-			// on every page, including the newer ones that ship no JSON-LD at
-			// all — 243 of the first 963 scenes had no description without it.
-			if v := cleanText(valueCell(cells)); v != "" {
-				d.description = v
 			}
 		}
 	}
-	d.tags = dedupe(d.tags)
 	return d
 }
 
-type movieLD struct {
-	title       string
-	description string
-	duration    int
-	date        time.Time
-	actor       string
-}
-
-var (
-	ldNameRe = regexp.MustCompile(`"name"\s*:\s*"((?:[^"\\]|\\.)*)"`)
-	ldDescRe = regexp.MustCompile(`"description"\s*:\s*"((?:[^"\\]|\\.)*)"`)
-	ldDurRe  = regexp.MustCompile(`"duration"\s*:\s*"([^"]+)"`)
-	ldDateRe = regexp.MustCompile(`"dateCreated"\s*:\s*"(\d{4}-\d{2}-\d{2})"`)
-	// The actor object nests a name, so the first "name" after "actor" is it.
-	ldActorRe = regexp.MustCompile(`(?s)"actor"\s*:\s*\{.*?"name"\s*:\s*"((?:[^"\\]|\\.)*)"`)
-)
-
-// parseMovieLD reads the fields we want out of the schema.org Movie block by
-// pattern rather than by decoding it. The block nests the same keys under both
-// the Movie and its `video` MediaObject, and the outer copy is the one that
-// comes first — decoding into a struct would need the whole shape declared to
-// get at four fields.
-func parseMovieLD(s string) movieLD {
-	var ld movieLD
-	ld.title = cleanText(unescapeJSON(firstSubmatch(ldNameRe, s)))
-	ld.description = cleanText(unescapeJSON(firstSubmatch(ldDescRe, s)))
-	ld.actor = cleanText(unescapeJSON(firstSubmatch(ldActorRe, s)))
-	if v := firstSubmatch(ldDurRe, s); v != "" {
-		ld.duration = parseutil.ParseDurationISO(v)
+func texts(re *regexp.Regexp, s string) []string {
+	var out []string
+	for _, m := range re.FindAllStringSubmatch(s, -1) {
+		if t := cleanText(m[1]); t != "" {
+			out = append(out, t)
+		}
 	}
-	if d, ok := parseDate(firstSubmatch(ldDateRe, s)); ok {
-		ld.date = d
-	}
-	return ld
+	return out
 }
 
 // ---- helpers ----
@@ -466,13 +417,6 @@ func cleanText(s string) string {
 	s = html.UnescapeString(s)
 	s = strings.ReplaceAll(s, " ", " ")
 	return strings.Join(strings.Fields(s), " ")
-}
-
-// unescapeJSON turns the escapes a JSON string literal may carry into their
-// characters. Only the ones that appear in this payload are handled; anything
-// else is left alone rather than corrupted.
-func unescapeJSON(s string) string {
-	return strings.NewReplacer(`\"`, `"`, `\\`, `\`, `\n`, " ", `\r`, " ", `\t`, " ", `\/`, "/").Replace(s)
 }
 
 func anchorTexts(s string) []string {
@@ -512,8 +456,12 @@ func firstSubmatch(re *regexp.Regexp, s string) string {
 	return ""
 }
 
-func parseDate(s string) (time.Time, bool) {
-	t, err := time.Parse("2006-01-02", s)
+func parseJapaneseDate(s string) (time.Time, bool) {
+	m := jaDateRe.FindStringSubmatch(s)
+	if m == nil {
+		return time.Time{}, false
+	}
+	t, err := time.Parse("2006-1-2", m[1]+"-"+m[2]+"-"+m[3])
 	if err != nil {
 		return time.Time{}, false
 	}
