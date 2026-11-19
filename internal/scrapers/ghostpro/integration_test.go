@@ -9,19 +9,13 @@ import (
 )
 
 // One live smoke per template variant the network exposes. We don't run a
-// per-site smoke for all 9 sister sites: they share the parser and the
+// per-site smoke for all the sister sites: they share the parser and the
 // table-driven self-test (TestSitesTable_uniqueIDsAndDomainIsolation) already
 // covers per-site config. AsianSuckDolls is the canonical example with full
-// payload fields; TussineeGold is a smaller site (~16 scenes) used to
-// exercise the small-catalogue / total_pages cutoff path.
+// payload fields.
 
 func TestLiveAsianSuckDolls(t *testing.T) {
 	cfg := findSite(t, "asiansuckdolls")
-	testutil.RunLiveScrape(t, New(cfg), cfg.SiteBase+"/videos", 4)
-}
-
-func TestLiveTussineeGold(t *testing.T) {
-	cfg := findSite(t, "tussineegold")
 	testutil.RunLiveScrape(t, New(cfg), cfg.SiteBase+"/videos", 4)
 }
 

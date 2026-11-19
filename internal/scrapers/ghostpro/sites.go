@@ -61,20 +61,6 @@ var sites = []SiteConfig{
 		MatchRe:  regexp.MustCompile(`^https?://(?:www\.)?thaipussymassage\.com(?:/|$)`),
 	},
 	{
-		ID:       "tussinee",
-		SiteBase: "https://tussinee.com",
-		SiteName: "Tussinee",
-		Patterns: []string{"tussinee.com/", "tussinee.com/videos"},
-		MatchRe:  regexp.MustCompile(`^https?://(?:www\.)?tussinee\.com(?:/|$)`),
-	},
-	{
-		ID:       "tussineegold",
-		SiteBase: "https://tussineegold.com",
-		SiteName: "Tussinee Gold",
-		Patterns: []string{"tussineegold.com/", "tussineegold.com/videos"},
-		MatchRe:  regexp.MustCompile(`^https?://(?:www\.)?tussineegold\.com(?:/|$)`),
-	},
-	{
 		ID:         "johnnyrapid",
 		SiteBase:   "https://johnnyrapid.com",
 		SiteName:   "Johnny Rapid",
