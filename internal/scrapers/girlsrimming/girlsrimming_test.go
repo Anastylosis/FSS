@@ -33,9 +33,9 @@ func TestMatchesURL(t *testing.T) {
 		match bool
 	}{
 		{"https://girlsrimming.com", true},
-		{"https://girlsrimming.com/tour/", true},
+		{"https://girlsrimming.com/all/video?page=2", true},
 		{"https://www.girlsrimming.com/tour/categories/movies/2/latest/", true},
-		{"http://girlsrimming.com/tour/trailers/Gatitas-Latin-Rimming-Passion.html", true},
+		{"http://girlsrimming.com/v/487-Evas-Naughty-Obsession", true},
 		{"https://auntjudys.com/", false},
 		{"", false},
 	}
@@ -59,30 +59,29 @@ func TestParseListing(t *testing.T) {
 	}
 
 	got := items[0]
-	if got.id != "585" {
-		t.Errorf("id = %q, want 585", got.id)
+	if got.id != "487" {
+		t.Errorf("id = %q, want 487", got.id)
 	}
-	if !strings.HasSuffix(got.url, "/tour/trailers/Gatitas-Latin-Rimming-Passion.html") {
+	if !strings.HasSuffix(got.url, "/v/487-Evas-Naughty-Obsession") {
 		t.Errorf("url = %q", got.url)
 	}
-	// The first trailer anchor wraps the thumbnail and has no text; the title
-	// comes from the second.
-	if got.title != "Gatita's Latin Rimming Passion" {
+	if got.title != "Eva's Naughty Obsession" {
 		t.Errorf("title = %q", got.title)
 	}
-	// "35&nbsp;min&nbsp;of video"
-	if got.duration != 2100 {
-		t.Errorf("duration = %d, want 2100", got.duration)
+	if got.duration != 33*60+18 {
+		t.Errorf("duration = %d, want 1998", got.duration)
 	}
-	// US-format date behind an HTML comment.
-	want := time.Date(2026, time.July, 11, 0, 0, 0, 0, time.UTC)
+	want := time.Date(2026, time.November, 7, 0, 0, 0, 0, time.UTC)
 	if !got.date.Equal(want) {
 		t.Errorf("date = %v, want %v", got.date, want)
 	}
-	if !slices.Equal(got.performers, []string{"Gatita Veve", "Renato"}) {
+	if !slices.Equal(got.performers, []string{"Dean", "Eva Tender"}) {
 		t.Errorf("performers = %v", got.performers)
 	}
-	if !strings.HasPrefix(got.thumb, "https://") {
+	if !slices.Contains(got.categories, "Rimming") || !slices.Contains(got.tags, "Sloppy Blowjob") {
+		t.Errorf("categories = %v, tags = %v", got.categories, got.tags)
+	}
+	if !strings.HasPrefix(got.thumb, "https://") || !strings.HasSuffix(got.thumb, "thumbnail.webp") {
 		t.Errorf("thumb = %q", got.thumb)
 	}
 
@@ -94,39 +93,6 @@ func TestParseListing(t *testing.T) {
 	}
 }
 
-// The photo count sits next to the runtime in the same div
-// ("73&nbsp;Photos, 35&nbsp;min&nbsp;of video"); only the minutes are a duration.
-func TestParseListingDurationIgnoresPhotoCount(t *testing.T) {
-	card := `class="update_details" data-setid="1"
-<a href="https://girlsrimming.com/tour/trailers/X.html"></a>
-<a href="https://girlsrimming.com/tour/trailers/X.html">X</a>
-<div class="update_counts"> 73&nbsp;Photos, 35&nbsp;min&nbsp;of video </div>`
-
-	items := parseListing([]byte(card))
-	if len(items) != 1 {
-		t.Fatalf("got %d items, want 1", len(items))
-	}
-	if items[0].duration != 2100 {
-		t.Errorf("duration = %d, want 2100 (35 min, not the 73 photo count)", items[0].duration)
-	}
-}
-
-// The date cell contains an HTML comment before the value.
-func TestParseListingDateBehindComment(t *testing.T) {
-	card := `class="update_details" data-setid="9"
-<a href="https://girlsrimming.com/tour/trailers/Y.html">Y</a>
-<div class="cell update_date"> <!-- Date --> 01/02/2020 </div>`
-
-	items := parseListing([]byte(card))
-	if len(items) != 1 {
-		t.Fatalf("got %d items, want 1", len(items))
-	}
-	want := time.Date(2020, time.January, 2, 0, 0, 0, 0, time.UTC)
-	if !items[0].date.Equal(want) {
-		t.Errorf("date = %v, want %v (MM/DD/YYYY)", items[0].date, want)
-	}
-}
-
 func TestParseListingEmpty(t *testing.T) {
 	if items := parseListing([]byte(`<html><body>nothing</body></html>`)); len(items) != 0 {
 		t.Errorf("got %d items, want 0", len(items))
@@ -135,47 +101,15 @@ func TestParseListingEmpty(t *testing.T) {
 
 // ---- detail ----
 
-// The keywords meta mixes genre tags with performer names; the names must not
-// end up duplicated as tags.
-func TestApplyDetailSeparatesTagsFromPerformers(t *testing.T) {
-	scene := models.Scene{Performers: []string{"Gatita Veve", "Renato"}}
+func TestApplyDetail(t *testing.T) {
+	scene := models.Scene{}
 	applyDetail(&scene, readFixture(t, "detail.html"))
 
-	want := []string{"Big Boobs", "Blondes", "Busty", "Latina", "Rimming"}
-	if !slices.Equal(scene.Tags, want) {
-		t.Errorf("Tags = %v, want %v", scene.Tags, want)
-	}
-	for _, p := range scene.Performers {
-		if slices.Contains(scene.Tags, p) {
-			t.Errorf("performer %q leaked into tags", p)
-		}
-	}
-	if scene.Description == "" {
-		t.Error("Description is empty")
-	}
-}
-
-func TestApplyDetailPerformerMatchIsCaseInsensitive(t *testing.T) {
-	scene := models.Scene{Performers: []string{"gatita veve"}}
-	applyDetail(&scene, []byte(`<meta name="keywords" content="Rimming,Gatita Veve" />`))
-
-	if slices.Contains(scene.Tags, "Gatita Veve") {
-		t.Errorf("Tags = %v; performer match must ignore case", scene.Tags)
-	}
-	if !slices.Equal(scene.Tags, []string{"Rimming"}) {
-		t.Errorf("Tags = %v, want [Rimming]", scene.Tags)
-	}
-}
-
-func TestApplyDetailNoKeywords(t *testing.T) {
-	scene := models.Scene{}
-	applyDetail(&scene, []byte(`<meta property="og:description" content="Just a description." />`))
-
-	if scene.Description != "Just a description." {
+	if !strings.HasPrefix(scene.Description, "The stunning and gorgeous Eva Tender") || strings.ContainsAny(scene.Description, "<>") || strings.Contains(scene.Description, "&#039;") {
 		t.Errorf("Description = %q", scene.Description)
 	}
-	if len(scene.Tags) != 0 {
-		t.Errorf("Tags = %v, want none", scene.Tags)
+	if scene.Title != "Eva's Naughty Obsession - Hot Girls Giving Rimjobs To Guys" {
+		t.Errorf("Title = %q (og:title is the fallback when the card gave none)", scene.Title)
 	}
 }
 
@@ -188,9 +122,9 @@ func TestListScenes(t *testing.T) {
 	var detailHits atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
-		case r.URL.Path == "/tour/categories/movies/1/latest/":
+		case r.URL.Path == "/all/video" && r.URL.Query().Get("page") == "1":
 			_, _ = w.Write(listing)
-		case strings.HasPrefix(r.URL.Path, "/tour/trailers/"):
+		case strings.HasPrefix(r.URL.Path, "/v/"):
 			detailHits.Add(1)
 			_, _ = w.Write(detail)
 		default:
@@ -235,9 +169,9 @@ func TestDetailFailureIsNotFatal(t *testing.T) {
 	listing := readFixture(t, "listing.html")
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
-		case r.URL.Path == "/tour/categories/movies/1/latest/":
+		case r.URL.Path == "/all/video" && r.URL.Query().Get("page") == "1":
 			_, _ = w.Write(listing)
-		case strings.HasPrefix(r.URL.Path, "/tour/trailers/"):
+		case strings.HasPrefix(r.URL.Path, "/v/"):
 			w.WriteHeader(http.StatusNotFound)
 		default:
 			_, _ = fmt.Fprint(w, `<html></html>`)

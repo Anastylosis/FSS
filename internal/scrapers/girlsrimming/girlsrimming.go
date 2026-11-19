@@ -1,22 +1,10 @@
-// Package girlsrimming scrapes Girls Rimming (girlsrimming.com), an Elevated X
-// classic tour.
+// Package girlsrimming scrapes Girls Rimming (girlsrimming.com).
 //
-// It uses the same `update_details` card skin as auntjudys, differing only in
-// the scene link shape: `/tour/trailers/{Slug}.html` rather than
-// `..._vids.html`.
-//
-// The listing carries id, title, URL, date, duration, performers and
-// thumbnail — everything except the description and tags, which come from a
-// detail worker pool.
-//
-// Two limits worth knowing:
-//
-//   - The detail page has no description body. og:description is the only
-//     source and the CMS truncates it (~150 chars, trailing "..."). The RSS
-//     feed has full text but only for the newest 9 scenes, which is too few to
-//     be worth a second transport.
-//   - `<meta name="keywords">` mixes genre tags with performer names, so the
-//     performers read off the listing card are subtracted from it.
+// The site was rebuilt in 2026-11 on a Bootstrap template: the old Elevated X
+// `/tour/` pages now redirect to `/all/video`, which lists 48 cards a page
+// newest first with title, publish date, runtime, performers, categories and
+// tags. Only the full description needs the detail page (`/v/{id}-{slug}`),
+// fetched by a small worker pool.
 package girlsrimming
 
 import (
@@ -62,8 +50,8 @@ func (s *Scraper) ID() string { return siteID }
 func (s *Scraper) Patterns() []string {
 	return []string{
 		"girlsrimming.com",
-		"girlsrimming.com/tour/categories/movies/{N}/latest/",
-		"girlsrimming.com/tour/trailers/{slug}.html",
+		"girlsrimming.com/all/video?page={N}",
+		"girlsrimming.com/v/{slug}",
 	}
 }
 
@@ -85,7 +73,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 	now := time.Now().UTC()
 	seen := make(map[string]bool)
 	scraper.Paginate(ctx, opts, siteID, out, func(ctx context.Context, page int) (scraper.PageResult, error) {
-		pageURL := fmt.Sprintf("%s/tour/categories/movies/%d/latest/", siteBase, page)
+		pageURL := fmt.Sprintf("%s/all/video?page=%d", siteBase, page)
 		body, err := s.fetchPage(ctx, pageURL)
 		if err != nil {
 			return scraper.PageResult{}, err
@@ -109,21 +97,17 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 // ---- listing ----
 
 var (
-	// Cards are delimited by the Elevated X data-setid marker.
-	cardRe = regexp.MustCompile(`class="update_details" data-setid="(\d+)"`)
-	// Only the trailer filename is captured so the URL is rebuilt against
-	// siteBase — cards link absolutely.
-	trailerRe = regexp.MustCompile(`href="[^"]*/tour/trailers/([^"/]+\.html)"[^>]*>([^<]*)</a>`)
-	thumbRe   = regexp.MustCompile(`src0_(?:4x|3x|1x)="([^"]+)"`)
-	// The date cell holds an HTML comment before the value
-	// (`<div class="cell update_date"> <!-- Date --> 07/11/2026 </div>`), so
-	// the cell is captured first and the date picked out of it.
-	dateCellRe  = regexp.MustCompile(`(?s)class="cell update_date">(.*?)</div>`)
-	dateValueRe = regexp.MustCompile(`(\d{2}/\d{2}/\d{4})`)
-	countsRe    = regexp.MustCompile(`(?s)class="update_counts">(.*?)</div>`)
-	durationRe  = regexp.MustCompile(`(\d+)\s*(?:&nbsp;)*\s*min`)
-	modelsRe    = regexp.MustCompile(`(?s)class="update_models">(.*?)</span>`)
-	modelLinkRe = regexp.MustCompile(`href="[^"]*/models/[^"]*">([^<]+)</a>`)
+	cardRe     = regexp.MustCompile(`<article class="wlgr-update-card`)
+	linkRe     = regexp.MustCompile(`href="[^"]*/v/((\d+)-[^"/?#]+)"`)
+	titleRe    = regexp.MustCompile(`(?s)<h2 class="h5[^"]*">(.*?)</h2>`)
+	thumbRe    = regexp.MustCompile(`<img class="thumb[^"]*" src="([^"]+)"`)
+	dateRe     = regexp.MustCompile(`datetime="(\d{4}-\d{2}-\d{2})`)
+	durationRe = regexp.MustCompile(`(?s)class="duration[^"]*">.*?(\d{1,2}(?::\d{2}){1,2})\s*</small>`)
+	modelsRe   = regexp.MustCompile(`(?s)class="wlgr-card-models[^"]*">(.*?)</div>`)
+	tagsBoxRe  = regexp.MustCompile(`(?s)class="wlgr-card-tags[^"]*">(.*?)</div>`)
+	actorRe    = regexp.MustCompile(`href="[^"]*/actor/[^"]*">([^<]+)</a>`)
+	categoryRe = regexp.MustCompile(`href="[^"]*/category/[^"]*">([^<]+)</a>`)
+	tagRe      = regexp.MustCompile(`href="[^"]*/tag/[^"]*">#([^<]+)</a>`)
 )
 
 type listItem struct {
@@ -131,11 +115,22 @@ type listItem struct {
 	date                  time.Time
 	duration              int
 	performers            []string
+	categories, tags      []string
+}
+
+func names(re *regexp.Regexp, block string) []string {
+	var out []string
+	for _, m := range re.FindAllStringSubmatch(block, -1) {
+		if n := html.UnescapeString(strings.TrimSpace(m[1])); n != "" {
+			out = append(out, n)
+		}
+	}
+	return out
 }
 
 func parseListing(body []byte) []listItem {
 	page := string(body)
-	locs := cardRe.FindAllStringSubmatchIndex(page, -1)
+	locs := cardRe.FindAllStringIndex(page, -1)
 	items := make([]listItem, 0, len(locs))
 
 	for i, loc := range locs {
@@ -145,47 +140,32 @@ func parseListing(body []byte) []listItem {
 		}
 		card := page[loc[0]:end]
 
-		it := listItem{id: page[loc[2]:loc[3]]}
-
-		m := trailerRe.FindStringSubmatch(card)
+		m := linkRe.FindStringSubmatch(card)
 		if m == nil {
 			continue
 		}
-		it.url = siteBase + "/tour/trailers/" + m[1]
-		// The first trailer anchor wraps the thumbnail and has no text; the
-		// second is the title link. Take the first non-empty one.
-		for _, tm := range trailerRe.FindAllStringSubmatch(card, -1) {
-			if t := html.UnescapeString(strings.TrimSpace(tm[2])); t != "" {
-				it.title = t
-				break
-			}
+		it := listItem{id: m[2], url: siteBase + "/v/" + m[1]}
+		if t := titleRe.FindStringSubmatch(card); t != nil {
+			it.title = html.UnescapeString(strings.TrimSpace(t[1]))
 		}
 		if th := thumbRe.FindStringSubmatch(card); th != nil {
 			it.thumb = th[1]
 		}
-		if cell := dateCellRe.FindStringSubmatch(card); cell != nil {
-			if d := dateValueRe.FindStringSubmatch(cell[1]); d != nil {
-				// US-format date.
-				if ts, err := time.Parse("01/02/2006", d[1]); err == nil {
-					it.date = ts.UTC()
-				}
+		if d := dateRe.FindStringSubmatch(card); d != nil {
+			if ts, err := time.Parse("2006-01-02", d[1]); err == nil {
+				it.date = ts.UTC()
 			}
 		}
-		// "73&nbsp;Photos, 35&nbsp;min&nbsp;of video" — the runtime is given in
-		// whole minutes, and the photo count must not be mistaken for it.
-		if c := countsRe.FindStringSubmatch(card); c != nil {
-			if d := durationRe.FindStringSubmatch(c[1]); d != nil {
-				it.duration = atoi(d[1]) * 60
-			}
+		if d := durationRe.FindStringSubmatch(card); d != nil {
+			it.duration = parseutil.ParseDurationColon(d[1])
 		}
 		if mb := modelsRe.FindStringSubmatch(card); mb != nil {
-			for _, pm := range modelLinkRe.FindAllStringSubmatch(mb[1], -1) {
-				if name := html.UnescapeString(strings.TrimSpace(pm[1])); name != "" {
-					it.performers = append(it.performers, name)
-				}
-			}
+			it.performers = names(actorRe, mb[1])
 		}
-
+		if tb := tagsBoxRe.FindStringSubmatch(card); tb != nil {
+			it.categories = names(categoryRe, tb[1])
+			it.tags = names(tagRe, tb[1])
+		}
 		items = append(items, it)
 	}
 	return items
@@ -225,8 +205,6 @@ func (s *Scraper) enrich(ctx context.Context, workers int, studioURL string, ite
 	return kept
 }
 
-var keywordsRe = regexp.MustCompile(`name="keywords" content="([^"]*)"`)
-
 func (s *Scraper) toScene(ctx context.Context, studioURL string, it listItem, now time.Time) models.Scene {
 	scene := models.Scene{
 		ID:         it.id,
@@ -238,6 +216,8 @@ func (s *Scraper) toScene(ctx context.Context, studioURL string, it listItem, no
 		Duration:   it.duration,
 		Thumbnail:  it.thumb,
 		Performers: it.performers,
+		Categories: it.categories,
+		Tags:       it.tags,
 		Studio:     studioName,
 		ScrapedAt:  now,
 	}
@@ -250,47 +230,21 @@ func (s *Scraper) toScene(ctx context.Context, studioURL string, it listItem, no
 	return scene
 }
 
+var (
+	descRe = regexp.MustCompile(`(?s)<div class="wlgr-description[^"]*">(.*?)</div>`)
+	htmlRe = regexp.MustCompile(`<[^>]+>`)
+)
+
 func applyDetail(scene *models.Scene, body []byte) {
-	og := parseutil.OpenGraph(body)
-	// The detail page has no description body; og:description is the only
-	// source and the CMS truncates it.
-	if v := og["og:description"]; v != "" {
-		scene.Description = html.UnescapeString(strings.TrimSpace(v))
+	if m := descRe.FindSubmatch(body); m != nil {
+		text := htmlRe.ReplaceAllString(strings.ReplaceAll(string(m[1]), "</p>", "\n"), "")
+		scene.Description = strings.TrimSpace(html.UnescapeString(text))
 	}
 	if scene.Title == "" {
-		if v := og["og:title"]; v != "" {
+		if v := parseutil.OpenGraph(body)["og:title"]; v != "" {
 			scene.Title = html.UnescapeString(strings.TrimSpace(v))
 		}
 	}
-
-	// The keywords list mixes genre tags and performer names; drop the names
-	// already known from the listing card so tags stay descriptive.
-	m := keywordsRe.FindSubmatch(body)
-	if m == nil {
-		return
-	}
-	isPerformer := make(map[string]bool, len(scene.Performers))
-	for _, p := range scene.Performers {
-		isPerformer[strings.ToLower(p)] = true
-	}
-	for _, kw := range strings.Split(string(m[1]), ",") {
-		kw = html.UnescapeString(strings.TrimSpace(kw))
-		if kw == "" || isPerformer[strings.ToLower(kw)] {
-			continue
-		}
-		scene.Tags = append(scene.Tags, kw)
-	}
-}
-
-func atoi(s string) int {
-	n := 0
-	for _, r := range s {
-		if r < '0' || r > '9' {
-			return n
-		}
-		n = n*10 + int(r-'0')
-	}
-	return n
 }
 
 // ---- HTTP ----

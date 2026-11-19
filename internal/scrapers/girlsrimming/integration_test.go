@@ -9,5 +9,5 @@ import (
 )
 
 func TestLiveGirlsRimming(t *testing.T) {
-	testutil.RunLiveScrape(t, New(), "https://girlsrimming.com/tour/", 3)
+	testutil.RunLiveScrape(t, New(), "https://girlsrimming.com/", 3)
 }
