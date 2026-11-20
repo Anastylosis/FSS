@@ -30,7 +30,7 @@ var siteBase = "https://www.aventertainments.com"
 var (
 	hostRe      = regexp.MustCompile(`^https?://(?:www\.)?aventertainments\.com/`)
 	studioIDRe  = regexp.MustCompile(`(?i)[?&]studio(?:id)?=(\d+)`)
-	legacyRe    = regexp.MustCompile(`aventertainments\.com/(\d+)/(\d+)/\d+/studio_products`)
+	legacyRe    = regexp.MustCompile(`^https?://(?:www\.)?aventertainments\.com/(\d+)/(\d+)/\d+/studio_products`)
 	deptRe      = regexp.MustCompile(`(?i)[?&](?:cat|dept_id)=(\d+)`)
 	cardRe      = regexp.MustCompile(`(?s)<div class="single-slider-product grid-view-product">(.*?)<!--=+\s*End of grid view product`)
 	proRe       = regexp.MustCompile(`detail\?pro=(\d+)`)
