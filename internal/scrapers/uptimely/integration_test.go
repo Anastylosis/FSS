@@ -103,6 +103,14 @@ func TestLiveRookieGenre(t *testing.T) {
 	testutil.RunLiveScrape(t, newTestScraper(findSite("rookie")), "https://rookie-av.jp/works/list/genre/114", 3)
 }
 
+func TestLiveNanpaJapan(t *testing.T) {
+	testutil.RunLiveScrape(t, newTestScraper(findSite("nanpajapan")), "https://nanpa-japan.jp/", 3)
+}
+
+func TestLiveNanpaJapanGenre(t *testing.T) {
+	testutil.RunLiveScrape(t, newTestScraper(findSite("nanpajapan")), "https://nanpa-japan.jp/works/list/genre/104", 3)
+}
+
 func TestLiveOpera(t *testing.T) {
 	testutil.RunLiveScrape(t, newTestScraper(findSite("opera")), "https://av-opera.jp/", 3)
 }

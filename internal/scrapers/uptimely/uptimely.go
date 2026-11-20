@@ -31,6 +31,7 @@ var sites = []siteConfig{
 	{"mkolabo", "mko-labo.net", "MkoLabo"},
 	{"moodyz", "moodyz.com", "MOODYZ"},
 	{"msvideogroup", "mvg.jp", "M's Video Group"},
+	{"nanpajapan", "nanpa-japan.jp", "Nanpa Japan"},
 	{"opera", "av-opera.jp", "OPERA"},
 	{"oppai", "oppai-av.com", "Oppai"},
 	{"rookie", "rookie-av.jp", "Rookie"},
