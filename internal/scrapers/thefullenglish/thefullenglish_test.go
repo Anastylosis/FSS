@@ -107,3 +107,18 @@ func TestListScenes(t *testing.T) {
 		t.Errorf("performers = %v", first.Performers)
 	}
 }
+
+func TestOnSiteBase(t *testing.T) {
+	old := siteBase
+	siteBase = "http://test"
+	defer func() { siteBase = old }()
+	for in, want := range map[string]string{
+		"https://www.thefullenglish.net/updates/Too-Much-Information": "http://test/updates/Too-Much-Information",
+		"https://www.thefullenglish.net":                              "https://www.thefullenglish.net",
+		"://bad":                                                      "://bad",
+	} {
+		if got := onSiteBase(in); got != want {
+			t.Errorf("onSiteBase(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
