@@ -28,7 +28,6 @@ ManyVids, IWantClips, …) and hundreds of independent sites —
 ```bash
 brew install anastylosis/tap/fss                  # macOS / Linux
 yay -S fss                                        # Arch (AUR)
-winget install Anastylosis.FSS                    # Windows
 docker run --rm ghcr.io/anastylosis/fss:latest    # Docker
 go install github.com/Anastylosis/FSS@latest      # from source, Go 1.26+
 ```
