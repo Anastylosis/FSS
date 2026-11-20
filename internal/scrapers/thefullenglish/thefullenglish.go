@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"html"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 	"time"
@@ -91,7 +92,7 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 					cast = s.fetchCast(ctx, opts)
 				}
 				if scraper.Pace(ctx, opts.Delay) {
-					s.enrich(ctx, &sc, c.url)
+					s.enrich(ctx, &sc, onSiteBase(c.url))
 				}
 				sc.Performers = cast[c.id]
 			}
@@ -221,4 +222,14 @@ func clean(s string) string {
 		}
 	}
 	return strings.Join(out, "\n")
+}
+
+// onSiteBase re-roots an absolute listing link on siteBase, so detail fetches
+// follow the base the walk uses.
+func onSiteBase(u string) string {
+	p, err := url.Parse(u)
+	if err != nil || p.Path == "" {
+		return u
+	}
+	return siteBase + p.EscapedPath()
 }
