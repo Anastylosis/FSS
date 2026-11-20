@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -827,6 +828,10 @@ func (w *changelogWriter) flush() error {
 	return nil
 }
 
+// changelogMu serialises writers within one process; the file lock covers
+// other processes (a no-op on Windows).
+var changelogMu sync.Mutex
+
 // appendChangelog adds entries to the changelog under a file lock, creating the
 // directory and replacing the file atomically.
 func appendChangelog(dir string, entries []changelogEntry) error {
@@ -835,6 +840,8 @@ func appendChangelog(dir string, entries []changelogEntry) error {
 	}
 	path := filepath.Join(dir, "fss-stashbox-changelog.json")
 
+	changelogMu.Lock()
+	defer changelogMu.Unlock()
 	unlock, err := lockChangelog(path + ".lock")
 	if err != nil {
 		return err
