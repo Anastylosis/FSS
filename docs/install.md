@@ -26,6 +26,9 @@ winget install Anastylosis.FSS
 winget upgrade Anastylosis.FSS
 ```
 
+The package appears in winget once its first submission to `microsoft/winget-pkgs` is merged
+(see the maintainer steps below); until then use the Windows zip from the releases page.
+
 winget installs the release zip's `fss.exe` as a portable package and puts an `fss` alias on
 your `PATH`. `fss version --update` leaves such a copy alone and prints the `winget upgrade`
 command instead.
