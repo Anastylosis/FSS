@@ -1,5 +1,5 @@
 // Package mooduniverse scrapes the Mood Universe download shops (ElitePain,
-// Mood Pictures, Cruel Mistresses), which share one PHP shop whose movies.php
+// Mood Pictures and the Cruel sites), which share one PHP shop whose movies.php
 // lists the whole catalogue on a single page. See docs/scrapers.md.
 package mooduniverse
 
@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"html"
 	"net/http"
+	"net/http/cookiejar"
 	"regexp"
 	"strconv"
 	"strings"
@@ -23,12 +24,16 @@ type SiteConfig struct {
 	SiteID     string
 	StudioName string
 	Domain     string
+	AgeGate    bool
 }
 
 var sites = []SiteConfig{
 	{SiteID: "elitepain", StudioName: "ElitePain", Domain: "elitepain.com"},
 	{SiteID: "moodpictures", StudioName: "Mood Pictures", Domain: "mood-pictures.com"},
 	{SiteID: "cruelmistresses", StudioName: "Cruel Mistresses", Domain: "cruel-mistresses.com"},
+	{SiteID: "cruelstrapon", StudioName: "Cruel Strapon", Domain: "cruel-strapon.com", AgeGate: true},
+	{SiteID: "cruelhandjobs", StudioName: "Cruel Handjobs", Domain: "cruel-handjobs.com", AgeGate: true},
+	{SiteID: "cruelballbustings", StudioName: "Cruel Ballbustings", Domain: "cruel-ballbustings.com", AgeGate: true},
 }
 
 // testBase redirects every shop to a test server.
@@ -61,7 +66,11 @@ type Scraper struct {
 }
 
 func New(cfg SiteConfig) *Scraper {
-	return &Scraper{cfg: cfg, match: regexp.MustCompile(`^https?://(?:www\.)?` + regexp.QuoteMeta(cfg.Domain) + `(?:/|$)`), Client: httpx.NewClient(60 * time.Second)}
+	c := httpx.NewClient(60 * time.Second)
+	if cfg.AgeGate {
+		c.Jar, _ = cookiejar.New(nil)
+	}
+	return &Scraper{cfg: cfg, match: regexp.MustCompile(`^https?://(?:www\.)?` + regexp.QuoteMeta(cfg.Domain) + `(?:/|$)`), Client: c}
 }
 
 var _ scraper.StudioScraper = (*Scraper)(nil)
@@ -100,6 +109,14 @@ func (s *Scraper) run(ctx context.Context, studioURL string, out chan<- scraper.
 		}
 	}
 	u := s.base() + "/movies.php"
+	if s.cfg.AgeGate {
+		scraper.Debugf(1, "%s: confirming age", s.cfg.SiteID)
+		if r, err := httpx.Do(ctx, s.Client, httpx.Request{URL: s.base() + "/18.php?action=enter", Headers: httpx.BrowserHeaders(httpx.UserAgentFirefox)}); err != nil {
+			scraper.Debugf(1, "%s: age confirmation failed: %v", s.cfg.SiteID, err)
+		} else {
+			_ = r.Body.Close()
+		}
+	}
 	scraper.Debugf(1, "%s: fetching %s", s.cfg.SiteID, u)
 	resp, err := httpx.Do(ctx, s.Client, httpx.Request{URL: u, Headers: httpx.BrowserHeaders(httpx.UserAgentFirefox)})
 	if err != nil {

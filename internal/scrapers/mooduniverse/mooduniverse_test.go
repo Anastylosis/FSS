@@ -106,6 +106,53 @@ func TestListScenes(t *testing.T) {
 	}
 }
 
+func TestListScenesAgeGate(t *testing.T) {
+	body := fixture(t, "elitepain.html")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/18.php":
+			if r.URL.Query().Get("action") == "enter" {
+				http.SetCookie(w, &http.Cookie{Name: "age_verified_18", Value: "1", Path: "/"})
+			}
+			http.Redirect(w, r, "/movies.php", http.StatusFound)
+		case "/movies.php":
+			if c, err := r.Cookie("age_verified_18"); err != nil || c.Value != "1" {
+				http.Redirect(w, r, "/18.php", http.StatusFound)
+				return
+			}
+			_, _ = w.Write([]byte(body))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+	testBase = srv.URL
+	defer func() { testBase = "" }()
+
+	var cfg SiteConfig
+	for _, c := range sites {
+		if c.SiteID == "cruelstrapon" {
+			cfg = c
+		}
+	}
+	ch, err := New(cfg).ListScenes(context.Background(), "https://cruel-strapon.com/movies.php", scraper.ListOpts{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	n := 0
+	for r := range ch {
+		switch r.Kind {
+		case scraper.KindError:
+			t.Fatal(r.Err)
+		case scraper.KindScene:
+			n++
+		}
+	}
+	if n != 2 {
+		t.Errorf("scenes = %d, want 2", n)
+	}
+}
+
 func TestMatchesURL(t *testing.T) {
 	s := New(sites[0])
 	for u, want := range map[string]bool{
