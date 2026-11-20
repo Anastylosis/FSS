@@ -501,7 +501,7 @@ func (r *importRun) one(ctx context.Context, ss stash.Scene) {
 				r.lookup.checkPerformer(p)
 			}
 		}
-		if fieldAllowed(r.o.allowedFields, "studio") && merged.Studio != "" {
+		if fieldAllowed(r.o.allowedFields, "studio") && merged.Studio != "" && !keepStashboxStudio(ss) {
 			r.lookup.checkStudio(merged.Studio)
 		}
 		fmt.Println()
@@ -738,7 +738,7 @@ func buildChanges(ss stash.Scene, merged match.MergedScene, mergedURLs []string,
 // so --include-stashbox may add titles, URLs and tags but must not move the
 // scene out of the studio StashDB put it in.
 func keepStashboxStudio(ss stash.Scene) bool {
-	return len(ss.StashIDs) > 0 && ss.Studio != nil && ss.Studio.Name != ""
+	return ss.HasStashID() && ss.Studio != nil && ss.Studio.Name != ""
 }
 
 // reconcileChanges returns the changelog diff that reflects what was actually
