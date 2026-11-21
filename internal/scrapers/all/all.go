@@ -129,6 +129,7 @@ import (
 	_ "github.com/Anastylosis/FSS/internal/scrapers/dfwknight"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/diapergirls"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/dickdrainers"
+	_ "github.com/Anastylosis/FSS/internal/scrapers/digitalark"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/digitaljmedia"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/dirtycinema"
 	_ "github.com/Anastylosis/FSS/internal/scrapers/dirtyflix"
