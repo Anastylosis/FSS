@@ -8,13 +8,13 @@ import (
 	"github.com/Anastylosis/FSS/internal/scrapers/testutil"
 )
 
-// liveStudioURL — pick a real pornstar or channel.
-// Patterns: https://www.pornhub.com/pornstar/<slug>
-//
-//	https://www.pornhub.com/channels/<slug>
-const liveStudioURL = "https://www.pornhub.com/pornstar/coco-vandi"
-
 func TestLivePornhub(t *testing.T) {
-	testutil.SkipIfPlaceholder(t, liveStudioURL)
-	testutil.RunLiveScrape(t, New(), liveStudioURL, 2)
+	for name, u := range map[string]string{
+		"pornstar": "https://www.pornhub.com/pornstar/coco-vandi",
+		"channel":  "https://de.pornhub.com/channels/scott-ward",
+		"model":    "https://fr.pornhub.com/model/kern-ostrova",
+		"org":      "https://www.pornhub.org/pornstar/daisy-taylor",
+	} {
+		t.Run(name, func(t *testing.T) { testutil.RunLiveScrape(t, New(), u, 2) })
+	}
 }

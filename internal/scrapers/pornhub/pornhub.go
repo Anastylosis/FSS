@@ -44,12 +44,16 @@ func (s *Scraper) Patterns() []string {
 	return []string{
 		"pornhub.com/pornstar/{slug}",
 		"pornhub.com/channels/{slug}",
+		"pornhub.com/model/{slug}",
+		"pornhub.org/pornstar/{slug}",
+		"pornhub.org/channels/{slug}",
+		"pornhub.org/model/{slug}",
 	}
 }
 
-var matchRe = regexp.MustCompile(`^https?://(?:www\.)?pornhub\.com/(?:pornstar|channels)/[\w-]+`)
-var pornstarRe = regexp.MustCompile(`/pornstar/([\w-]+)`)
-var channelRe = regexp.MustCompile(`/channels/([\w-]+)`)
+var matchRe = regexp.MustCompile(`^https?://(?:[a-z]{2,3}\.)?pornhub\.(?:com|org)/(?:pornstar|channels|model)/[\w-]+`)
+var listingRe = regexp.MustCompile(`/(pornstar|channels|model)/([\w-]+)`)
+var pornhubHostRe = regexp.MustCompile(`^(?:[a-z]{2,3}\.)?pornhub\.(?:com|org)$`)
 
 func (s *Scraper) MatchesURL(u string) bool {
 	return matchRe.MatchString(u)
@@ -75,12 +79,24 @@ func (s *Scraper) run(ctx context.Context, studioURL string, opts scraper.ListOp
 	opts.KnownIDs = nil
 
 	now := time.Now().UTC()
+	base := studioURL
 	scraper.Paginate(ctx, opts, "pornhub", out, func(ctx context.Context, page int) (scraper.PageResult, error) {
-		pageURL, err := buildPageURL(studioURL, page)
+		pageURL, err := buildPageURL(base, page)
 		if err != nil {
 			return scraper.PageResult{}, err
 		}
-		items, total, err := s.fetchPage(ctx, pageURL)
+		items, total, moved, err := s.fetchPage(ctx, pageURL)
+		if err == nil && page == 1 && moved != "" {
+			// A model promoted to pornstar has /model/{slug}/videos
+			// redirect to the bare /pornstar/{slug} profile, which holds no
+			// listing; follow it to that profile's /videos.
+			scraper.Debugf(1, "pornhub: %s moved to %s", pageURL, moved)
+			base = moved
+			if pageURL, err = buildPageURL(base, page); err != nil {
+				return scraper.PageResult{}, err
+			}
+			items, total, _, err = s.fetchPage(ctx, pageURL)
+		}
 		if err != nil {
 			// Past the last page the listing 404s, and that is the only
 			// end-of-list signal the markup offers: `page_next` is rendered on
@@ -112,25 +128,25 @@ func isNotFound(err error) bool {
 	return errors.As(err, &se) && se.StatusCode == http.StatusNotFound
 }
 
-// buildPageURL derives the paginated video-list URL from a studio URL.
-// Pornstar: /pornstar/{slug}/videos?page=N
-// Channel:  /channels/{slug}/videos?page=N
+// buildPageURL derives the paginated video-list URL from a studio URL:
+// /{pornstar|channels|model}/{slug}/videos?page=N. Language subdomains and
+// pornhub.org serve the same listing, so they are fetched from www.pornhub.com.
 func buildPageURL(studioURL string, page int) (string, error) {
 	u, err := url.Parse(studioURL)
 	if err != nil {
 		return "", fmt.Errorf("invalid URL %q: %w", studioURL, err)
 	}
-	if m := pornstarRe.FindStringSubmatch(u.Path); m != nil {
-		u.Path = "/pornstar/" + m[1] + "/videos"
-		u.RawQuery = withPage(u.Query(), page)
-		return u.String(), nil
+	m := listingRe.FindStringSubmatch(u.Path)
+	if m == nil {
+		return "", fmt.Errorf("cannot extract pornhub slug from %q", studioURL)
 	}
-	if m := channelRe.FindStringSubmatch(u.Path); m != nil {
-		u.Path = "/channels/" + m[1] + "/videos"
-		u.RawQuery = withPage(u.Query(), page)
-		return u.String(), nil
+	if pornhubHostRe.MatchString(strings.ToLower(u.Hostname())) {
+		u.Scheme = "https"
+		u.Host = "www.pornhub.com"
 	}
-	return "", fmt.Errorf("cannot extract pornhub slug from %q", studioURL)
+	u.Path = "/" + m[1] + "/" + m[2] + "/videos"
+	u.RawQuery = withPage(u.Query(), page)
+	return u.String(), nil
 }
 
 // withPage sets the page number, keeping everything else the operator wrote.
@@ -143,9 +159,23 @@ func withPage(q url.Values, page int) string {
 
 // ---- page fetch ----
 
-var liRe = regexp.MustCompile(`(?s)<li[^>]*pcVideoListItem[^>]*>.*?</li>`)
+var (
+	liRe      = regexp.MustCompile(`(?s)<li[^>]*pcVideoListItem[^>]*>.*?</li>`)
+	sectionRe = regexp.MustCompile(`<ul[^>]*\sid="(\w+)"`)
+)
 
-func (s *Scraper) fetchPage(ctx context.Context, rawURL string) ([]phItem, int, error) {
+// listingSections are the lists holding the studio's own videos. Every page
+// also carries cards in the header menus (hottestMenuSection and friends),
+// which belong to someone else.
+var listingSections = map[string]bool{
+	"uploadedVideosSection":   true,
+	"mostRecentVideosSection": true,
+	"showAllChanelVideos":     true,
+}
+
+// fetchPage returns the page's items, and the final URL when the request was
+// redirected to another performer's profile.
+func (s *Scraper) fetchPage(ctx context.Context, rawURL string) ([]phItem, int, string, error) {
 	resp, err := httpx.Do(ctx, s.client, httpx.Request{
 		URL: rawURL,
 		Headers: func() map[string]string {
@@ -155,13 +185,24 @@ func (s *Scraper) fetchPage(ctx context.Context, rawURL string) ([]phItem, int, 
 		}(),
 	})
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, "", err
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	body, err := httpx.ReadBody(resp.Body)
 	if err != nil {
-		return nil, 0, fmt.Errorf("reading page: %w", err)
+		return nil, 0, "", fmt.Errorf("reading page: %w", err)
+	}
+
+	moved := ""
+	if resp.Request != nil && resp.Request.URL != nil && !strings.HasSuffix(resp.Request.URL.Path, "/videos") {
+		final := resp.Request.URL
+		if !listingRe.MatchString(final.Path) {
+			// Removed performers redirect to the /pornstars index, whose cards
+			// are not theirs.
+			return nil, 0, "", scraper.ParseError(rawURL, fmt.Errorf("redirected to %s, which is not a video listing", final))
+		}
+		moved = final.String()
 	}
 
 	total := 0
@@ -169,7 +210,7 @@ func (s *Scraper) fetchPage(ctx context.Context, rawURL string) ([]phItem, int, 
 		total, _ = strconv.Atoi(strings.ReplaceAll(string(m[1]), ",", ""))
 	}
 
-	return parseItems(body), total, nil
+	return parseItems(body), total, moved, nil
 }
 
 // ---- parsing ----
@@ -181,6 +222,7 @@ var (
 	durRe        = regexp.MustCompile(`<var[^>]*duration[^>]*>([^<]+)</var>`)
 	cdnDateRe    = regexp.MustCompile(`/videos/(\d{4})(\d{2})/(\d{2})/`)
 	uploaderRe   = regexp.MustCompile(`(?s)class="usernameWrap"[^>]*>.*?<a[^>]+>([^<]+)</a>`)
+	channelRe    = regexp.MustCompile(`<v-more-action-menu[^>]*\sis-channel="1"[^>]*\stitle="([^"]+)"`)
 	videoCountRe = regexp.MustCompile(`showingCounter">\s*(\d[\d,]*)`)
 )
 
@@ -194,14 +236,33 @@ type phItem struct {
 }
 
 func parseItems(body []byte) []phItem {
-	lis := liRe.FindAll(body, -1)
-	items := make([]phItem, 0, len(lis))
-	for _, li := range lis {
-		if item, ok := parseItem(li); ok {
-			items = append(items, item)
+	var items []phItem
+	for _, block := range listingBlocks(body) {
+		for _, li := range liRe.FindAll(block, -1) {
+			if item, ok := parseItem(li); ok {
+				items = append(items, item)
+			}
 		}
 	}
 	return items
+}
+
+// listingBlocks returns the stretches of body that run from a listing
+// section's <ul> to the next <ul> with an id.
+func listingBlocks(body []byte) [][]byte {
+	locs := sectionRe.FindAllSubmatchIndex(body, -1)
+	var blocks [][]byte
+	for i, loc := range locs {
+		if !listingSections[string(body[loc[2]:loc[3]])] {
+			continue
+		}
+		end := len(body)
+		if i+1 < len(locs) {
+			end = locs[i+1][0]
+		}
+		blocks = append(blocks, body[loc[0]:end])
+	}
+	return blocks
 }
 
 func parseItem(li []byte) (phItem, bool) {
@@ -232,6 +293,8 @@ func parseItem(li []byte) (phItem, bool) {
 
 	if mStudio := uploaderRe.FindSubmatch(li); mStudio != nil {
 		item.studio = strings.TrimSpace(string(mStudio[1]))
+	} else if mChannel := channelRe.FindSubmatch(li); mChannel != nil {
+		item.studio = strings.TrimSpace(html.UnescapeString(string(mChannel[1])))
 	}
 
 	return item, true

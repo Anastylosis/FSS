@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -28,7 +29,7 @@ type testItem struct {
 
 func videoListHTML(items []testItem) []byte {
 	var sb strings.Builder
-	sb.WriteString("<html><body><ul>")
+	sb.WriteString(`<html><body><ul class="videos" id="mostRecentVideosSection">`)
 	for _, item := range items {
 		fmt.Fprintf(&sb, `
 <li class="pcVideoListItem js-pop videoblock videoBox" id="v%s"
@@ -121,6 +122,17 @@ func TestMatchesURL(t *testing.T) {
 		{"https://pornhub.com/pornstar/bettie-bondage", true},
 		{"https://www.pornhub.com/channels/mylf", true},
 		{"https://www.pornhub.com/pornstar/dee-williams/videos", true},
+		{"https://www.pornhub.com/model/alina-rai", true},
+		{"https://nl.pornhub.com/model/coconey", true},
+		{"https://es.pornhub.com/model/adolfxnika/about", true},
+		{"https://fr.pornhub.com/pornstar/valentina-rose/about", true},
+		{"https://de.pornhub.com/channels/scott-ward", true},
+		{"https://fil.pornhub.com/model/alina-rai", true},
+		{"https://pornhub.org/model/alisa_bandicoot", true},
+		{"https://www.pornhub.org/pornstar/daisy-taylor", true},
+		{"https://www.pornhub.com/users/jecknjill", false},
+		{"https://www.pornhub.com.example.com/model/alina-rai", false},
+		{"https://notpornhub.com/model/alina-rai", false},
 		{"https://www.pornhub.com/view_video.php?viewkey=abc123", false},
 		{"https://www.manyvids.com/pornstar/someone", false},
 		{"", false},
@@ -161,6 +173,42 @@ func TestBuildPageURL(t *testing.T) {
 			false,
 		},
 		{
+			"https://www.pornhub.com/model/alina-rai",
+			2,
+			"https://www.pornhub.com/model/alina-rai/videos?page=2",
+			false,
+		},
+		{
+			"https://nl.pornhub.com/model/coconey",
+			1,
+			"https://www.pornhub.com/model/coconey/videos?page=1",
+			false,
+		},
+		{
+			"https://es.pornhub.com/model/adolfxnika/about",
+			1,
+			"https://www.pornhub.com/model/adolfxnika/videos?page=1",
+			false,
+		},
+		{
+			"https://de.pornhub.com/channels/scott-ward",
+			2,
+			"https://www.pornhub.com/channels/scott-ward/videos?page=2",
+			false,
+		},
+		{
+			"http://pornhub.org/model/alisa_bandicoot",
+			1,
+			"https://www.pornhub.com/model/alisa_bandicoot/videos?page=1",
+			false,
+		},
+		{
+			"https://www.pornhub.org/pornstar/daisy-taylor",
+			1,
+			"https://www.pornhub.com/pornstar/daisy-taylor/videos?page=1",
+			false,
+		},
+		{
 			"https://www.manyvids.com/Profile/123",
 			1,
 			"",
@@ -176,6 +224,186 @@ func TestBuildPageURL(t *testing.T) {
 		if got != c.want {
 			t.Errorf("buildPageURL(%q, %d) = %q, want %q", c.input, c.page, got, c.want)
 		}
+	}
+}
+
+// ---- TestParseItemsRealPages ----
+
+func TestParseItemsRealPages(t *testing.T) {
+	cases := []struct {
+		file string
+		want []string
+	}{
+		{"model_videos.html", []string{"ph62c71a9dd4642", "ph62bea82a68e03", "ph629c64c9c5a9b"}},
+		{"pornstar_videos.html", []string{"6ab7acefd60c8", "6ab5351e9865e", "6a963cdaa1e0e", "6a88f3df1a3f6"}},
+		{"channel_videos.html", []string{"6a85efbf94ba0", "6a73b3fb87800", "6a73b4a3c09cb"}},
+	}
+	for _, c := range cases {
+		body, err := os.ReadFile("testdata/" + c.file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		items := parseItems(body)
+		var got []string
+		for _, it := range items {
+			got = append(got, it.vkey)
+		}
+		if strings.Join(got, ",") != strings.Join(c.want, ",") {
+			t.Errorf("%s: got %v, want %v", c.file, got, c.want)
+		}
+	}
+}
+
+func TestParseItemsModelPage(t *testing.T) {
+	body, err := os.ReadFile("testdata/model_videos.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	items := parseItems(body)
+	if len(items) == 0 {
+		t.Fatal("no items parsed")
+	}
+	it := items[0]
+	if it.title != "Vaginal gift of fate STEPMOM stuck under the bed." {
+		t.Errorf("title = %q", it.title)
+	}
+	if it.duration != 664 {
+		t.Errorf("duration = %d, want 664", it.duration)
+	}
+	if want := time.Date(2022, 7, 7, 0, 0, 0, 0, time.UTC); !it.date.Equal(want) {
+		t.Errorf("date = %v, want %v", it.date, want)
+	}
+	if it.studio != "Alina Rai" {
+		t.Errorf("studio = %q, want Alina Rai", it.studio)
+	}
+	if !strings.HasPrefix(it.thumbnail, "https://ei.phncdn.com/videos/202207/07/") {
+		t.Errorf("thumbnail = %q", it.thumbnail)
+	}
+}
+
+func TestParseItemsChannelPageNamesTheChannel(t *testing.T) {
+	body, err := os.ReadFile("testdata/channel_videos.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, it := range parseItems(body) {
+		if it.studio != "MYLF" {
+			t.Errorf("%s: studio = %q, want MYLF", it.vkey, it.studio)
+		}
+	}
+}
+
+func TestListScenesModel(t *testing.T) {
+	body, err := os.ReadFile("testdata/model_videos.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var paths []string
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		paths = append(paths, r.URL.Path+"?"+r.URL.RawQuery)
+		if r.URL.Query().Get("page") != "1" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		_, _ = w.Write(body)
+	}))
+	defer ts.Close()
+
+	s := &Scraper{client: ts.Client()}
+	ch, err := s.ListScenes(context.Background(), ts.URL+"/model/alina-rai/about", scraper.ListOpts{})
+	if err != nil {
+		t.Fatalf("ListScenes error: %v", err)
+	}
+	var ids []string
+	for r := range ch {
+		switch r.Kind {
+		case scraper.KindScene:
+			ids = append(ids, r.Scene.ID)
+		case scraper.KindError:
+			t.Errorf("unexpected error: %v", r.Err)
+		}
+	}
+	if len(ids) != 3 {
+		t.Errorf("got %d scenes, want 3: %v", len(ids), ids)
+	}
+	if len(paths) == 0 || paths[0] != "/model/alina-rai/videos?page=1" {
+		t.Errorf("requested %v, want /model/alina-rai/videos?page=1 first", paths)
+	}
+}
+
+func TestListScenesFollowsModelPromotedToPornstar(t *testing.T) {
+	var paths []string
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		paths = append(paths, r.URL.Path)
+		switch {
+		case r.URL.Path == "/model/khalamite/videos":
+			http.Redirect(w, r, "/pornstar/khalamite", http.StatusMovedPermanently)
+		case r.URL.Path == "/pornstar/khalamite":
+			_, _ = w.Write([]byte("<html><body></body></html>"))
+		case r.URL.Path == "/pornstar/khalamite/videos" && r.URL.Query().Get("page") == "1":
+			_, _ = w.Write(videoListHTML([]testItem{testItem1(), testItem2()}))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer ts.Close()
+
+	s := &Scraper{client: ts.Client()}
+	ch, err := s.ListScenes(context.Background(), ts.URL+"/model/khalamite", scraper.ListOpts{})
+	if err != nil {
+		t.Fatalf("ListScenes error: %v", err)
+	}
+	var ids []string
+	for r := range ch {
+		switch r.Kind {
+		case scraper.KindScene:
+			ids = append(ids, r.Scene.ID)
+		case scraper.KindError:
+			t.Errorf("unexpected error: %v", r.Err)
+		}
+	}
+	if len(ids) != 2 {
+		t.Errorf("got %d scenes, want 2: %v", len(ids), ids)
+	}
+	want := []string{"/model/khalamite/videos", "/pornstar/khalamite", "/pornstar/khalamite/videos", "/pornstar/khalamite/videos"}
+	if strings.Join(paths, ",") != strings.Join(want, ",") {
+		t.Errorf("requested %v, want %v", paths, want)
+	}
+}
+
+func TestListScenesRemovedModelIsAnError(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/pornstars" {
+			_, _ = w.Write(videoListHTML([]testItem{testItem4()}))
+			return
+		}
+		http.Redirect(w, r, "/pornstars", http.StatusMovedPermanently)
+	}))
+	defer ts.Close()
+
+	s := &Scraper{client: ts.Client()}
+	ch, err := s.ListScenes(context.Background(), ts.URL+"/model/too-twisted-taboo", scraper.ListOpts{})
+	if err != nil {
+		t.Fatalf("ListScenes error: %v", err)
+	}
+	var scenes int
+	var errs []error
+	for r := range ch {
+		switch r.Kind {
+		case scraper.KindScene:
+			scenes++
+		case scraper.KindError:
+			errs = append(errs, r.Err)
+		}
+	}
+	if scenes != 0 {
+		t.Errorf("stored %d scenes from the /pornstars index", scenes)
+	}
+	if len(errs) == 0 {
+		t.Fatal("a redirect to the /pornstars index reported no error")
+	}
+	if k := scraper.Classify(errs[0]); !k.MissingData() {
+		t.Errorf("classified as %v, which does not count as missing data", k)
 	}
 }
 
