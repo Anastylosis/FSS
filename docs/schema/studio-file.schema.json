@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Anastylosis/FSS/blob/master/docs/schema/studio-file.schema.json",
+  "title": "FSS studio file",
+  "description": "Per-studio JSON file written by FSS (models.StudioFile). schemaVersion is models.StoreSchemaVersion: a reader should refuse a file whose version is greater than it understands; 0 means written before versioning and is read normally. The version is bumped only for changes that alter how an existing file must be interpreted, never for additive optional fields, so newer files may carry properties this schema does not list.",
+  "type": "object",
+  "required": ["schemaVersion", "studioUrl", "scrapedAt", "sceneCount", "scenes"],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "description": "Layout version of this file (models.StoreSchemaVersion, currently 1). 0 means written before versioning."
+    },
+    "studioUrl": {
+      "type": "string",
+      "description": "Canonical URL of the studio this file was scraped from."
+    },
+    "scrapedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the file was last written by a scrape."
+    },
+    "sceneCount": {
+      "type": "integer",
+      "description": "Number of entries in scenes."
+    },
+    "scenes": {
+      "type": "array",
+      "description": "All scenes known for the studio, including soft-deleted ones (see deletedAt).",
+      "items": { "$ref": "#/$defs/Scene" }
+    }
+  },
+  "$defs": {
+    "PriceSnapshot": {
+      "type": "object",
+      "description": "Pricing at a single point in time.",
+      "required": ["date", "regular", "isFree", "isOnSale"],
+      "properties": {
+        "date": { "type": "string", "format": "date-time", "description": "When the snapshot was taken." },
+        "regular": { "type": "number", "description": "Regular price; 0 can mean unknown." },
+        "discounted": { "type": "number", "description": "Sale price. Omitted when zero." },
+        "isFree": { "type": "boolean", "description": "Scene is free at this time." },
+        "isOnSale": { "type": "boolean", "description": "A discount is active; the effective price is discounted." },
+        "discountPercent": { "type": "integer", "description": "Discount in percent. Omitted when zero." },
+        "currency": {
+          "type": "string",
+          "description": "ISO 4217 code (or the site's own token name) the amounts are in. Omitted means the scraper did not say."
+        }
+      }
+    },
+    "Scene": {
+      "type": "object",
+      "description": "All metadata for a single scraped scene. Fields vary by site: only id, siteId, title, url and scrapedAt are guaranteed to be populated. Other required keys are always present but may hold an empty string; optional keys are omitted when empty or zero, so absence means unknown, not false or zero.",
+      "required": ["id", "siteId", "studioUrl", "title", "url", "scrapedAt"],
+      "properties": {
+        "id": { "type": "string", "description": "Site-local scene ID. Unique only together with siteId." },
+        "siteId": { "type": "string", "description": "Scraper site identifier. Always populated." },
+        "studioUrl": { "type": "string", "description": "Studio URL the scene was scraped from. Always present, may be empty." },
+        "externalIds": {
+          "type": "object",
+          "description": "Maps a metadata database to this scene's ID in it. Well-known keys: stashdb, tpdb, iafd, indexxx; a stashbox instance uses its own site ID. (id, siteId) is site-local, so these are the only keys that identify the same scene across sites.",
+          "additionalProperties": { "type": "string" }
+        },
+        "title": { "type": "string", "description": "Scene title." },
+        "url": { "type": "string", "description": "Scene page URL." },
+        "date": { "type": "string", "format": "date-time", "description": "Release date. Omitted when unknown." },
+        "description": { "type": "string", "description": "Scene description." },
+        "thumbnail": { "type": "string", "description": "Thumbnail image URL." },
+        "preview": { "type": "string", "description": "Preview video or image URL." },
+        "performers": { "type": "array", "items": { "type": "string" }, "description": "Performer names." },
+        "director": { "type": "string", "description": "Director name." },
+        "studio": { "type": "string", "description": "Studio or network name as shown by the site." },
+        "tags": { "type": "array", "items": { "type": "string" }, "description": "Site tags." },
+        "categories": { "type": "array", "items": { "type": "string" }, "description": "Site categories." },
+        "series": { "type": "string", "description": "Series name." },
+        "seriesPart": { "type": "integer", "description": "Position within the series." },
+        "duration": { "type": "integer", "description": "Duration in seconds." },
+        "resolution": { "type": "string", "description": "Resolution label, e.g. 1080p." },
+        "width": { "type": "integer", "description": "Video width in pixels." },
+        "height": { "type": "integer", "description": "Video height in pixels." },
+        "format": { "type": "string", "description": "Container or file format." },
+        "views": { "type": "integer", "description": "View count." },
+        "likes": { "type": "integer", "description": "Like count." },
+        "comments": { "type": "integer", "description": "Comment count." },
+        "priceHistory": {
+          "type": "array",
+          "description": "Log of price changes; consecutive identical snapshots are collapsed.",
+          "items": { "$ref": "#/$defs/PriceSnapshot" }
+        },
+        "lowestPrice": { "type": "number", "description": "Lowest effective price seen. Omitted when zero." },
+        "lowestPriceDate": { "type": "string", "format": "date-time", "description": "When lowestPrice was recorded." },
+        "firstSeenAt": { "type": "string", "format": "date-time", "description": "When FSS first saw the scene. Omitted in files that predate it." },
+        "scrapedAt": { "type": "string", "format": "date-time", "description": "When the scene was last scraped." },
+        "deletedAt": { "type": "string", "format": "date-time", "description": "Set when the scene disappeared from the site (soft delete). Omitted while live." }
+      }
+    }
+  }
+}

@@ -61,6 +61,15 @@ newer layout on a guess would silently drop whatever that layout added.
 SQLite has had the equivalent since v0: a `schema_version` table plus numbered
 migrations in `internal/store/sqlite.go`.
 
+## JSON Schema
+
+[`docs/schema/studio-file.schema.json`](schema/studio-file.schema.json) is a
+JSON Schema (draft 2020-12) for the per-studio JSON file, intended for tools and
+LLM agents that read FSS output. `required` lists the keys always written, but
+only `id`, `siteId`, `title`, `url` and `scrapedAt` are guaranteed non-empty;
+other keys are omitted when empty, so absence means unknown. A test in
+`models` fails if the schema drifts from the Go structs.
+
 ## Scene lifetime fields
 
 | Field | Meaning | Written by |

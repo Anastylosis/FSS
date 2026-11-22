@@ -21,6 +21,7 @@ FSS
 
 # ...and the embedded translation catalogs
 !internal/i18n/locales/*.json
+!docs/schema/*.json
 
 # Test binary, built with `go test -c`
 *.test
