@@ -27,7 +27,22 @@ needs a standalone scraper or belongs to an existing shared package.`,
 }
 
 func init() {
+	addFormatFlag(detectCmd)
 	rootCmd.AddCommand(detectCmd)
+}
+
+type detectResult struct {
+	URL       string          `json:"url"`
+	Supported bool            `json:"supported"`
+	Scraper   string          `json:"scraper,omitempty"`
+	Patterns  []string        `json:"patterns,omitempty"`
+	Platforms []detectionJSON `json:"platforms"`
+}
+
+type detectionJSON struct {
+	Platform string `json:"platform"`
+	Package  string `json:"package"`
+	Detail   string `json:"detail,omitempty"`
 }
 
 type detection struct {
@@ -38,6 +53,10 @@ type detection struct {
 
 func runDetect(cmd *cobra.Command, args []string) error {
 	rawURL := normalizeInputURL(args[0])
+	if jsonMode(cmd) {
+		res, err := detectJSON(rawURL)
+		return emitJSON(cmd, res, err)
+	}
 	w := cmd.OutOrStdout()
 
 	// Check if already supported by a registered scraper.
@@ -47,28 +66,10 @@ func runDetect(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	client := httpx.NewClient(30 * time.Second)
-	resp, err := httpx.Do(ctx, client, httpx.Request{
-		URL:     rawURL,
-		Headers: httpx.BrowserHeaders(httpx.UserAgentFirefox),
-	})
+	detections, err := fetchAndDetect(rawURL)
 	if err != nil {
-		return fmt.Errorf("fetching %s: %w", rawURL, err)
+		return err
 	}
-	defer func() { _ = resp.Body.Close() }()
-
-	body, err := httpx.ReadBody(resp.Body)
-	if err != nil {
-		return fmt.Errorf("reading response: %w", err)
-	}
-
-	page := string(body)
-	cookies := resp.Cookies()
-
-	detections := detectPlatform(page, cookies, resp.Header)
 
 	if len(detections) == 0 {
 		_, _ = fmt.Fprintln(w, "Platform: unknown")
@@ -85,6 +86,43 @@ func runDetect(cmd *cobra.Command, args []string) error {
 		_, _ = fmt.Fprintln(w)
 	}
 	return nil
+}
+
+func fetchAndDetect(rawURL string) ([]detection, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	client := httpx.NewClient(30 * time.Second)
+	resp, err := httpx.Do(ctx, client, httpx.Request{
+		URL:     rawURL,
+		Headers: httpx.BrowserHeaders(httpx.UserAgentFirefox),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("fetching %s: %w", rawURL, err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	body, err := httpx.ReadBody(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("reading response: %w", err)
+	}
+	return detectPlatform(string(body), resp.Cookies(), resp.Header), nil
+}
+
+func detectJSON(rawURL string) (detectResult, error) {
+	res := detectResult{URL: rawURL, Platforms: []detectionJSON{}}
+	if s, err := scraper.ForURL(rawURL); err == nil {
+		res.Supported, res.Scraper, res.Patterns = true, s.ID(), s.Patterns()
+		return res, nil
+	}
+	ds, err := fetchAndDetect(rawURL)
+	if err != nil {
+		return res, withCode(codeTransport, err)
+	}
+	for _, d := range ds {
+		res.Platforms = append(res.Platforms, detectionJSON{Platform: d.platform, Package: d.pkg, Detail: d.detail})
+	}
+	return res, nil
 }
 
 // platformRule is one platform fingerprint. A rule fires when any of its

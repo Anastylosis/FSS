@@ -25,7 +25,34 @@ var versionCmd = &cobra.Command{
 func init() {
 	versionCmd.Flags().Bool("update", false, "download the latest release and replace this binary")
 	versionCmd.Flags().Bool("allow-downgrade", false, "with --update, install the latest release even if this build is newer")
+	addFormatFlag(versionCmd)
+	versionCmd.MarkFlagsMutuallyExclusive("update", "format")
 	rootCmd.AddCommand(versionCmd)
+}
+
+type versionResult struct {
+	Version          string  `json:"version"`
+	Commit           string  `json:"commit"`
+	Date             string  `json:"date"`
+	Channel          string  `json:"channel,omitempty"`
+	Latest           *string `json:"latest"`
+	UpdateAvailable  bool    `json:"updateAvailable"`
+	UpdateCheckError string  `json:"updateCheckError,omitempty"`
+}
+
+func versionJSON() versionResult {
+	res := versionResult{Version: buildVersion, Commit: buildCommit, Date: buildDate, Channel: buildChannel}
+	latest, err := fetchLatestRelease()
+	if err != nil {
+		res.UpdateCheckError = err.Error()
+		return res
+	}
+	if tag := strings.TrimSpace(latest.TagName); tag != "" {
+		res.Latest = &tag
+		c, ok := selfupdate.CompareVersions(tag, buildVersion)
+		res.UpdateAvailable = ok && c > 0
+	}
+	return res
 }
 
 // versionLine renders the build identity. The channel is appended only when a
@@ -38,6 +65,9 @@ func versionLine(version, commit, date, channel string) string {
 }
 
 func runVersion(cmd *cobra.Command, _ []string) error {
+	if jsonMode(cmd) {
+		return emitJSON(cmd, versionJSON(), nil)
+	}
 	fmt.Printf("fss %s\n", versionLine(buildVersion, buildCommit, buildDate, buildChannel))
 
 	update, _ := cmd.Flags().GetBool("update")

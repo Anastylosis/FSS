@@ -26,6 +26,9 @@ var rootCmd = &cobra.Command{
 		cmd.SilenceUsage = true
 		verbose, _ := cmd.Flags().GetCount("debug")
 		scraper.SetVerbose(verbose)
+		if err := checkFormatFlag(cmd); err != nil {
+			return err
+		}
 
 		if skipsConfig(cmd) {
 			return nil
@@ -33,7 +36,7 @@ var rootCmd = &cobra.Command{
 		var err error
 		cfg, err = config.Load()
 		if err != nil {
-			return err
+			return withCode(codeConfig, err)
 		}
 		httpx.SetDefaultUA(cfg.UserAgent)
 		return nil
@@ -91,6 +94,9 @@ func Execute() {
 	cobrai18n.Localize(rootCmd) // restore func deliberately dropped: one Execute per process
 	if err := rootCmd.Execute(); err != nil {
 		if !isReported(err) {
+			if jsonFromArgs(os.Args[1:]) {
+				writePreRunEnvelope(os.Stdout, errorCommandName(rootCmd, os.Args[1:]), classifyPreRun(err))
+			}
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		}
 		os.Exit(exitCodeOf(err))

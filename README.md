@@ -78,6 +78,7 @@ fss identify /path/to/videos --apply   # write .nfo files next to matched videos
 | [creators.md](docs/creators.md) · [compare.md](docs/compare.md) | Grouping a creator's storefronts; comparing them |
 | [stash.md](docs/stash.md) · [identify.md](docs/identify.md) | Stash import and revert; NFO sidecars |
 | [storage.md](docs/storage.md) · [metadata.md](docs/metadata.md) | JSON vs SQLite; what a scene records and how re-scrapes change it ([JSON Schema](docs/schema/studio-file.schema.json)) |
+| [json-output.md](docs/json-output.md) | `--format json` for scripts and LLM agents: result shapes, error codes |
 | [translations.md](docs/translations.md) | Help text in other languages |
 
 | Extending FSS | |

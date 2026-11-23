@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -27,14 +28,35 @@ var doctorCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(doctorCmd)
 	doctorCmd.Flags().Bool("prune", false, "delete performer/tag/category rows no scene references any more")
+	addFormatFlag(doctorCmd)
+}
+
+type doctorCheck struct {
+	Section string `json:"section"`
+	Name    string `json:"name"`
+	OK      bool   `json:"ok"`
+	Detail  string `json:"detail,omitempty"`
 }
 
 func runDoctor(cmd *cobra.Command, _ []string) error {
 	w := cmd.OutOrStdout()
+	if jsonMode(cmd) {
+		w = io.Discard
+	}
 	allOK := true
+	var checks []doctorCheck
+	current := ""
+	section := func(name string) {
+		if current != "" {
+			_, _ = fmt.Fprintln(w)
+		}
+		current = name
+		_, _ = fmt.Fprintln(w, name+":")
+	}
 
 	check := func(name string, fn func() (string, bool)) {
 		detail, ok := fn()
+		checks = append(checks, doctorCheck{Section: current, Name: name, OK: ok, Detail: detail})
 		status := "ok"
 		if !ok {
 			status = "FAIL"
@@ -47,7 +69,7 @@ func runDoctor(cmd *cobra.Command, _ []string) error {
 		}
 	}
 
-	_, _ = fmt.Fprintln(w, "Config:")
+	section("Config")
 	check("config file", func() (string, bool) {
 		path := config.DefaultPath()
 		if _, err := os.Stat(path); err != nil {
@@ -60,8 +82,7 @@ func runDoctor(cmd *cobra.Command, _ []string) error {
 		return fmt.Sprintf("%d", len(all)), len(all) > 0
 	})
 
-	_, _ = fmt.Fprintln(w)
-	_, _ = fmt.Fprintln(w, "Database:")
+	section("Database")
 	check("SQLite", func() (string, bool) {
 		dbPath := ""
 		if cfg != nil {
@@ -202,8 +223,7 @@ func runDoctor(cmd *cobra.Command, _ []string) error {
 		return dir, true
 	})
 
-	_, _ = fmt.Fprintln(w)
-	_, _ = fmt.Fprintln(w, "Stash:")
+	section("Stash")
 	check("stash connection", func() (string, bool) {
 		u := stashURL(cmd)
 		if u == "" {
@@ -218,8 +238,7 @@ func runDoctor(cmd *cobra.Command, _ []string) error {
 		return u, true
 	})
 
-	_, _ = fmt.Fprintln(w)
-	_, _ = fmt.Fprintln(w, "Tools:")
+	section("Tools")
 	check("ffprobe", func() (string, bool) {
 		path, err := exec.LookPath("ffprobe")
 		if err != nil {
@@ -228,8 +247,7 @@ func runDoctor(cmd *cobra.Command, _ []string) error {
 		return path, true
 	})
 
-	_, _ = fmt.Fprintln(w)
-	_, _ = fmt.Fprintln(w, "Network:")
+	section("Network")
 	check("HTTP egress", func() (string, bool) {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
@@ -245,6 +263,13 @@ func runDoctor(cmd *cobra.Command, _ []string) error {
 		return "github.com reachable", true
 	})
 
+	if jsonMode(cmd) {
+		var err error
+		if !allOK {
+			err = errors.New("one or more doctor checks failed")
+		}
+		return emitJSON(cmd, map[string]any{"allOk": allOK, "checks": checks}, err)
+	}
 	_, _ = fmt.Fprintln(w)
 	if allOK {
 		_, _ = fmt.Fprintln(w, "All checks passed.")

@@ -96,6 +96,7 @@
   "only use scenes from this creator's storefronts, as defined in creators.d (repeatable: any match)": "only use scenes from this creator's storefronts, as defined in creators.d (repeatable: any match)",
   "output a markdown table": "output a markdown table",
   "output directory (default from config)": "output directory (default from config)",
+  "output format: text, or json for a machine-readable result on stdout (see docs/json-output.md)": "output format: text, or json for a machine-readable result on stdout (see docs/json-output.md)",
   "overwrite an existing studio file that holds more scenes than the export": "overwrite an existing studio file that holds more scenes than the export",
   "overwrite existing .nfo files": "overwrite existing .nfo files",
   "path to SQLite database (no value = default location)": "path to SQLite database (no value = default location)",

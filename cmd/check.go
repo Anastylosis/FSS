@@ -22,7 +22,16 @@ var checkCmd = &cobra.Command{
 }
 
 func init() {
+	addFormatFlag(checkCmd)
 	rootCmd.AddCommand(checkCmd)
+}
+
+type checkResult struct {
+	URL               string   `json:"url"`
+	Supported         bool     `json:"supported"`
+	Scraper           string   `json:"scraper,omitempty"`
+	Patterns          []string `json:"patterns,omitempty"`
+	RequestSupportURL string   `json:"requestSupportUrl,omitempty"`
 }
 
 func newScraperIssueURL(siteURL string) string {
@@ -37,6 +46,15 @@ func runCheck(cmd *cobra.Command, args []string) error {
 	w := cmd.OutOrStdout()
 
 	s, err := scraper.ForURL(rawURL)
+	if jsonMode(cmd) {
+		res := checkResult{URL: rawURL, Supported: err == nil}
+		if err == nil {
+			res.Scraper, res.Patterns = s.ID(), s.Patterns()
+		} else {
+			res.RequestSupportURL = newScraperIssueURL(rawURL)
+		}
+		return emitJSON(cmd, res, nil)
+	}
 	if err != nil {
 		_, _ = fmt.Fprintf(w, "Not supported: %s\n", rawURL)
 		_, _ = fmt.Fprintf(w, "\nRequest support: %s\n", newScraperIssueURL(rawURL))

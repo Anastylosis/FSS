@@ -19,11 +19,26 @@ var listScrapersCmd = &cobra.Command{
 
 func init() {
 	listScrapersCmd.Flags().BoolVar(&listScrapersMarkdown, "markdown", false, "output a markdown table")
+	addFormatFlag(listScrapersCmd)
+	listScrapersCmd.MarkFlagsMutuallyExclusive("markdown", "format")
 	rootCmd.AddCommand(listScrapersCmd)
 }
 
-func runListScrapers(_ *cobra.Command, _ []string) error {
+type scraperInfo struct {
+	ID        string   `json:"id"`
+	Patterns  []string `json:"patterns"`
+	Languages []string `json:"languages,omitempty"`
+}
+
+func runListScrapers(cmd *cobra.Command, _ []string) error {
 	all := scraper.All()
+	if jsonMode(cmd) {
+		out := make([]scraperInfo, 0, len(all))
+		for _, s := range all {
+			out = append(out, scraperInfo{ID: s.ID(), Patterns: s.Patterns(), Languages: scraper.LanguagesFor(s)})
+		}
+		return emitJSON(cmd, map[string]any{"count": len(out), "scrapers": out}, nil)
+	}
 	if len(all) == 0 {
 		fmt.Println("No scrapers registered.")
 		return nil

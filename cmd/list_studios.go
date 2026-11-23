@@ -2,10 +2,12 @@ package cmd
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/Anastylosis/FSS/internal/store"
+	"github.com/Anastylosis/FSS/models"
 )
 
 var listStudiosCmd = &cobra.Command{
@@ -18,20 +20,28 @@ func init() {
 	rootCmd.AddCommand(listStudiosCmd)
 	listStudiosCmd.Flags().String("db", "", "path to SQLite database (no value = default location)")
 	listStudiosCmd.Flags().Lookup("db").NoOptDefVal = "default"
+	addFormatFlag(listStudiosCmd)
+}
+
+type studioInfo struct {
+	URL           string     `json:"url"`
+	SiteID        string     `json:"siteId"`
+	Name          string     `json:"name,omitempty"`
+	LastScrapedAt *time.Time `json:"lastScrapedAt"`
 }
 
 func runListStudios(cmd *cobra.Command, _ []string) error {
-	path := resolveDBPath(cmd)
-	if path == "" {
-		return fmt.Errorf("--db is required (pass --db for the default location, or --db /path/to/file.db)")
+	studios, err := loadStudioList(cmd)
+	if jsonMode(cmd) {
+		out := make([]studioInfo, 0, len(studios))
+		for _, s := range studios {
+			out = append(out, studioInfo{URL: s.URL, SiteID: s.SiteID, Name: s.Name, LastScrapedAt: s.LastScrapedAt})
+		}
+		if err != nil {
+			return emitJSON(cmd, nil, err)
+		}
+		return emitJSON(cmd, map[string]any{"count": len(out), "studios": out}, nil)
 	}
-	db, err := store.NewSQLite(path)
-	if err != nil {
-		return fmt.Errorf("opening db: %w", err)
-	}
-	defer func() { _ = db.Close() }()
-
-	studios, err := db.ListStudios()
 	if err != nil {
 		return err
 	}
@@ -51,4 +61,17 @@ func runListStudios(cmd *cobra.Command, _ []string) error {
 		fmt.Printf("%-30s  %-12s  last scraped: %s\n  %s\n", name, s.SiteID, last, s.URL)
 	}
 	return nil
+}
+
+func loadStudioList(cmd *cobra.Command) ([]models.Studio, error) {
+	path := resolveDBPath(cmd)
+	if path == "" {
+		return nil, withCode(codeInvalidArgs, fmt.Errorf("--db is required (pass --db for the default location, or --db /path/to/file.db)"))
+	}
+	db, err := store.NewSQLite(path)
+	if err != nil {
+		return nil, fmt.Errorf("opening db: %w", err)
+	}
+	defer func() { _ = db.Close() }()
+	return db.ListStudios()
 }
