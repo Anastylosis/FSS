@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"os/signal"
@@ -37,6 +38,7 @@ Default is dry-run — shows what would change. Pass --apply to actually write t
 }
 
 func init() {
+	addFormatFlag(stashImportCmd)
 	stashCmd.AddCommand(stashImportCmd)
 
 	addSceneSourceFlags(stashImportCmd)
@@ -152,15 +154,15 @@ func resolveImportOpts(cmd *cobra.Command) (importOpts, error) {
 	return o, nil
 }
 
-func loadFSSIndex(cmd *cobra.Command) (*match.SceneIndex, error) {
-	fmt.Print("Loading FSS scenes...")
+func loadFSSIndex(cmd *cobra.Command, w io.Writer) (*match.SceneIndex, error) {
+	_, _ = fmt.Fprint(w, "Loading FSS scenes...")
 	scenes, src, err := loadFSSScenes(cmd)
 	if err != nil {
-		fmt.Println()
+		_, _ = fmt.Fprintln(w)
 		return nil, err
 	}
-	fmt.Printf(" from %s\n", src)
-	fmt.Printf("Loaded %d FSS scenes\n", len(scenes))
+	_, _ = fmt.Fprintf(w, " from %s\n", src)
+	_, _ = fmt.Fprintf(w, "Loaded %d FSS scenes\n", len(scenes))
 	return match.BuildIndex(scenes), nil
 }
 
@@ -178,7 +180,7 @@ func changelogDir(cmd *cobra.Command) string {
 	return "."
 }
 
-func queryStashScenes(ctx context.Context, client *stash.Client, o importOpts) ([]stash.Scene, error) {
+func queryStashScenes(ctx context.Context, client *stash.Client, o importOpts, w io.Writer) ([]stash.Scene, error) {
 	filter := stash.SceneFilter{
 		PerformerName: o.performer,
 		StudioName:    o.studio,
@@ -189,26 +191,26 @@ func queryStashScenes(ctx context.Context, client *stash.Client, o importOpts) (
 		filter.HasStashID = &unmatched
 	}
 
-	fmt.Print("Querying Stash scenes...")
+	_, _ = fmt.Fprint(w, "Querying Stash scenes...")
 	var scenes []stash.Scene
 	var err error
 	if o.top > 0 {
 		scenes, _, err = client.FindScenes(ctx, filter, 1, o.top)
 	} else {
 		scenes, err = client.FindAllScenes(ctx, filter, func(fetched, total int) {
-			fmt.Printf("\rQuerying Stash scenes... %d / %d", fetched, total)
+			_, _ = fmt.Fprintf(w, "\rQuerying Stash scenes... %d / %d", fetched, total)
 		})
 	}
-	fmt.Println()
+	_, _ = fmt.Fprintln(w)
 	if err != nil {
 		// A filter naming something Stash does not have is a user error worth
 		// stating plainly — it used to look identical to "nothing matched".
 		if errors.Is(err, stash.ErrPerformerNotFound) || errors.Is(err, stash.ErrStudioNotFound) {
-			return nil, fmt.Errorf("%w (Stash matches names exactly — check spelling and trailing spaces)", err)
+			return nil, withCode(codeInvalidArgs, fmt.Errorf("%w (Stash matches names exactly — check spelling and trailing spaces)", err))
 		}
 		return nil, fmt.Errorf("querying stash scenes: %w", err)
 	}
-	fmt.Printf("Found %d Stash scenes to process\n", len(scenes))
+	_, _ = fmt.Fprintf(w, "Found %d Stash scenes to process\n", len(scenes))
 	return scenes, nil
 }
 
@@ -343,36 +345,58 @@ func applyScene(ctx context.Context, l *entityLookup, ss stash.Scene, merged mat
 }
 
 func runStashImport(cmd *cobra.Command, _ []string) error {
+	res, err := doStashImport(cmd)
+	if !jsonMode(cmd) {
+		return err
+	}
+	if res == nil {
+		return emitJSON(cmd, nil, err)
+	}
+	return emitJSON(cmd, res, err)
+}
+
+// importProse is where the import's running commentary goes. Under --format
+// json the result carries the same facts, so it is dropped rather than
+// interleaved with the document on stdout.
+func importProse(cmd *cobra.Command) io.Writer {
+	if jsonMode(cmd) {
+		return io.Discard
+	}
+	return os.Stdout
+}
+
+func doStashImport(cmd *cobra.Command) (*importResultJSON, error) {
 	ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	w := importProse(cmd)
 
 	client := newStashClient(cmd)
 	if err := client.Ping(ctx); err != nil {
-		return fmt.Errorf("connecting to stash: %w", err)
+		return nil, withCode(codeStashUnreachable, fmt.Errorf("connecting to stash: %w", err))
 	}
-	fmt.Println("Connected to Stash")
+	_, _ = fmt.Fprintln(w, "Connected to Stash")
 
-	idx, err := loadFSSIndex(cmd)
+	idx, err := loadFSSIndex(cmd, w)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	o, err := resolveImportOpts(cmd)
 	if err != nil {
-		return err
+		return nil, withCode(codeInvalidArgs, err)
 	}
 
-	stashScenes, err := queryStashScenes(ctx, client, o)
+	stashScenes, err := queryStashScenes(ctx, client, o, w)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if !o.apply {
-		fmt.Print("\n--- DRY RUN (pass --apply to write changes) ---\n")
+		_, _ = fmt.Fprint(w, "\n--- DRY RUN (pass --apply to write changes) ---\n")
 		if o.allowedFields != nil {
-			fmt.Printf("Fields: %s\n", strings.Join(o.fieldsList, ", "))
+			_, _ = fmt.Fprintf(w, "Fields: %s\n", strings.Join(o.fieldsList, ", "))
 		}
-		fmt.Println()
+		_, _ = fmt.Fprintln(w)
 	}
 
 	lookup := newEntityLookup(ctx, client)
@@ -380,7 +404,7 @@ func runStashImport(cmd *cobra.Command, _ []string) error {
 	if o.apply && fieldAllowed(o.allowedFields, "tags") {
 		importTagID, err = lookup.ensureTag(o.tagName)
 		if err != nil {
-			return fmt.Errorf("ensuring import tag %q: %w", o.tagName, err)
+			return nil, fmt.Errorf("ensuring import tag %q: %w", o.tagName, err)
 		}
 	}
 
@@ -389,6 +413,7 @@ func runStashImport(cmd *cobra.Command, _ []string) error {
 	run := &importRun{
 		o: o, idx: idx, lookup: lookup, clw: clw, importTagID: importTagID,
 		stashBase: stashURL(cmd), stats: importStats{total: len(stashScenes)},
+		w: w, quiet: jsonMode(cmd),
 	}
 
 	for _, ss := range stashScenes {
@@ -400,30 +425,35 @@ func runStashImport(cmd *cobra.Command, _ []string) error {
 	stats, failures := run.stats, run.failures
 
 	if err := clw.flush(); err != nil {
-		return fmt.Errorf("stashbox changelog not written: %w (changes already applied to Stash are NOT recorded, so revert cannot undo them)", err)
+		return run.result(), fmt.Errorf("stashbox changelog not written: %w (changes already applied to Stash are NOT recorded, so revert cannot undo them)", err)
 	}
 
-	if o.apply {
-		printFailureSummary(failures)
-	} else {
-		printWouldCreateSummary(lookup)
-	}
-
-	fmt.Println()
-	if o.apply {
-		fmt.Printf("Done: %d matched, %d updated, %d partial, %d failed, %d already up-to-date, %d skipped, %d ambiguous\n",
-			stats.matched, stats.updated, stats.partial, stats.failed, stats.upToDate, stats.skipped, stats.ambiguous)
-	} else {
-		fmt.Printf("Dry-run: %d would match, %d already up-to-date, %d skipped, %d ambiguous\n",
-			stats.matched, stats.upToDate, stats.skipped, stats.ambiguous)
+	if !run.quiet {
+		if o.apply {
+			printFailureSummary(failures)
+		} else {
+			printWouldCreateSummary(lookup)
+		}
+		printImportSummary(w, o.apply, stats)
 	}
 	if o.apply && stats.failed > 0 {
-		return &exitError{code: ExitFailure, err: fmt.Errorf("%d scene(s) failed to import", stats.failed), reported: true}
+		return run.result(), &exitError{code: ExitFailure, err: fmt.Errorf("%d scene(s) failed to import", stats.failed), reported: true}
 	}
 	if o.apply && ctx.Err() != nil {
-		return &exitError{code: ExitInterrupted, err: errors.New("interrupted"), reported: true}
+		return run.result(), &exitError{code: ExitInterrupted, err: errors.New("interrupted"), reported: true}
 	}
-	return nil
+	return run.result(), nil
+}
+
+func printImportSummary(w io.Writer, apply bool, stats importStats) {
+	_, _ = fmt.Fprintln(w)
+	if apply {
+		_, _ = fmt.Fprintf(w, "Done: %d matched, %d updated, %d partial, %d failed, %d already up-to-date, %d skipped, %d ambiguous\n",
+			stats.matched, stats.updated, stats.partial, stats.failed, stats.upToDate, stats.skipped, stats.ambiguous)
+	} else {
+		_, _ = fmt.Fprintf(w, "Dry-run: %d would match, %d already up-to-date, %d skipped, %d ambiguous\n",
+			stats.matched, stats.upToDate, stats.skipped, stats.ambiguous)
+	}
 }
 
 // importRun carries the state one stash import accumulates across scenes.
@@ -436,6 +466,9 @@ type importRun struct {
 	stashBase   string
 	stats       importStats
 	failures    []importFailure
+	w           io.Writer
+	quiet       bool // --format json: no prose, collect records
+	records     []importSceneJSON
 }
 
 // one matches, merges and diffs a single Stash scene, then either prints the
@@ -459,7 +492,10 @@ func (r *importRun) one(ctx context.Context, ss stash.Scene) {
 		return
 	case match.MatchAmbiguous:
 		r.stats.ambiguous++
-		fmt.Printf("  AMBIGUOUS  %-50s  →  %d candidates, skipped\n\n", truncate(filename, 50), result.Candidates)
+		_, _ = fmt.Fprintf(r.w, "  AMBIGUOUS  %-50s  →  %d candidates, skipped\n\n", truncate(filename, 50), result.Candidates)
+		r.records = append(r.records, importSceneJSON{
+			StashSceneID: ss.ID, Filename: filename, Status: "ambiguous", Candidates: result.Candidates,
+		})
 		return
 	}
 
@@ -470,8 +506,8 @@ func (r *importRun) one(ctx context.Context, ss stash.Scene) {
 
 	merged := match.MergeScenes(result.Scenes, existingDate)
 	sites := strings.Join(merged.Sites, " + ")
-	fmt.Printf("  %-10s %-50s  →  %q (%s)\n", result.Confidence, truncate(filename, 50), merged.Title, sites)
-	fmt.Printf("           %s/scenes/%s\n", r.stashBase, ss.ID)
+	_, _ = fmt.Fprintf(r.w, "  %-10s %-50s  →  %q (%s)\n", result.Confidence, truncate(filename, 50), merged.Title, sites)
+	_, _ = fmt.Fprintf(r.w, "           %s/scenes/%s\n", r.stashBase, ss.ID)
 
 	changes, allTags, mergedURLs := diffScene(ss, merged, r.o)
 	changes = dropAlreadyPresent(changes, ss, r.lookup)
@@ -481,16 +517,21 @@ func (r *importRun) one(ctx context.Context, ss stash.Scene) {
 	}
 
 	r.stats.matched++
+	rec := newSceneRecord(ss.ID, filename, merged, changes)
 
 	if !r.o.apply {
+		rec.Status = "wouldUpdate"
+		r.records = append(r.records, rec)
 		for field, diff := range changes {
 			if len(diff.Added) > 0 {
-				fmt.Printf("    %s: +%v\n", field, diff.Added)
+				_, _ = fmt.Fprintf(r.w, "    %s: +%v\n", field, diff.Added)
 			} else {
-				fmt.Printf("    %s: %v → %v\n", field, diff.From, diff.To)
+				_, _ = fmt.Fprintf(r.w, "    %s: %v → %v\n", field, diff.From, diff.To)
 			}
 		}
-		printMergeConflicts(merged)
+		if !r.quiet {
+			printMergeConflicts(merged)
+		}
 		if fieldAllowed(r.o.allowedFields, "tags") {
 			for _, t := range allTags {
 				r.lookup.checkTag(t)
@@ -504,7 +545,7 @@ func (r *importRun) one(ctx context.Context, ss stash.Scene) {
 		if fieldAllowed(r.o.allowedFields, "studio") && merged.Studio != "" && !keepStashboxStudio(ss) {
 			r.lookup.checkStudio(merged.Studio)
 		}
-		fmt.Println()
+		_, _ = fmt.Fprintln(r.w)
 		return
 	}
 
@@ -515,13 +556,19 @@ func (r *importRun) one(ctx context.Context, ss stash.Scene) {
 		r.failures = append(r.failures, importFailure{
 			SceneID: ss.ID, Filename: filename, Op: "update", Err: updateErr,
 		})
+		rec.Status = "failed"
+		r.records = append(r.records, rec)
 		return
 	}
 
+	rec.Status = "updated"
 	if len(sceneFailures) > 0 {
 		r.stats.partial++
 		r.failures = append(r.failures, sceneFailures...)
+		rec.Status = "partial"
+		rec.Changes = jsonChanges(reconcileChanges(changes, sceneFailures))
 	}
+	r.records = append(r.records, rec)
 
 	if ss.HasStashID() {
 		// Record what actually landed, not the planned diff: prune tag /
@@ -540,7 +587,6 @@ func (r *importRun) one(ctx context.Context, ss stash.Scene) {
 	}
 
 	r.stats.updated++
-
 }
 
 // dropAlreadyPresent removes from a diff the tags, performers and studio that
@@ -816,7 +862,10 @@ const changelogFlushEvery = 20
 type changelogWriter struct {
 	dir     string
 	pending []changelogEntry
+	wrote   bool
 }
+
+func changelogFile(dir string) string { return filepath.Join(dir, "fss-stashbox-changelog.json") }
 
 func (w *changelogWriter) add(e changelogEntry) {
 	w.pending = append(w.pending, e)
@@ -835,6 +884,7 @@ func (w *changelogWriter) flush() error {
 		return err
 	}
 	w.pending = nil
+	w.wrote = true
 	return nil
 }
 
@@ -848,7 +898,7 @@ func appendChangelog(dir string, entries []changelogEntry) error {
 	if err := os.MkdirAll(dir, 0o750); err != nil {
 		return fmt.Errorf("creating changelog directory %s: %w", dir, err)
 	}
-	path := filepath.Join(dir, "fss-stashbox-changelog.json")
+	path := changelogFile(dir)
 
 	changelogMu.Lock()
 	defer changelogMu.Unlock()

@@ -11,7 +11,7 @@ to `scrape --output json`, which picks the format of the files a scrape writes.
 
 | Command | Shape |
 |---|---|
-| `check`, `detect`, `list-scrapers`, `list-studios`, `doctor`, `version` | one envelope |
+| `check`, `detect`, `list-scrapers`, `list-studios`, `doctor`, `version`, `compare`, `stash import` | one envelope |
 
 For the files a scrape writes, see [schema/studio-file.schema.json](schema/studio-file.schema.json)
 and [metadata.md](metadata.md).
@@ -113,3 +113,121 @@ what was removed.
 
 A failed update check is not an error: `latest` is `null` and
 `updateCheckError` says why. `--update` cannot be combined with `--format json`.
+
+## stash import
+
+`fss stash import --format json` prints one envelope on stdout. The per-scene
+commentary, progress and summary of the text output are dropped (the result
+carries the same facts); warnings still go to stderr. It never prompts. Without
+`--apply` it is a dry run, and the result says so in `apply`.
+
+```json
+{
+  "formatVersion": 1,
+  "command": "stash import",
+  "ok": true,
+  "result": {
+    "apply": false,
+    "stats": {"total": 1, "matched": 1, "updated": 0, "skipped": 0, "ambiguous": 0,
+              "upToDate": 0, "partial": 0, "failed": 0},
+    "scenes": [
+      {
+        "stashSceneId": "7",
+        "filename": "Some Title.mp4",
+        "matchedTo": "Some Title",
+        "status": "wouldUpdate",
+        "changes": {
+          "title": {"from": "", "to": "Some Title"},
+          "performers": {"added": ["Jane"]},
+          "tags": {"added": ["Tag One", "fss-imported"]}
+        },
+        "conflicts": [
+          {"field": "date", "kept": "siteA", "dropped": ["siteB: 2024-01-02"]}
+        ]
+      }
+    ],
+    "wouldCreate": {"performers": ["Jane"], "tags": ["Tag One", "fss-imported"], "studios": []},
+    "failures": []
+  },
+  "error": null
+}
+```
+
+- `stats` counts every Stash scene examined. `skipped` (no match, or no file)
+  and `upToDate` scenes are counted but not listed in `scenes`.
+- `scenes` lists each matched scene that has changes, plus ambiguous ones. In a
+  dry run `status` is `wouldUpdate`; with `--apply` it is `updated`, `partial`
+  (the update landed but a tag, performer, studio or cover call failed) or
+  `failed`. An ambiguous scene has `status: "ambiguous"` and `candidates` (how
+  many distinct titles matched) and no `changes`.
+- `changes` is keyed by field (`title`, `details`, `date`, `urls`, `tags`,
+  `performers`, `studio`, `cover`, `organized`). Scalars carry `from` and `to`
+  (`details` and `cover` are shortened to 60 characters); list fields carry
+  `added`. For a `partial` scene, `changes` leaves out the tags and performers
+  that failed. These are the planned changes, whether or not the scene is linked
+  to a StashDB entry; the changelog `fss stash revert` reads is unaffected.
+- `conflicts` lists scalar fields where the contributing sites disagreed. `kept`
+  is the site whose value was used, or empty when the existing Stash value was
+  kept; `dropped` holds `"site: value"` strings.
+- `wouldCreate` appears only on a dry run, and lists what `--apply` would create.
+- `failures` is `[{sceneId, filename, op, name, error}]`, and is empty rather
+  than null when nothing failed. `name` is omitted for `op: "update"`.
+- `changelogPath` appears when `--apply` wrote the StashDB changelog.
+
+Failures: an unreachable Stash is `error.code: "stash_unreachable"`; a bad
+`--fields` value or a `--performer`/`--studio` Stash does not have is
+`invalid_args`. When `--apply` finishes with failed scenes, or is interrupted,
+the exit code is non-zero, `ok` is `false`, and `result` is still filled in.
+
+## compare
+
+`fss compare --format json` prints one envelope. It honours `--top`,
+`--exclusives` and `--csv`; the "Shared titles written" line is not printed.
+
+```json
+{
+  "formatVersion": 1,
+  "command": "compare",
+  "ok": true,
+  "result": {
+    "creators": [
+      {
+        "name": "Someone",
+        "heuristicGrouping": false,
+        "stores": [
+          {"url": "https://a.example.com", "label": "a.example.com", "scenes": 2,
+           "shared": 1, "exclusive": 1, "avgPrice": 17.5, "currency": "USD"}
+        ],
+        "cheapest": [{"store": "https://b.example.com", "titles": 1, "savingsTotal": 20}],
+        "widestGaps": [
+          {"title": "Shared One",
+           "low": {"store": "https://b.example.com", "price": 10, "currency": "USD"},
+           "high": {"store": "https://a.example.com", "price": 30, "currency": "USD"},
+           "gap": 20}
+        ],
+        "mixedCurrencyTitles": 0,
+        "exclusives": [{"store": "https://a.example.com", "titles": ["A Exclusive"]}]
+      }
+    ],
+    "csvPath": "out.csv",
+    "notices": ["No creators defined ..."]
+  },
+  "error": null
+}
+```
+
+- `heuristicGrouping` is true when no creator files exist and the storefronts
+  were grouped by the `fss creators suggest` heuristic. The matching entry in
+  `notices` is omitted when notices are turned off.
+- `avgPrice` is `null` when a store has no priced listings or priced them in
+  more than one currency (`mixedCurrency: true`). `currency` is omitted when
+  the snapshot carried none, which text mode renders as `$`.
+- `cheapest` counts, per store, the shared titles it is strictly cheapest on;
+  `savingsTotal` is the summed gap to the dearest store. A tie credits no one.
+- `widestGaps` holds at most `--top` entries, widest first. `store` is a store
+  URL, as in `stores[].url`.
+- `exclusives` is present only with `--exclusives`, and lists the titles each
+  store alone carries.
+- `csvPath` is present only when `--csv` was given and a report was produced.
+- When there is nothing to compare, `ok` is `true`, `creators` is `[]` and
+  `message` holds the same sentence text mode prints.

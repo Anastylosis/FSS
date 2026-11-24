@@ -17,17 +17,13 @@ import (
 // disagreed, so a dry run shows what the merge chose *against* rather than
 // presenting one site's value as if it were uncontested.
 func printMergeConflicts(merged match.MergedScene) {
-	for _, field := range []string{"title", "description", "date", "studio", "duration", "resolution"} {
-		src, ok := merged.Sources[field]
-		if !ok || !src.Conflicted() {
-			continue
-		}
-		kept := src.Site
+	for _, c := range mergeConflicts(merged) {
+		kept := c.Kept
 		if kept == "" {
 			kept = "the existing Stash value"
 		}
 		fmt.Printf("    ~ %s: kept %s, dropped %s\n",
-			field, kept, strings.Join(truncateEach(src.Discarded, 40), "; "))
+			c.Field, kept, strings.Join(truncateEach(c.Dropped, 40), "; "))
 	}
 }
 

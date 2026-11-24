@@ -32,6 +32,7 @@ says so — define the creators to make the grouping exact.`,
 }
 
 func init() {
+	addFormatFlag(compareCmd)
 	rootCmd.AddCommand(compareCmd)
 	addSceneSourceFlags(compareCmd)
 	compareCmd.Flags().Int("top", 10, "how many of the widest price spreads to list per creator")
@@ -139,6 +140,8 @@ type creatorReport struct {
 	stores []storeStat
 	groups []titleGroup
 	labels map[string]string
+	// exclusive holds, per store, the titles no other store carries.
+	exclusive map[string][]string
 }
 
 // label names a storefront for display, falling back to the raw URL for a store
@@ -162,43 +165,26 @@ func (r creatorReport) labelWidth() int {
 }
 
 func runCompare(cmd *cobra.Command, _ []string) error {
-	scenes, src, err := loadFSSScenes(cmd)
-	if err != nil {
-		return err
-	}
-
-	groups, inferred, err := creatorGroupings(cmd, scenes)
-	if err != nil {
-		return err
-	}
-	if len(groups) == 0 {
-		fmt.Printf("Nothing to compare in %s: no creator has more than one storefront.\n", src)
-		return nil
-	}
-
-	byStudio := map[string][]models.Scene{}
-	for _, sc := range scenes {
-		key := output.CanonicalStudioURL(sc.StudioURL)
-		byStudio[key] = append(byStudio[key], sc)
-	}
-
-	reports := make([]creatorReport, 0, len(groups))
-	for name, urls := range groups {
-		if r, ok := buildReport(name, urls, byStudio); ok {
-			reports = append(reports, r)
+	reports, inferred, message, err := compareReports(cmd)
+	if jsonMode(cmd) {
+		if err != nil {
+			return emitJSON(cmd, nil, err)
 		}
+		res, err := buildCompareResult(cmd, reports, inferred, message)
+		return emitJSON(cmd, res, err)
 	}
-	if len(reports) == 0 {
-		fmt.Printf("Nothing to compare in %s: no creator has scenes on more than one storefront.\n", src)
+	if err != nil {
+		return err
+	}
+	if message != "" {
+		fmt.Println(message)
 		return nil
 	}
-	sort.Slice(reports, func(i, j int) bool {
-		return creators.Key(reports[i].name) < creators.Key(reports[j].name)
-	})
 
 	if inferred && !noticesSuppressed() {
-		fmt.Println("[notice] No creators defined — storefronts were grouped by the `fss creators suggest`")
-		fmt.Println("         heuristic. Run `fss creators suggest --write` to make the grouping exact.")
+		for _, line := range inferredNotice {
+			fmt.Println(line)
+		}
 		fmt.Println()
 	}
 
@@ -218,6 +204,48 @@ func runCompare(cmd *cobra.Command, _ []string) error {
 		fmt.Printf("\nShared titles written to %s\n", path)
 	}
 	return nil
+}
+
+var inferredNotice = []string{
+	"[notice] No creators defined — storefronts were grouped by the `fss creators suggest`",
+	"         heuristic. Run `fss creators suggest --write` to make the grouping exact.",
+}
+
+// compareReports loads the scenes and builds one report per creator. A
+// non-empty message means there was nothing to compare.
+func compareReports(cmd *cobra.Command) (reports []creatorReport, inferred bool, message string, err error) {
+	scenes, src, err := loadFSSScenes(cmd)
+	if err != nil {
+		return nil, false, "", err
+	}
+
+	groups, inferred, err := creatorGroupings(cmd, scenes)
+	if err != nil {
+		return nil, false, "", err
+	}
+	if len(groups) == 0 {
+		return nil, inferred, fmt.Sprintf("Nothing to compare in %s: no creator has more than one storefront.", src), nil
+	}
+
+	byStudio := map[string][]models.Scene{}
+	for _, sc := range scenes {
+		key := output.CanonicalStudioURL(sc.StudioURL)
+		byStudio[key] = append(byStudio[key], sc)
+	}
+
+	reports = make([]creatorReport, 0, len(groups))
+	for name, urls := range groups {
+		if r, ok := buildReport(name, urls, byStudio); ok {
+			reports = append(reports, r)
+		}
+	}
+	if len(reports) == 0 {
+		return nil, inferred, fmt.Sprintf("Nothing to compare in %s: no creator has scenes on more than one storefront.", src), nil
+	}
+	sort.Slice(reports, func(i, j int) bool {
+		return creators.Key(reports[i].name) < creators.Key(reports[j].name)
+	})
+	return reports, inferred, "", nil
 }
 
 // creatorGroupings returns creator name → store URLs, from creators.d when it
@@ -262,7 +290,7 @@ func creatorGroupings(cmd *cobra.Command, scenes []models.Scene) (map[string][]s
 }
 
 func buildReport(name string, storeURLs []string, byStudio map[string][]models.Scene) (creatorReport, bool) {
-	r := creatorReport{name: name}
+	r := creatorReport{name: name, exclusive: map[string][]string{}}
 
 	// One group per title, each store contributing its cheapest listing.
 	groups := map[string]*titleGroup{}
@@ -314,6 +342,7 @@ func buildReport(name string, storeURLs []string, byStudio map[string][]models.S
 		urls := g.stores()
 		if len(urls) == 1 {
 			stats[urls[0]].exclusive++
+			r.exclusive[urls[0]] = append(r.exclusive[urls[0]], g.title)
 			continue
 		}
 		for _, u := range urls {

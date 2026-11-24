@@ -134,6 +134,8 @@ skipped; there is nothing to compare.
 | `--exclusives` | false | Also report, per store, how many titles only it carries |
 | `--csv` | _(none)_ | Write every shared title to this CSV file |
 
+`--format json` prints the report as one JSON document on stdout instead (see [json-output.md](json-output.md#compare)).
+
 Plus the shared scene-source flags — `--db`, `--json`, `--dir`,
 `--from-creator`, `--from-studio`, `--from-performer`, `--include-deleted` — documented in
 [usage.md](usage.md#scene-sources-fss-stash-import-fss-identify-fss-compare-fss-creators-suggest).

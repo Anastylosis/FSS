@@ -41,6 +41,8 @@ Lists Stash scenes that have no StashDB metadata (`stash_id_count == 0`).
 
 Matches FSS JSON scenes against Stash scenes by filename and pushes metadata. **Dry-run by default** — pass `--apply` to write changes.
 
+Pass `--format json` for a machine-readable result on stdout (matched scenes, per-field changes, would-create entities, failures); see [json-output.md](json-output.md#stash-import).
+
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
 | `--url` | string | `http://localhost:9999` | Stash server URL |
