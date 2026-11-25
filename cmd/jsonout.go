@@ -124,8 +124,13 @@ func toJSONError(err error) *jsonError {
 	return je
 }
 
-// writePreRunEnvelope reports an error raised before the command ran.
+// writePreRunEnvelope reports an error raised before the command ran. scrape
+// speaks JSON Lines, so its readers wait for a summary line; give them one.
 func writePreRunEnvelope(w io.Writer, command string, err error) {
+	if command == "scrape" {
+		writeEnvelopeTyped(w, command, lineSummary, scrapeSummaryResult{}, err)
+		return
+	}
 	writeEnvelope(w, command, nil, err)
 }
 

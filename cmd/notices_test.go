@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -23,7 +24,7 @@ func TestNoticePacingIsRunWide(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			pacingNoticeOnce = sync.Once{}
-			out := captureStdout(t, func() { noticePacingIsRunWide(c.delay, c.workers) })
+			out := captureStdout(t, func() { noticePacingIsRunWide(os.Stdout, c.delay, c.workers) })
 			if got := strings.Contains(out, "[notice]"); got != c.want {
 				t.Errorf("notice printed = %v, want %v (output %q)", got, c.want, out)
 			}
@@ -36,7 +37,7 @@ func TestNoticePacingIsRunWideSaysItOnce(t *testing.T) {
 	pacingNoticeOnce = sync.Once{}
 	out := captureStdout(t, func() {
 		for i := 0; i < 3; i++ {
-			noticePacingIsRunWide(500*time.Millisecond, 8)
+			noticePacingIsRunWide(os.Stdout, 500*time.Millisecond, 8)
 		}
 	})
 	if n := strings.Count(out, "[notice]"); n != 1 {
@@ -47,7 +48,7 @@ func TestNoticePacingIsRunWideSaysItOnce(t *testing.T) {
 func TestNoticePacingIsRunWideRespectsSuppression(t *testing.T) {
 	t.Setenv("FSS_NO_NOTICES", "1")
 	pacingNoticeOnce = sync.Once{}
-	out := captureStdout(t, func() { noticePacingIsRunWide(500*time.Millisecond, 8) })
+	out := captureStdout(t, func() { noticePacingIsRunWide(os.Stdout, 500*time.Millisecond, 8) })
 	if out != "" {
 		t.Errorf("a suppressed notice still printed %q", out)
 	}

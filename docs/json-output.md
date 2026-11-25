@@ -12,6 +12,7 @@ to `scrape --output json`, which picks the format of the files a scrape writes.
 | Command | Shape |
 |---|---|
 | `check`, `detect`, `list-scrapers`, `list-studios`, `doctor`, `version`, `compare`, `stash import` | one envelope |
+| `scrape` | JSON Lines: one envelope per finished target, then a summary |
 
 For the files a scrape writes, see [schema/studio-file.schema.json](schema/studio-file.schema.json)
 and [metadata.md](metadata.md).
@@ -57,6 +58,10 @@ Branch on `code`. The `message` is for people and its wording can change.
 
 `httpStatus` is set when the failing request returned an HTTP status. FSS does
 not try to tell a WAF block from an ordinary 403.
+
+Failures on individual pages during a scrape are not errors. The target still
+saves what it found and exits 0. They appear as `failures` counts and
+`complete: false` in that target's result (see [scrape](#scrape)).
 
 ## check
 
@@ -231,3 +236,65 @@ the exit code is non-zero, `ok` is `false`, and `result` is still filled in.
 - `csvPath` is present only when `--csv` was given and a report was produced.
 - When there is nothing to compare, `ok` is `true`, `creators` is `[]` and
   `message` holds the same sentence text mode prints.
+
+## scrape
+
+`fss scrape --format json` writes [JSON Lines](https://jsonlines.org/) to stdout: one line per finished target, then one summary line. Each line is flushed as it is written, so a caller can follow a run that takes hours. Everything a human would read (`Full scrape: ...`, `Done: ...`, warnings, the `--stale` plan, `[notice]` lines) goes to stderr, and no carriage-return progress is printed.
+
+`--format` is not `-o/--output`: `--output json,csv` chooses which export files are written, `--format json` chooses how the run is reported. They combine freely.
+
+The run never prompts. A `--full`/`--refresh` whose coverage collapsed is refused unless `--force` is given, as when stdin is not a terminal. Exit codes are unchanged (0 success, 1 failure, 2 refused, 3 interrupted) and the summary's `ok` is true exactly when the exit code is 0.
+
+Target line, written when a target finishes:
+
+```json
+{"formatVersion":1,"command":"scrape","type":"target","ok":true,"result":{"url":"https://example.com/studio/42","siteId":"example","creator":"Jane Eyre","mode":"incremental","language":"de","status":"saved","scenesSaved":412,"coverage":{"stored":410,"seen":380,"dropped":30,"fresh":382},"complete":true,"stoppedEarly":false,"failures":{"transport":0,"parse":0,"absent":0,"unknown":0},"written":["/data/fss.db","/data/example-com-studio-42-1a2b3c4d.json"],"elapsedSeconds":41.2},"error":null}
+```
+
+Summary line, always the last line:
+
+```json
+{"formatVersion":1,"command":"scrape","type":"summary","ok":false,"result":{"targets":2,"saved":1,"failed":0,"refused":1,"skipped":0,"interrupted":false},"error":{"code":"refused","message":"refused destructive save: 0 scenes scraped, 410 stored","reason":"zero_scenes"}}
+```
+
+The summary `error` is the error behind the exit code: when targets end differently, an interrupt outranks a failure, which outranks a refusal, so `code` always agrees with the exit status. A refusal carries its `reason` here too. A run that fails before any target starts (bad flags, an unreadable config, nothing to scrape, a store that cannot be opened) prints only a summary with `targets` 0 and `ok` false; `--stale` with nothing due prints a summary with `targets` 0 and `ok` true.
+
+The target that was running when the run was interrupted counts towards `targets` and sets `interrupted`, but falls in none of the other buckets, so `saved + failed + refused + skipped` is one short of `targets` after an interrupt. Its own line says what it saved.
+
+`--help` wins over `--format json` on every command: it prints help text and exits 0.
+
+Target result fields:
+
+| Field | Meaning |
+| --- | --- |
+| `url`, `siteId` | The studio URL as scraped, and the scraper that handled it (`siteId` is absent when no scraper matched) |
+| `creator` | Set when the target came from `--creator`/`--all-creators` |
+| `mode` | `incremental`, `full` or `refresh` |
+| `language` | The content language requested, when one was set |
+| `status` | See below |
+| `scenesSaved` | Scenes in the store for this studio after the save, not only the new ones |
+| `coverage` | `stored` live scenes before, `seen` of them re-collected, `dropped` stored scenes not re-collected, `fresh` distinct scenes collected. Absent when the scrape never ran |
+| `complete` | False when fetch errors cost scenes or the run was cancelled; such a run never drops or soft-deletes |
+| `stoppedEarly` | The incremental early stop fired |
+| `failures` | Fetch errors by kind: `transport`, `parse`, `absent`, `unknown` |
+| `written` | The database file when `--db` is in use, plus the export files (`.json`/`.csv`); empty when nothing was saved |
+| `elapsedSeconds` | Wall time for this target |
+| `refusalReason` | Present when `status` is `refused` |
+
+`status` values:
+
+| Status | `ok` | Meaning |
+| --- | --- | --- |
+| `saved` | true | Completed and saved |
+| `partial` | true | Saved, but the traversal was incomplete (`complete` is false) |
+| `refused` | false | Nothing was written; see `refusalReason`. Error code `refused`, exit 2 |
+| `failed` | false | The target errored. Error codes `unsupported_url`, `transport`, `parse` or `error` |
+| `interrupted` | false | SIGINT/SIGTERM. Whatever was collected is still saved and reported (`scenesSaved`, `written`). Error code `interrupted`, exit 3 |
+| `skipped` | false | Not started because an earlier target was interrupted |
+
+`refusalReason` values, also repeated in `error.reason`:
+
+- `zero_scenes`: a `--full`/`--refresh` collected nothing for a studio that already holds scenes; `--force` overrides.
+- `coverage_collapse`: a completed traversal re-saw under half of at least 10 stored scenes and the save was declined. For `--full`/`--refresh` the save is declined without `--force`, since JSON mode never prompts; an incremental run only reports it on stderr.
+
+Targets dropped by `--stale` are not reported as lines.

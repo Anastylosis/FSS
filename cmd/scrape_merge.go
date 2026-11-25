@@ -17,6 +17,7 @@ func keyOf(s models.Scene) sceneKey { return sceneKey{id: s.ID, siteID: s.SiteID
 type traversal struct {
 	incomplete   bool // fetch errors cost scenes, or the run was cancelled
 	stoppedEarly bool // the KnownIDs early-stop fired
+	failures     failureCounts
 }
 
 // coverage measures a scrape against what the store already holds. A scraper

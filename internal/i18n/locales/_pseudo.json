@@ -107,6 +107,7 @@
   "re-fetch metadata for all known scenes, soft-delete missing": "«re-fetch metadata for all known scenes, soft-delete missing»",
   "replace the performers on every scene this run scrapes (repeat, or comma-separate, for several)": "«replace the performers on every scene this run scrapes (repeat, or comma-separate, for several)»",
   "replace the studio on every scene this run scrapes": "«replace the studio on every scene this run scrapes»",
+  "report format: text, or json for JSON Lines on stdout, one line per target plus a summary (unrelated to -o/--output, which picks the export files; see docs/json-output.md)": "«report format: text, or json for JSON Lines on stdout, one line per target plus a summary (unrelated to -o/--output, which picks the export files; see docs/json-output.md)»",
   "report what would be imported without writing": "«report what would be imported without writing»",
   "revert every changelog entry for the scene (default: only the most recent)": "«revert every changelog entry for the scene (default: only the most recent)»",
   "scrape every storefront defined for this creator in creators.d (repeatable)": "«scrape every storefront defined for this creator in creators.d (repeatable)»",

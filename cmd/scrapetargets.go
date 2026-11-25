@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -53,7 +54,7 @@ func resolveScrapeTargets(cmd *cobra.Command, args []string) ([]scrapeTarget, er
 	all, _ := cmd.Flags().GetBool("all-creators")
 
 	if len(args) == 0 && len(named) == 0 && !all {
-		return nil, fmt.Errorf("nothing to scrape: pass a studio URL, --creator <name>, or --all-creators")
+		return nil, withCode(codeInvalidArgs, fmt.Errorf("nothing to scrape: pass a studio URL, --creator <name>, or --all-creators"))
 	}
 
 	var targets []scrapeTarget
@@ -139,9 +140,9 @@ func displayCreatorsDir(cmd *cobra.Command) string {
 // Staleness is read from the SQLite studios table, the only place a last-scrape
 // time is recorded; the flat store keeps no such record, so --stale requires a
 // database rather than silently scraping everything.
-func filterStale(targets []scrapeTarget, maxAge time.Duration, st store.Store, dbPath string) ([]scrapeTarget, error) {
+func filterStale(w io.Writer, targets []scrapeTarget, maxAge time.Duration, st store.Store, dbPath string) ([]scrapeTarget, error) {
 	if dbPath == "" {
-		return nil, fmt.Errorf("--stale needs the SQLite store to know when each studio was last scraped — pass --db, or set `db:` in the config")
+		return nil, withCode(codeInvalidArgs, fmt.Errorf("--stale needs the SQLite store to know when each studio was last scraped — pass --db, or set `db:` in the config"))
 	}
 	studios, err := st.ListStudios()
 	if err != nil {
@@ -162,16 +163,16 @@ func filterStale(targets []scrapeTarget, maxAge time.Duration, st store.Store, d
 		when, known := last[output.CanonicalStudioURL(t.url)]
 		switch {
 		case !known:
-			fmt.Printf("  run   %s  (never scraped)\n", t.url)
+			_, _ = fmt.Fprintf(w, "  run   %s  (never scraped)\n", t.url)
 			due = append(due, t)
 		case now.Sub(when) >= maxAge:
-			fmt.Printf("  run   %s  (scraped %s ago)\n", t.url, humanAge(now.Sub(when)))
+			_, _ = fmt.Fprintf(w, "  run   %s  (scraped %s ago)\n", t.url, humanAge(now.Sub(when)))
 			due = append(due, t)
 		default:
-			fmt.Printf("  skip  %s  (scraped %s ago)\n", t.url, humanAge(now.Sub(when)))
+			_, _ = fmt.Fprintf(w, "  skip  %s  (scraped %s ago)\n", t.url, humanAge(now.Sub(when)))
 		}
 	}
-	fmt.Printf("\n%d of %d studio(s) due.\n", len(due), len(targets))
+	_, _ = fmt.Fprintf(w, "\n%d of %d studio(s) due.\n", len(due), len(targets))
 	return due, nil
 }
 

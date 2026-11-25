@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"sync"
 	"time"
@@ -29,12 +30,12 @@ var pacingNoticeOnce sync.Once
 // unchanged invocation slower, and a scrape that quietly takes eight times
 // longer is exactly the kind of surprise a release note exists to prevent.
 // Only the combination that changed behaviour says anything.
-func noticePacingIsRunWide(delay time.Duration, workers int) {
+func noticePacingIsRunWide(w io.Writer, delay time.Duration, workers int) {
 	if delay <= 0 || workers <= 1 || noticesSuppressed() {
 		return
 	}
 	pacingNoticeOnce.Do(func() {
-		fmt.Printf("[notice] --delay %v now spaces the whole run, not each of the %d workers: "+
+		_, _ = fmt.Fprintf(w, "[notice] --delay %v now spaces the whole run, not each of the %d workers: "+
 			"about %.1f requests a second in total. It used to be per worker. "+
 			"Lower --delay to go faster; --workers no longer changes the request rate.\n",
 			delay, workers, float64(time.Second)/float64(delay))

@@ -150,7 +150,7 @@ func exportStudio(ctx context.Context, src store.Store, flat *store.Flat, studio
 			errs = append(errs, fmt.Errorf("exporting %s as %s: %w", studioURL, format, err))
 			continue
 		}
-		fmt.Printf("  %s\n", path)
+		_, _ = fmt.Fprintf(outOf(ctx), "  %s\n", path)
 		written++
 	}
 	return written, errors.Join(errs...)

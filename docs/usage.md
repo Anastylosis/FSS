@@ -49,6 +49,7 @@ For choosing a store, inspecting a database, and moving between the two, see [st
 | `--all-creators` | bool | false | Scrape every storefront of every defined creator |
 | `--stale` | string | _(none)_ | Only scrape studios not scraped within this window, e.g. `12h`, `7d`, `2w`. Needs `--db` |
 | `--creators-dir` | string | _(from config)_ | Directory of creator YAML files |
+| `--format` | string | `text` | `json` prints one JSON line per target plus a summary on stdout and all prose on stderr; unrelated to `-o/--output`, which picks the export files. See [json-output.md](json-output.md#scrape) |
 
 `--full` and `--refresh` are mutually exclusive.
 

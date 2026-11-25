@@ -64,9 +64,20 @@ func init() {
 	scrapeCmd.Flags().Bool("all-creators", false, "scrape every storefront of every creator in creators.d")
 	scrapeCmd.Flags().String("stale", "", "only scrape studios not scraped within this window, e.g. 12h, 7d, 2w (needs --db)")
 	scrapeCmd.Flags().String("creators-dir", "", "directory of creator YAML files (default: config creators_dir, else ~/.config/fss/creators.d)")
+	addFormatFlag(scrapeCmd)
+	scrapeCmd.Flags().Lookup("format").Usage = "report format: text, or json for JSON Lines on stdout, one line per target plus a summary (unrelated to -o/--output, which picks the export files; see docs/json-output.md)"
 }
 
 func runScrape(cmd *cobra.Command, args []string) error {
+	rep := newScrapeReporter(cmd)
+	err := scrapeFlow(cmd, args, rep)
+	if err != nil && rep.json && !rep.finished {
+		return rep.fail(err)
+	}
+	return err
+}
+
+func scrapeFlow(cmd *cobra.Command, args []string, rep *scrapeReporter) error {
 	// URLs are normalised once, inside resolveScrapeTargets: the result is what
 	// gets matched, fetched, and used as the store key.
 	targets, err := resolveScrapeTargets(cmd, args)
@@ -80,7 +91,7 @@ func runScrape(cmd *cobra.Command, args []string) error {
 	force, _ := cmd.Flags().GetBool("force")
 	noPreserve, _ := cmd.Flags().GetBool("no-preserve")
 	if full && refresh {
-		return fmt.Errorf("--full and --refresh are mutually exclusive")
+		return withCode(codeInvalidArgs, fmt.Errorf("--full and --refresh are mutually exclusive"))
 	}
 
 	workers, _ := cmd.Flags().GetInt("workers")
@@ -95,7 +106,7 @@ func runScrape(cmd *cobra.Command, args []string) error {
 	}
 	formats, err := parseFormats(outputStr)
 	if err != nil {
-		return err
+		return withCode(codeInvalidArgs, err)
 	}
 
 	outDir, _ := cmd.Flags().GetString("out-dir")
@@ -107,7 +118,7 @@ func runScrape(cmd *cobra.Command, args []string) error {
 
 	name, _ := cmd.Flags().GetString("name")
 	if name != "" && len(targets) > 1 {
-		return fmt.Errorf("--name cannot be used when scraping multiple URLs")
+		return withCode(codeInvalidArgs, fmt.Errorf("--name cannot be used when scraping multiple URLs"))
 	}
 	if name != "" && dbPath == "" {
 		fmt.Fprintln(os.Stderr, "warning: --name has no effect without --db (studio names are only stored in SQLite)")
@@ -117,7 +128,7 @@ func runScrape(cmd *cobra.Command, args []string) error {
 	if cmd.Flags().Changed("delay") {
 		delayMS, _ = cmd.Flags().GetInt("delay")
 		if delayMS < 0 {
-			return fmt.Errorf("--delay must not be negative, got %d", delayMS)
+			return withCode(codeInvalidArgs, fmt.Errorf("--delay must not be negative, got %d", delayMS))
 		}
 	}
 	defaultDelay := time.Duration(delayMS) * time.Millisecond
@@ -126,18 +137,18 @@ func runScrape(cmd *cobra.Command, args []string) error {
 	siteDelayPairs, _ := cmd.Flags().GetStringSlice("site-delay")
 	siteDelays, err := mergeSiteDelays(cfg.SiteDelays, siteDelayPairs)
 	if err != nil {
-		return err
+		return withCode(codeInvalidArgs, err)
 	}
 
 	if err := checkSiteIDs(cfg, cmd); err != nil {
-		return err
+		return withCode(codeInvalidArgs, err)
 	}
 
 	// Per-site cookies, resolved the same way.
 	siteCookiePairs, _ := cmd.Flags().GetStringSlice("site-cookie")
 	siteCookies, err := mergeSiteCookies(cfg.SiteCookies, siteCookiePairs)
 	if err != nil {
-		return err
+		return withCode(codeInvalidArgs, err)
 	}
 
 	// Content language, not --lang: this one changes what is scraped.
@@ -146,12 +157,12 @@ func runScrape(cmd *cobra.Command, args []string) error {
 		defaultLanguage, _ = cmd.Flags().GetString("content-language")
 	}
 	if defaultLanguage, err = scraper.NormalizeLanguage(defaultLanguage); err != nil {
-		return fmt.Errorf("content language: %w", err)
+		return withCode(codeInvalidArgs, fmt.Errorf("content language: %w", err))
 	}
 	siteLanguagePairs, _ := cmd.Flags().GetStringSlice("site-language")
 	siteLanguages, err := mergeSiteLanguages(cfg.SiteLanguages, siteLanguagePairs)
 	if err != nil {
-		return err
+		return withCode(codeInvalidArgs, err)
 	}
 
 	sites := siteSettings{
@@ -164,7 +175,7 @@ func runScrape(cmd *cobra.Command, args []string) error {
 
 	overrides, err := parseOverrides(cmd)
 	if err != nil {
-		return err
+		return withCode(codeInvalidArgs, err)
 	}
 	// Creator files normalise storefront branding credited as a performer.
 	// Loaded for every run, not just --creator ones: naming a store's URL
@@ -172,7 +183,7 @@ func runScrape(cmd *cobra.Command, args []string) error {
 	// or the two routes disagree about who is in a scene.
 	creatorList, err := loadCreators(cmd)
 	if err != nil {
-		return err
+		return withCode(codeConfig, err)
 	}
 	overrides.canon = creators.NewCanon(creatorList, studioKey)
 
@@ -208,58 +219,75 @@ func runScrape(cmd *cobra.Command, args []string) error {
 	if staleFlag, _ := cmd.Flags().GetString("stale"); staleFlag != "" {
 		maxAge, err := parseStaleDuration(staleFlag)
 		if err != nil {
-			return err
+			return withCode(codeInvalidArgs, err)
 		}
-		targets, err = filterStale(targets, maxAge, st, dbPath)
+		targets, err = filterStale(rep.human(), targets, maxAge, st, dbPath)
 		if err != nil {
 			return err
 		}
 		if len(targets) == 0 {
+			rep.summary(nil)
 			return nil
 		}
-		fmt.Println()
+		_, _ = fmt.Fprintln(rep.human())
 	}
 
 	// --- graceful shutdown on Ctrl+C ---
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	ctx = rep.bind(ctx)
 
-	// URLs are scraped sequentially. --workers controls intra-scrape concurrency
-	// only; we deliberately do NOT run multiple URLs in parallel so the worker
-	// cap is the global cap (no N×workers explosion against unrelated hosts).
-	var firstErr error
-	worst := 0
-	note := func(err error) {
-		if firstErr == nil {
-			firstErr = err
-		}
-		if c := exitCodeOf(err); exitPriority(c) > exitPriority(worst) {
-			worst = c
-		}
-	}
 	run := scrapeRun{name: name, dbPath: dbPath, outDir: outDir, formats: formats, full: full, refresh: refresh,
 		force: force, preserve: !noPreserve, workers: workers, sites: sites, ov: overrides}
+	return run.all(ctx, st, targets, rep)
+}
+
+// all scrapes the targets one after another. --workers controls intra-scrape
+// concurrency only; running several URLs in parallel would make the worker cap
+// N times larger against unrelated hosts.
+func (r scrapeRun) all(ctx context.Context, st store.Store, targets []scrapeTarget, rep *scrapeReporter) error {
+	out := outOf(ctx)
+	// The summary reports the error behind the exit code, so its code and
+	// message agree; text mode never prints it either way.
+	var worstErr error
+	worst := 0
+	note := func(err error) {
+		if c := exitCodeOf(err); worstErr == nil || exitPriority(c) > exitPriority(worst) {
+			worst, worstErr = c, err
+		}
+	}
 	for i, tgt := range targets {
 		if i > 0 {
-			fmt.Println()
+			_, _ = fmt.Fprintln(out)
 		}
-		if err := run.one(ctx, st, tgt); err != nil {
+		start := time.Now()
+		var oc targetOutcome
+		err := r.one(ctx, st, tgt, &oc)
+		if err != nil {
 			if !isReported(err) {
 				fmt.Fprintf(os.Stderr, "error scraping %s: %v\n", tgt.url, err)
 			}
-			note(err)
+			if oc.refusal != "" {
+				note(withReason(codeRefused, oc.refusal, err))
+			} else {
+				note(err)
+			}
 		}
+		rep.target(ctx, r, tgt, &oc, err, time.Since(start))
 		if ctx.Err() != nil {
+			rep.skipped(r, targets[i+1:])
 			break
 		}
 	}
-	if ctx.Err() != nil {
+	interrupted := ctx.Err() != nil
+	if interrupted {
 		note(&exitError{code: ExitInterrupted, err: errors.New("interrupted")})
 	}
-	if firstErr == nil {
+	if worstErr == nil {
+		rep.summary(nil)
 		return nil
 	}
-	return &exitError{code: worst, err: firstErr, reported: true}
+	return rep.finish(&exitError{code: worst, err: worstErr, reported: true})
 }
 
 // siteSettings is the per-site knobs a run resolves once from config and flags:
@@ -284,10 +312,11 @@ type scrapeRun struct {
 }
 
 func scrapeOne(ctx context.Context, st store.Store, tgt scrapeTarget, name, dbPath, outDir string, formats []string, full, refresh, force, preserve bool, workers int, sites siteSettings, ov sceneOverrides) error {
-	return scrapeRun{name, dbPath, outDir, formats, full, refresh, force, preserve, workers, sites, ov}.one(ctx, st, tgt)
+	return scrapeRun{name, dbPath, outDir, formats, full, refresh, force, preserve, workers, sites, ov}.one(ctx, st, tgt, &targetOutcome{})
 }
 
-func (r scrapeRun) one(ctx context.Context, st store.Store, tgt scrapeTarget) error {
+func (r scrapeRun) one(ctx context.Context, st store.Store, tgt scrapeTarget, oc *targetOutcome) error {
+	out := outOf(ctx)
 	name, dbPath, outDir, formats := r.name, r.dbPath, r.outDir, r.formats
 	full, refresh, force, preserve := r.full, r.refresh, r.force, r.preserve
 	workers, sites, ov := r.workers, r.sites, r.ov
@@ -296,8 +325,9 @@ func (r scrapeRun) one(ctx context.Context, st store.Store, tgt scrapeTarget) er
 
 	sc, err := scraper.ForURL(studioURL)
 	if err != nil {
-		return err
+		return withCode(codeUnsupportedURL, err)
 	}
+	oc.siteID = sc.ID()
 
 	// A scraper that does not recognise a filtered URL falls through to its
 	// whole catalogue and stores the result under the filtered URL's key,
@@ -317,7 +347,7 @@ func (r scrapeRun) one(ctx context.Context, st store.Store, tgt scrapeTarget) er
 
 	delay := resolveTargetDelay(tgt, sc.ID(), sites)
 	scraper.Debugf(1, "scraper: %s, delay: %v, workers: %d (0 = scraper default)", sc.ID(), delay, workers)
-	noticePacingIsRunWide(delay, workers)
+	noticePacingIsRunWide(out, delay, workers)
 
 	lang, err := scraper.ResolveLanguage(sc, resolveTargetLanguage(tgt, sc.ID(), sites))
 	if err != nil {
@@ -329,27 +359,29 @@ func (r scrapeRun) one(ctx context.Context, st store.Store, tgt scrapeTarget) er
 	if opts.Cookie != "" {
 		scraper.Debugf(1, "scraper: %s, operator-supplied cookie in use", sc.ID())
 	}
+	oc.language = lang
 	if lang != "" {
-		fmt.Printf("  language: %s\n", lang)
+		_, _ = fmt.Fprintf(out, "  language: %s\n", lang)
 	}
 
 	if !ov.empty() {
-		fmt.Printf("  overriding: %s\n", ov.describe())
+		_, _ = fmt.Fprintf(out, "  overriding: %s\n", ov.describe())
 	}
 
 	var scenes []models.Scene
 	var cov coverage
 	switch {
 	case full:
-		fmt.Printf("Full scrape: %s\n", tgt.label())
+		_, _ = fmt.Fprintf(out, "Full scrape: %s\n", tgt.label())
 		scenes, cov, err = scrapeAll(ctx, sc, st, studioURL, opts, preserve, ov)
 	case refresh:
-		fmt.Printf("Refresh scrape: %s\n", tgt.label())
+		_, _ = fmt.Fprintf(out, "Refresh scrape: %s\n", tgt.label())
 		scenes, cov, err = scrapeRefresh(ctx, sc, st, studioURL, opts, preserve, ov)
 	default:
-		fmt.Printf("Incremental scrape: %s\n", tgt.label())
+		_, _ = fmt.Fprintf(out, "Incremental scrape: %s\n", tgt.label())
 		scenes, cov, err = scrapeIncremental(ctx, sc, st, studioURL, opts, preserve, ov)
 	}
+	oc.cov, oc.haveCov = cov, true
 	if err != nil {
 		return err
 	}
@@ -373,6 +405,7 @@ func (r scrapeRun) one(ctx context.Context, st store.Store, tgt scrapeTarget) er
 			fmt.Fprintf(os.Stderr,
 				"warning: scrape returned 0 scenes but %d are already stored for %s — refusing destructive save (use --force to override)\n",
 				at, studioURL)
+			oc.refusal = refusalZeroScenes
 			return &exitError{code: ExitRefused, err: fmt.Errorf("refused destructive save: 0 scenes scraped, %d stored", at), reported: true}
 		}
 	}
@@ -382,6 +415,7 @@ func (r scrapeRun) one(ctx context.Context, st store.Store, tgt scrapeTarget) er
 	// catches the total loss. Everything short of that reaches here looking
 	// like a clean run, so check it against what is already stored.
 	if (cov.fresh > 0 || (!full && !refresh)) && cov.collapsed() && !proceedAfterCollapse(ctx, cov, studioURL, sc.ID(), full || refresh, force) {
+		oc.refusal = refusalCoverageCollapse
 		return &exitError{code: ExitRefused, err: fmt.Errorf("save declined: coverage collapsed for %s", studioURL), reported: true}
 	}
 
@@ -397,11 +431,17 @@ func (r scrapeRun) one(ctx context.Context, st store.Store, tgt scrapeTarget) er
 	if err := st.Save(studioURL, scenes); err != nil {
 		return fmt.Errorf("saving results: %w", err)
 	}
+	oc.saved = len(scenes)
+	oc.written = writtenPaths(studioURL, outDir, formats)
+	if dbPath != "" {
+		oc.written = append([]string{dbPath}, oc.written...)
+	}
 
 	if dbPath != "" {
 		_, eErr := exportStudio(ctx, st, store.NewFlat(outDir, nil), studioURL, outDir, formats, nil, false, !sameDir(outDir, filepath.Dir(dbPath)))
 		if errors.Is(eErr, errExportRefused) {
 			fmt.Fprintf(os.Stderr, "warning: %v\n", eErr)
+			oc.written = []string{dbPath}
 		} else if eErr != nil {
 			return eErr
 		}
@@ -424,9 +464,9 @@ func (r scrapeRun) one(ctx context.Context, st store.Store, tgt scrapeTarget) er
 
 	elapsed := time.Since(start).Round(time.Second)
 	if ctx.Err() != nil {
-		fmt.Printf("Partial save complete: %d scenes (%s elapsed).\n", len(scenes), elapsed)
+		_, _ = fmt.Fprintf(out, "Partial save complete: %d scenes (%s elapsed).\n", len(scenes), elapsed)
 	} else {
-		fmt.Printf("Done: %d scenes saved (%s elapsed).\n", len(scenes), elapsed)
+		_, _ = fmt.Fprintf(out, "Done: %d scenes saved (%s elapsed).\n", len(scenes), elapsed)
 	}
 	return nil
 }
@@ -466,8 +506,9 @@ func scrapeMode(ctx context.Context, sc scraper.StudioScraper, st store.Store, s
 
 	fresh, tr, err := collectScenes(ctx, sc, studioURL, opts, ov)
 	if err != nil {
-		return nil, coverage{}, err
+		return nil, coverage{traversal: tr}, err
 	}
+	w := outOf(ctx)
 
 	out := mergeRun(existing, fresh, tr, policy, preserve, time.Now().UTC())
 	switch policy {
@@ -476,15 +517,15 @@ func scrapeMode(ctx context.Context, sc scraper.StudioScraper, st store.Store, s
 			fmt.Fprintf(os.Stderr, "warning: traversal incomplete — preserving %d existing scene(s) and skipping destructive --full delete\n", out.carried)
 		}
 	case absentKeep:
-		fmt.Printf("  %d new, %d existing → %d total\n", out.newCount, len(existing), len(out.scenes))
+		_, _ = fmt.Fprintf(w, "  %d new, %d existing → %d total\n", out.newCount, len(existing), len(out.scenes))
 	case absentSoftDelete:
 		if tr.incomplete {
 			fmt.Fprintln(os.Stderr, "warning: traversal incomplete — skipping --refresh soft-delete of unreached scenes")
 		}
 		if out.newlyDeleted > 0 {
-			fmt.Printf("  %d scenes no longer found, marked deleted\n", out.newlyDeleted)
+			_, _ = fmt.Fprintf(w, "  %d scenes no longer found, marked deleted\n", out.newlyDeleted)
 		}
-		fmt.Printf("  %d scraped, %d total\n", len(fresh), len(out.scenes))
+		_, _ = fmt.Fprintf(w, "  %d scraped, %d total\n", len(fresh), len(out.scenes))
 	}
 	return out.scenes, out.cov, nil
 }
@@ -505,11 +546,14 @@ func collectScenes(ctx context.Context, sc scraper.StudioScraper, studioURL stri
 	if err != nil {
 		return nil, traversal{incomplete: true}, fmt.Errorf("starting scrape: %w", err)
 	}
+	w := outOf(ctx)
+	live := !jsonRun(ctx)
+	warnPre := warnPrefix(ctx)
 	// Resolved once rather than per scene: whether a storefront belongs to a
 	// creator is a property of the run, not of the results.
 	canon := ov.canon.For(studioURL)
 	if canon.Active() {
-		fmt.Printf("  performer credits normalised to %q (creators.d)\n", canon.Name())
+		_, _ = fmt.Fprintf(w, "  performer credits normalised to %q (creators.d)\n", canon.Name())
 	}
 	start := time.Now()
 	var scenes []models.Scene
@@ -533,7 +577,7 @@ func collectScenes(ctx context.Context, sc scraper.StudioScraper, studioURL stri
 			if kind.MissingData() {
 				missing++
 			}
-			fmt.Fprintf(os.Stderr, "\rwarning: %v\n", result.Err)
+			fmt.Fprintf(os.Stderr, "%swarning: %v\n", warnPre, result.Err)
 			continue
 		case scraper.KindScene:
 		}
@@ -541,30 +585,34 @@ func collectScenes(ctx context.Context, sc scraper.StudioScraper, studioURL stri
 		sc.Performers = canon.Apply(sc.Studio, sc.Performers)
 		scenes = append(scenes, ov.apply(sc))
 		elapsed := time.Since(start).Round(time.Second)
-		if total > 0 {
-			fmt.Printf("\r  fetching: %d / %d scenes (%s elapsed)", len(scenes), total, elapsed)
-		} else {
-			fmt.Printf("\r  fetching: %d scenes (%s elapsed)", len(scenes), elapsed)
+		switch {
+		case !live:
+		case total > 0:
+			_, _ = fmt.Fprintf(w, "\r  fetching: %d / %d scenes (%s elapsed)", len(scenes), total, elapsed)
+		default:
+			_, _ = fmt.Fprintf(w, "\r  fetching: %d scenes (%s elapsed)", len(scenes), elapsed)
 		}
 	}
-	fmt.Println() // end the progress line
+	if live {
+		_, _ = fmt.Fprintln(w) // end the progress line
+	}
 	if stoppedEarly {
-		fmt.Println("  stopped early at known ID — remaining scenes already stored")
+		_, _ = fmt.Fprintln(w, "  stopped early at known ID — remaining scenes already stored")
 	}
 	if errCount > 0 {
 		fmt.Fprintf(os.Stderr, "  %d fetch error(s) [%s] — see warnings above\n", errCount, summarizeFailures(byKind))
 	}
 	if ctx.Err() != nil {
-		fmt.Printf("Interrupted — saving %d partial results...\n", len(scenes))
+		_, _ = fmt.Fprintf(w, "Interrupted — saving %d partial results...\n", len(scenes))
 	}
 	if missing > 0 && len(scenes) == 0 {
-		return nil, traversal{incomplete: true}, fmt.Errorf("scrape failed with %d error(s) and 0 scenes", missing)
+		return nil, traversal{incomplete: true, failures: failuresOf(byKind)}, fmt.Errorf("scrape failed with %d error(s) and 0 scenes", missing)
 	}
 	// Only failures that cost us scenes make a traversal incomplete. A run
 	// whose sole errors were absent resources (an optional sub-listing the
 	// site does not have) saw everything there was to see, and used to be
 	// demoted to non-authoritative for no reason.
-	return scenes, traversal{incomplete: missing > 0 || ctx.Err() != nil, stoppedEarly: stoppedEarly}, nil
+	return scenes, traversal{incomplete: missing > 0 || ctx.Err() != nil, stoppedEarly: stoppedEarly, failures: failuresOf(byKind)}, nil
 }
 
 // summarizeFailures renders the per-kind error breakdown in a stable order, so
@@ -771,7 +819,7 @@ func proceedAfterCollapse(ctx context.Context, cov coverage, studioURL, siteID s
 		fmt.Fprintln(os.Stderr, "       --force given, proceeding")
 		return true
 	}
-	if !stdinIsTerminal() {
+	if jsonRun(ctx) || !stdinIsTerminal() {
 		fmt.Fprintln(os.Stderr, "       not a terminal — skipping the save (pass --force to allow it unattended)")
 		return false
 	}
