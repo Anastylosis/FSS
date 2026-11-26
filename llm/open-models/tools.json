@@ -1,0 +1,21 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "run_fss",
+      "description": "Run the fss command-line tool and return its stdout, stderr and exit code. Pass the arguments after 'fss' as a list, e.g. [\"check\", \"https://example.com\", \"--format\", \"json\"]. Add --format json to every command except identify. Never pass --apply, --force, --full, --refresh, --prune or --update unless the user has just agreed to it.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "args": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Arguments after 'fss', one per element. The first is the command: check, detect, scrape, list-scrapers, list-studios, compare, doctor, version, identify, creators, config, stash."
+          }
+        },
+        "required": ["args"],
+        "additionalProperties": false
+      }
+    }
+  }
+]

@@ -79,6 +79,7 @@ fss identify /path/to/videos --apply   # write .nfo files next to matched videos
 | [stash.md](docs/stash.md) · [identify.md](docs/identify.md) | Stash import and revert; NFO sidecars |
 | [storage.md](docs/storage.md) · [metadata.md](docs/metadata.md) | JSON vs SQLite; what a scene records and how re-scrapes change it ([JSON Schema](docs/schema/studio-file.schema.json)) |
 | [json-output.md](docs/json-output.md) | `--format json` for scripts and LLM agents: result shapes, error codes |
+| [llm/](llm/README.md) | A skill so Claude, Codex/ChatGPT, Grok or a local model can run fss for you |
 | [translations.md](docs/translations.md) | Help text in other languages |
 
 | Extending FSS | |

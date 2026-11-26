@@ -9,6 +9,7 @@
 *.dylib
 fss
 FSS
+!llm/skills/fss/
 
 # Scrape output files
 *.db
@@ -22,6 +23,7 @@ FSS
 # ...and the embedded translation catalogs
 !internal/i18n/locales/*.json
 !docs/schema/*.json
+!llm/**/*.json
 
 # Test binary, built with `go test -c`
 *.test
