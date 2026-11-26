@@ -119,10 +119,11 @@ Prints all registered scrapers and the URL patterns each one handles.
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
 | `--markdown` | bool | false | Output as a markdown table (useful for docs) |
+| `--format` | string | `text` | `json` for one JSON document on stdout; cannot be combined with `--markdown`. See [json-output.md](json-output.md#list-scrapers) |
 
 ### `fss list-studios`
 
-Lists all studios in the SQLite database with scene counts and last-scraped timestamps. Needs a database: pass `--db`, or set `db:` in the config file and omit the flag.
+Lists all studios in the SQLite database with scene counts and last-scraped timestamps. Needs a database: pass `--db`, or set `db:` in the config file and omit the flag. `--format json` prints the list as JSON ([json-output.md](json-output.md#list-studios)).
 
 ### `fss creators`
 
@@ -153,6 +154,7 @@ Compares each creator's catalogue across the storefronts they sell it on: what e
 | `--top` | int | 10 | How many of the widest price gaps to list per creator |
 | `--exclusives` | bool | false | Also report, per store, how many titles only it carries |
 | `--csv` | string | _(none)_ | Write every shared title to this CSV file |
+| `--format` | string | `text` | `json` for one JSON document on stdout. See [json-output.md](json-output.md#compare) |
 
 Plus the shared [scene-source flags](#scene-sources-fss-stash-import-fss-identify-fss-compare-fss-creators-suggest).
 
@@ -246,6 +248,8 @@ Request support: https://github.com/Anastylosis/FSS/issues/new?template=new_scra
 
 The scheme is optional — `fss check brazzers.com` and `fss check www.brazzers.com/videos` are read as `https://`. The same applies to `fss detect` and `fss scrape`. Pass `http://` explicitly for the handful of sites that are http-only.
 
+`--format json` prints the answer as JSON; an unsupported URL is still exit 0 ([json-output.md](json-output.md#check)).
+
 ### `fss detect <url>`
 
 Fetches a URL once and checks the response for known platform signals (Aylo `instance_token`, Algolia API, `psmcdn.net`, ModelCentro, etc.). Reports the detected platform and corresponding util package. Useful when deciding whether a new site needs a standalone scraper or belongs to an existing shared package.
@@ -256,7 +260,7 @@ Platform: Teen Mega World
 Package:  tmwutil
 ```
 
-If the URL is already supported by a registered scraper, it reports that instead of fetching.
+If the URL is already supported by a registered scraper, it reports that instead of fetching. `--format json` prints the result as JSON ([json-output.md](json-output.md#detect)).
 
 ### `fss doctor`
 
@@ -265,6 +269,7 @@ Checks environment health: config file, scraper registry, database writability, 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
 | `--prune` | bool | false | Delete performer/tag/category rows no scene references any more |
+| `--format` | string | `text` | `json` for every check as JSON on stdout. See [json-output.md](json-output.md#doctor) |
 
 The `vocabulary` check counts entity rows nothing links to. `Save` deletes a scene's junction rows but never the shared `performers`/`tags`/`categories` rows they pointed at — the entity may still belong to another studio, and proving otherwise costs a full scan of the junction table, which is exactly what `Save`'s content-hash short-circuit exists to avoid. So they accumulate, and this is where they get cleared.
 
@@ -293,6 +298,8 @@ fss completion fish | source            # fish
 
 With several `scrape` targets the most severe code wins (3, then 1, then 2). Errors print once, without the flag list.
 
+With `--format json` the codes are the same, the JSON `ok` field is true exactly when the code is 0, and `error.code` says why in a word (`refused`, `transport`, `invalid_args`, …). See [json-output.md](json-output.md#error-codes).
+
 ### `fss config init`
 
 Creates a default config file at the XDG config path (e.g. `~/.config/fss/config.yaml`). Fails if the file already exists.
@@ -317,6 +324,9 @@ stamps them. A build that names none — every release up to v1.31.0, a local `g
 
 Homebrew installs the release tarball unchanged, so a brew binary reports that tarball's
 channel rather than `homebrew`; it is identified by its path in the Cellar instead.
+
+`--format json` prints the version and the update check as JSON; it cannot be combined with
+`--update` ([json-output.md](json-output.md#version)).
 
 Quote this line in a bug report: which channel a binary came from is otherwise unanswerable,
 and it decides whether an update should come from `fss` itself or from a package manager.
@@ -577,7 +587,7 @@ The JSON file wraps the scene list with a small header:
 }
 ```
 
-Each scene is a JSON object with the fields listed in the [Data model](#data-model) section. Optional fields are omitted when empty.
+Each scene is a JSON object with the fields listed in the [Data model](#data-model) section. Optional fields are omitted when empty. A JSON Schema for the whole file is at [schema/studio-file.schema.json](schema/studio-file.schema.json).
 
 JSON is **always written** by the flat store — it is the backing format for incremental updates. Even if you request `--output csv` only, a JSON file is also created alongside it.
 
