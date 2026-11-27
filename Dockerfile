@@ -1,13 +1,14 @@
 # syntax=docker/dockerfile:1.7
 
-# GO_VERSION mirrors the `go` directive in go.mod; CI passes it from go.mod and
-# a lint guard keeps this default in sync. It no longer selects the base image:
-# the FROM lines below are literal tags with digests so Dependabot can bump
-# them, and the builder stage fails if the toolchain it got differs from this.
-ARG GO_VERSION=1.26.5
+# GO_VERSION mirrors go.mod's `toolchain` line, the Go fss is built with (its
+# `go` line is only the minimum for importers). CI passes it from go.mod and a
+# lint guard keeps this default in sync. It does not select the base image: the
+# FROM lines below are literal tags with digests so Dependabot can bump them,
+# and the builder stage fails if the toolchain it got differs from this.
+ARG GO_VERSION=1.27.4
 
 # ---- build ----
-FROM --platform=$BUILDPLATFORM golang:1.26.5-alpine3.24@sha256:0178a641fbb4858c5f1b48e34bdaabe0350a330a1b1149aabd498d0699ff5fb2 AS builder
+FROM --platform=$BUILDPLATFORM golang:1.27.4-alpine3.24@sha256:70bd7ddea8b6cbe5d6943cde279d6b67feb10cc924fb9100d1d8757c1575b280 AS builder
 
 ARG GO_VERSION
 ARG TARGETOS
@@ -18,7 +19,7 @@ ARG DATE=unknown
 
 WORKDIR /src
 
-RUN [ "$(go env GOVERSION)" = "go${GO_VERSION}" ] || { echo "base image has $(go env GOVERSION), go.mod wants go${GO_VERSION}: update the golang FROM line"; exit 1; }
+RUN [ "$(go env GOVERSION)" = "go${GO_VERSION}" ] || { echo "base image has $(go env GOVERSION), go.mod toolchain is go${GO_VERSION}: update the golang FROM line or the toolchain line"; exit 1; }
 
 COPY go.mod go.sum ./
 RUN go mod download

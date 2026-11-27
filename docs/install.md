@@ -111,7 +111,10 @@ See [docker.md](docker.md) for volume conventions, the bind-mount UID gotcha, an
 
 ## Build from source
 
-Requires Go 1.26+ (matches the `go` directive in `go.mod`).
+Requires Go 1.26+ (the `go` directive in `go.mod`). Releases are built with the
+newer Go named on `go.mod`'s `toolchain` line, and with Go's default
+`GOTOOLCHAIN=auto` an older Go downloads that version to build fss; set
+`GOTOOLCHAIN=local` to build with the Go you have.
 
 ```bash
 git clone https://github.com/Anastylosis/FSS

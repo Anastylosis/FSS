@@ -43,6 +43,10 @@ jobs:
       vet-integration-tag: true
       check-aur-srcinfo: true
       check-dockerfile-go-version: true
+      # go.mod's go line (the minimum for importers) is older than its
+      # toolchain line (what fss builds with); prove the minimum still builds.
+      min-go: true
+      min-go-test-packages: ./scrapers/all/... ./scraper/... ./models/... ./match/... ./output/... ./parseutil/... ./nfo/... ./identify/...
       fuzz-targets: |
         ./match/... FuzzNormalize
         ./parseutil/... FuzzParseDurationColon

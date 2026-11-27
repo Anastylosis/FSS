@@ -1,6 +1,8 @@
 module github.com/Anastylosis/FSS
 
-go 1.26.5
+go 1.26.0
+
+toolchain go1.27.4
 
 require (
 	github.com/Anastylosis/stash-go v0.10.0

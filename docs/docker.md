@@ -174,8 +174,7 @@ docker build \
 
 | Arg | Default | Purpose |
 |-----|---------|---------|
-| `GO_VERSION` | `1.26.5` | Builder image: `golang:${GO_VERSION}-alpine`. Bump when `go.mod` requires a newer Go. |
-| `ALPINE_VERSION` | `3.21` | Runtime image: `alpine:${ALPINE_VERSION}`. Bump for security updates to the runtime base. |
+| `GO_VERSION` | `1.27.4` | The Go the builder image must contain; the build stops if it differs. Mirrors go.mod's `toolchain` line. The images themselves are pinned by digest in the `FROM` lines, which Dependabot bumps. |
 | `VERSION` | `dev` | Embedded in `fss version` output. CI sets this to the git tag. |
 | `COMMIT` | `none` | Embedded in `fss version` output. CI sets this to the short SHA. |
 | `DATE` | `unknown` | Embedded in `fss version` output. CI sets this to the build timestamp. |
@@ -183,7 +182,7 @@ docker build \
 Example with overrides:
 
 ```bash
-docker build --build-arg GO_VERSION=1.26 --build-arg ALPINE_VERSION=3.22 -t fss:dev .
+docker build --build-arg VERSION=v0.0.0-local -t fss:dev .
 ```
 
 For multi-arch local builds you need buildx and QEMU:
