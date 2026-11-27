@@ -46,6 +46,9 @@ jobs:
       # go.mod's go line (the minimum for importers) is older than its
       # toolchain line (what fss builds with); prove the minimum still builds.
       min-go: true
+      # golangci-lint refuses a module whose toolchain is newer than the Go it
+      # was built with; v2.11.4 is Go 1.26.
+      golangci-lint-version: v2.15.0
       min-go-test-packages: ./scrapers/all/... ./scraper/... ./models/... ./match/... ./output/... ./parseutil/... ./nfo/... ./identify/...
       fuzz-targets: |
         ./match/... FuzzNormalize

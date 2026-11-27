@@ -4,6 +4,7 @@ package cmd
 
 import (
 	"context"
+	"io"
 	"os"
 	"testing"
 	"time"
@@ -54,7 +55,7 @@ func liveStash(t *testing.T) *stash.Client {
 
 func liveScenes(t *testing.T, c *stash.Client, o importOpts) []stash.Scene {
 	t.Helper()
-	scenes, err := queryStashScenes(context.Background(), c, o)
+	scenes, err := queryStashScenes(context.Background(), c, o, io.Discard)
 	if err != nil {
 		t.Fatalf("queryStashScenes: %v", err)
 	}
@@ -134,7 +135,7 @@ func TestLiveQueryStashScenesRejectsUnknownFilterTargets(t *testing.T) {
 		{performer: "fss_nonexistent_42xyz"},
 		{studio: "fss_nonexistent_42xyz"},
 	} {
-		if _, err := queryStashScenes(ctx, c, o); err == nil {
+		if _, err := queryStashScenes(ctx, c, o, io.Discard); err == nil {
 			t.Errorf("queryStashScenes(%+v) succeeded, want a not-found error", o)
 		}
 	}
